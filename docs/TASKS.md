@@ -1,5 +1,5 @@
 # TASKS：english-coach 任務清單
-- 版本：**v1.0（G2 通過後更新）**｜日期：2026-11-22｜擁有者：TechLead｜路線：完整（憲章 v3 §2）
+- 版本：**v1.1（O-001 完成）**｜日期：2026-11-22｜擁有者：TechLead｜路線：完整（憲章 v3 §2）
 - 輸入：`docs/PRD.md` v1.0（`0276440`；v1.1 草稿 `47d97d6` 回寫 G2 決定並新增 AC-26，待 Hansheng 確認）、`docs/ARCHITECTURE.md` **v1.0**＋ADR-001～008（全部已接受）＋`CLAUDE.md`（`8f96012`）、`docs/OPEN_QUESTIONS.md`（Q-14～Q-20 已於 2026-11-22 18:46 G2 決定）
 - G2 已通過，可以開始派單；派單前仍要先完成第 0 節的前置條件。第一張是 O-001（`docs/tasks/O-001.md`）。
 - 本清單只排順序、範圍和驗收方式；每張單的細節在派工時才寫成 `docs/tasks/<編號>.md`（憲章 §0、§13）。
@@ -13,9 +13,9 @@
 | # | 項目 | 誰 | 確認方式 | 擋住哪張單 |
 |---|---|---|---|---|
 | 1 | G2 通過 | Hansheng | 已完成（2026-11-22 18:46） | — |
-| 2 | Cursor GitHub App 授權本 repo（私有 repo） | Hansheng | Bot 執行 `gh run list` 不再回 403 | O-001 的 G3 審查（TechLead 要讀得到 CI） |
+| 2 | Cursor GitHub App 授權本 repo（私有 repo） | Hansheng | 已完成：2026-11-22 Bot 讀得到 Actions（`gh run list`、`gh run view`） | O-001 的 G3 審查（TechLead 要讀得到 CI） |
 | 3 | Hansheng 電腦已裝 pstack、Node.js ≥ 22（建議用當下的 LTS；pushguard 用）、Claude Code ≥ v2.1.295（`onFailure` 需要） | Hansheng | `/pstack:poteto-mode` 可執行；`node --version`、`claude --version` | O-001 |
-| 4 | O-001 的 PR 跑出 `ci-ok` 後，立即設 main 分支保護（必須走 PR、`ci-ok` 必過、禁止 force push、禁止刪 main） | Hansheng | PR 頁顯示 `ci-ok` 為 Required | T-001 |
+| 4 | O-001 的 PR 跑出 `ci-ok` 後，立即設 main 分支保護（必須走 PR、`ci-ok` 必過、禁止 force push、禁止刪 main） | Hansheng | Hansheng 已設定（幕僚長 2026-11-22 20:49 轉達）；**是否真的生效：不確定**，見 §5 第 14 點 | T-001 |
 | 5 | 開好 Supabase、Gemini（**沒有連結帳單**的專案）、Groq（免費）、Azure Speech F0 帳號，金鑰由 Hansheng 用 `supabase secrets set` 自己輸入（Q-20） | Hansheng | 真 API smoke 測試能跑 | A-001、A-002 與真 API smoke 測；CI 與一般任務單只用假供應商，不受影響 |
 
 ## 1. 共通規則（每張單都適用）
@@ -40,10 +40,10 @@
 ## 3. 任務清單（依依賴順序）
 | 編號 | 標題 | 依賴 | AC／NFR | 相關 Q | 驗收方式（共通驗收以外） | QA | 狀態 | 分支 | PR |
 |---|---|---|---|---|---|---|---|---|---|
-| O-001 | CI workflow（彙總 job `ci-ok`）＋`.claude/settings.json`＋pushguard hook（只放行推目前的 `task/*`、`fix/*`、`poc/*`；擋推 main、合併、開 PR）＋秘密掃描；決定 CI 範圍 | 前置 1、3 | NFR-05 | — | 見 `docs/tasks/O-001.md`（AC-O1-1～AC-O1-10） | 免 QA（CI／`.claude/` 設定） | 待辦（任務單已就緒） | task/O-001 | |
-| T-001 | monorepo 骨架：`package.json`、`pnpm-workspace.yaml`、`tsconfig.base.json`、`eslint.config.js`、`.dependency-cruiser.cjs`、`.env.example`、`.gitignore` | O-001、前置 4 | NFR-05（基礎） | — | `pnpm check` 在空專案通過；放一個違規 import 的暫存範例時 `pnpm arch` 失敗（報告貼輸出後移除）；`.gitignore` 含 `.env*`；O-001 的 `.mjs` 檔（`.claude/hooks/`、`.github/scripts/`）不會讓 lint／typecheck 失敗 | 免 QA（無產品程式） | 待辦 | task/T-001 | |
+| O-001 | CI workflow（彙總 job `ci-ok`）＋`.claude/settings.json`＋pushguard hook（只放行推目前的 `task/*`、`fix/*`、`poc/*`；擋推 main、合併、開 PR）＋秘密掃描；決定 CI 範圍 | 前置 1、3 | NFR-05 | — | 見 `docs/tasks/O-001.md`（AC-O1-1～AC-O1-10） | 免 QA（CI／`.claude/` 設定） | 完成（2026-11-22 20:40 合併） | task/O-001 | [#1](https://github.com/hansheng08/english-coach/pull/1) |
+| T-001 | monorepo 骨架：`package.json`（`packageManager`、`typecheck`／`lint`／`arch`／`test`／`check` 指令）、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`tsconfig.base.json`＋根 `tsconfig.json`、`eslint.config.js`（ADR-008 規則 7～9）、`.dependency-cruiser.cjs`（ADR-008 規則 1～6、10）、`.gitignore`；`tooling/` 下的規則測試與測試用範例 | O-001、前置 4 | NFR-05（基礎） | — | `pnpm check` 全過；`tooling/` 的單元測試證明每條架構規則真的會擋（違規範例被擋、合法範例不擋）；CI 的 `check` job 第一次實際執行並成功；見 `docs/tasks/T-001.md`（AC-T1-1～AC-T1-11） | 免 QA（無產品程式） | 待辦（任務單已就緒：`docs/tasks/T-001.md`；派單前請先看 §5 第 14 點） | task/T-001 |  |
 | T-002 | `packages/contracts` 基礎：`Result`、`AppError`、`ProviderErrorKind`、`Tier`／`Capability`、四種供應商介面、ID 聯集 | T-001 | AC-24、AC-25（型別） | — | Vitest＋`expectTypeOf` 型別測試；contracts 只 import `zod`（`pnpm arch`） | library | 待辦 | task/T-002 | |
-| T-003 | Supabase 骨架：`supabase/config.toml`、`functions/api` 單一路由（health＋JWT 檢查）、`_shared/config`（唯一讀 `Deno.env`）；**驗證 Deno 能否引用 `packages/contracts`**（ARCH §12） | T-002 | NFR-05、AC-23（基礎） | Q-19 | `supabase start`；`supabase functions serve` 後 `curl` health：無 JWT 回 401、有 JWT 回 200；報告寫明 Deno 引用方式結果（不行就停下回報，不自行改目錄） | library | 待辦 | task/T-003 | |
+| T-003 | Supabase 骨架：`supabase/config.toml`、`functions/api` 單一路由（health＋JWT 檢查）、`_shared/config`（唯一讀 `Deno.env`）、後端用的 `.env.example`（只有變數名稱，名稱見 §5 第 15 點）；**讓 CI 的 `db` job 開始執行**；**驗證 Deno 能否引用 `packages/contracts`**（ARCH §12） | T-002 | NFR-05、AC-23（基礎） | Q-19 | `supabase start`；`supabase functions serve` 後 `curl` health：無 JWT 回 401、有 JWT 回 200；報告寫明 Deno 引用方式結果（不行就停下回報，不自行改目錄） | library | 待辦 | task/T-003 |  |
 | T-004 | migration 1：`profile`（含 `settings.srs`／`settings.news` 的 jsonb 欄位）、`card`（`interval_step` 0～4）、`card_review`（含 `interval_days_applied`）、`seed_chunk`（含 `batch` 1～6）＋RLS | T-003 | AC-09、AC-19、AC-24（資料） | Q-18、Q-19 | `supabase db reset` 成功；`supabase test db`：A 使用者讀不到 B 的資料 | library | 待辦 | task/T-004 | |
 | T-005 | migration 2：`news_source`（`category`、`priority`、`fetch_mode`、`include_url_pattern`、`terms_checked_at`）、`news_article`（含 `category`，不存原文全文）、`daily_plan`（含 `planned_category`、`actual_category`、`category_skipped`）、`resume`、`question`＋RLS | T-004 | AC-01、AC-02、AC-11 | Q-16、Q-19 | 同 T-004；`news_article` 沒有原文全文欄位 | library | 待辦 | task/T-005 | |
 | T-006 | migration 3：`shadow_attempt`、`evening_answer`、`slot_checkin`、`provider_call`、`weekly_metric` view＋RLS；錄音欄位 `audio_expires_at` | T-005 | AC-06、AC-14、AC-21、AC-22 | Q-19 | 同 T-004；`weekly_metric` 以測試資料查出預期值 | library | 待辦 | task/T-006 | |
@@ -59,7 +59,7 @@
 | T-015 | Gemini adapter（`generate`／`stream`，只用 `fetch` REST）＋契約測試 | T-014 | AC-24 | Q-15、Q-20 | 錄好的回應樣本做契約測試；zod 失敗只重試 1 次同模型 | library | 待辦 | task/T-015 | |
 | T-016 | Groq Whisper adapter（含逐字時間戳記） | T-014 | AC-14 | Q-20 | 契約測試；429 回 `quota_exhausted`／`rate_limited` 不換供應商 | library | 待辦 | task/T-016 | |
 | T-017 | Azure Speech adapter（發音評估＋TTS） | T-014 | AC-04、AC-06 | Q-20 | 契約測試；發音評估失敗時回錯誤由上層降級 | library | 待辦 | task/T-017 | |
-| T-018 | `apps/web` 骨架：Vite＋React＋router、登入閘門（Supabase Auth，關閉註冊）、`api` 網路層 | T-003 | AC-23（基礎）、NFR-01 | — | Playwright：未登入導向登入頁、登入後進首頁（本機 Supabase） | E2E（第一個畫面） | 待辦 | task/T-018 | |
+| T-018 | `apps/web` 骨架：Vite＋React＋router、登入閘門（Supabase Auth，關閉註冊）、`api` 網路層；根 `package.json` 加 `build`／`e2e` 指令、Playwright 設定、前端用的 `.env.example`（`VITE_SUPABASE_ANON_KEY` 等，名稱見 §5 第 15 點）；**讓 CI 的 `bundle`、`e2e` job 開始執行** | T-003 | AC-23（基礎）、NFR-01 | — | Playwright：未登入導向登入頁、登入後進首頁（本機 Supabase） | E2E（第一個畫面） | 待辦 | task/T-018 |  |
 | T-019 | PWA：manifest、圖示、SW（外殼 precache、API network-only）、斷線提示、新版提示 | T-018 | NFR-01、NFR-06 | — | Playwright Pixel 360×640 無橫向捲動；離線模擬顯示「需要連網」；SW 不快取 `/functions/*` | E2E | 待辦 | task/T-019 | |
 | T-020 | `POST /settings`（`SettingsSchema` 驗證：付費同意、`srs`、`news`）＋設定頁：模型／STT／發音供應商、付費同意與月上限、**「複習間隔」5 欄＋還原預設**、**「新聞輪替」順序／起算日／回看小時數**＋結果頁 `meta` 顯示元件 | T-007、T-008、T-014、T-018、T-049 | AC-09、AC-24、AC-25、NFR-03 | Q-18、Q-16 | 整合測試：切換供應商後下一次請求用新選項；不合格間隔回 400 `invalid_settings`；E2E：設定頁標出錯的那一格、還原預設回到 3／7／14／14／1、改輪替順序後 `/settings` 回傳新值 | E2E | 待辦 | task/T-020 | |
 | T-021 | `POST /tts`＋Storage 快取＋前端 `audio/player` | T-007、T-017、T-018 | AC-04、AC-05、AC-17（基礎） | — | 整合測試（假 TTS）：第二次同文字命中快取 | library | 待辦 | task/T-021 | |
@@ -97,6 +97,8 @@
 - T-049、T-050 依憲章 §6「新增的任務接續清單中最大的號碼」編號，所以號碼比依賴順序後面的單大；以「依賴」欄為準。
 - T-050 與 T-024 的關係：T-024 只做匯入程式與驗證（產品程式，有單元測試）；T-050 只產生內容（資料），用 T-024 的產生器把每批轉成 migration。T-025 的測試用小型測試資料，不等 T-050；但 AC-07「種子庫 ≥ 600 條」要等 T-050 合併才算真正達成，G4 前必須完成。
 
+- **O-001 時被略過的 CI job 何時開始執行**（由 O-001 的 `detect` 依檔案決定）：`check` → **T-001**（有 `package.json`＋`pnpm-lock.yaml`）；`db` → **T-003**（有 `supabase/config.toml`，只在 PR 跑；`supabase test db` 要等 T-004 建 `supabase/tests/`）；`bundle`、`e2e` → **T-018**（有 `apps/web/package.json`、根目錄 `build` 指令、Playwright 設定；`e2e` 只在 PR 跑）。在那之前，G3 要把仍被略過的 job 逐一列名。
+
 ## 4. 關鍵路徑與可平行的單
 - **關鍵路徑**（15 張，以依賴欄用程式計算）：O-001 → T-001 → T-002 → T-003 → T-004 → T-005 → T-006 → T-007 → T-022 → T-023 → T-025 → T-033 → T-039 → T-040 → T-042。
 - 次長（14 張）：同一路徑在 T-025 後改走 T-026 → T-027 → T-031（或 T-034）；以及關鍵路徑去掉最後的 T-042。T-014 → T-015 這條只有 7 張就接到 T-023，不在關鍵路徑上。
@@ -117,9 +119,13 @@
 11. **（新）PRD 文字與 G2 決定不一致** → **PM 已處理（待確認）**：PRD v1.1 草稿已改寫 AC-01、AC-02（三類輪替）、AC-09、AC-19（間隔可調）、AC-10（3 s／8 s）。v1.1 經 Hansheng 確認前，T-020、T-025、T-026、T-032、T-034 依 G2 決定（與 v1.1 草稿一致）驗收。
 12. **（新）O-001 任務單撰寫者**：憲章 §5 寫「第一張 O-001 由 SRE 撰寫」，名冊也把 `docs/tasks/O-xxx.md` 列給 SRE；這次依幕僚長交接由 TechLead 撰寫，請幕僚長確認是否需要 SRE 複核。
 13. **（新）A-002 範圍**：Q-20 只決定「贅詞保留程度在 PoC 實測」；ADR-004 另建議量 Azure 短音訊延遲（AC-06 ≤ 5 s），是否一起量：不確定，由 Architect 寫單時決定。
+14. **（新）main 分支保護是否生效：不確定**。2026-11-22 20:5x 用 Hansheng 的 token 查 GitHub API：`GET /branches/main` 回 `protected: false`，但同一回應的 `protection` 顯示 `enabled: true`、必過檢查 `ci-ok`、`enforcement_level: non_admins`（管理員不受限）；`GET /branches/main/protection` 與 rulesets 都回 403「Upgrade to GitHub Pro or make this repository public to enable this feature」。repo 是私有、帳號是個人 Free 方案。可能的意思是：私有 repo 在 Free 方案下分支保護不會被強制；就算生效，`non_admins` 也不擋 Hansheng 本人（Claude Code 用的就是 Hansheng 的帳號）。目前實際擋住 Claude Code 推 main 的只有 pushguard 與 deny 規則。要改成公開 repo、升級 GitHub Pro，還是接受現狀，需要 Hansheng 決定；決定前派 T-001 等於沒有最後一道防線（範本 §1 第 7 項）。
+15. **（新）環境變數名稱沒有定義**：ARCHITECTURE v1.0 只寫了 `VITE_SUPABASE_ANON_KEY`、`GEMINI_PAID_API_KEY`；其他（Supabase 網址、Gemini／Groq／Azure 金鑰與區域）沒有名稱。`.env.example` 因此從 T-001 移到 T-003（後端）與 T-018（前端）；名稱由誰定（Architect 補，或 TechLead 在那兩張單提案送 Architect Review）：不確定。
+16. **（新）遠端分支 `task/O-001` 還在**：2026-11-22 20:5x `git ls-remote` 仍看得到 `refs/heads/task/O-001`（`fe39d0a`，已併入 main）。與「已刪除」的轉達不符；TechLead 沒有動它，請幕僚長確認後處理（憲章 §9）。
 
 ## 6. 變更紀錄
 | 版本 | 日期 | 變更 |
 |---|---|---|
 | v0.1 | 2026-11-22 | 初稿（依幕僚長交接、憲章 v3）：O-001、T-001～T-048、A-001～A-002；送 G2 |
 | v1.0 | 2026-11-22 | G2 通過後更新：Q-14～Q-20 改為已決定；新聞改三類輪替（T-005、T-022、T-023、T-025、T-026，新增 T-049）；複習間隔與輪替可在設定調整（T-004、T-008、T-009、T-020、T-032）；種子庫拆成匯入程式 T-024＋內容產生 T-050（6 批）；A-002 改為待辦；§5 第 1、2、6、7 點已決定，第 3、4 點交 O-001，第 8 點依 PRD v1.1 草稿改對應 AC-26；新增 §5 第 11～13 點；O-001 任務單已寫好 |
+| v1.1 | 2026-11-22 | O-001 完成（PR #1）；T-001 任務單就緒並補上範圍（`tooling/` 規則測試；`.env.example` 移到 T-003／T-018）；T-003、T-018 寫明讓哪些 CI job 開始執行；§4 加上被略過 job 的開始時點；前置 2 完成、前置 4 標為不確定；新增 §5 第 14～16 點 |
