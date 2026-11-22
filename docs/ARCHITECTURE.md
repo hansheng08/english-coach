@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.0（G2 通過，2026-11-22 18:46 Hansheng 核准）**｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.1**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -56,9 +56,9 @@
 | `supabase/functions/_shared/providers/*` | 每個外部供應商一個 adapter（gemini、groq、azure-speech、webspeech 描述檔） | `contracts`、`config` | `domain`、資料庫、其他 adapter |
 | `supabase/functions/_shared/providers/registry.ts` | 依使用者設定**只回傳被選中的那一個**供應商；檢查付費同意與月上限（ADR-003） | `contracts`、各 adapter | 任何「備援清單」或自動改選 |
 | `supabase/functions/_shared/news` | RSS 抓取、主題篩選、來源白名單 | `contracts`、`config` | 抓白名單以外的網址 |
-| `supabase/functions/_shared/db` | 唯一可以讀寫 Postgres/Storage 的程式（repository） | `contracts` | 供應商 |
+| `supabase/functions/_shared/db` | 唯一可以讀寫 Postgres/Storage 的程式（repository），也負責 JWT → `user_id` | `contracts`、`@supabase/supabase-js`（後端唯一可用處，ADR-008 修訂 1） | 供應商；回傳 `SupabaseClient` 或 `{ data, error }`（只回 `Result<T, AppError>`） |
 | `supabase/functions/_shared/config` | 唯一可以讀 `Deno.env` 的地方（金鑰、模型名稱） | 無 | — |
-| `supabase/functions/<endpoint>` | 薄的 HTTP handler：驗證 → 呼叫 domain/db/registry → 回應 | 以上全部 | 直接 import 某個 adapter（必須經過 registry） |
+| `supabase/functions/<endpoint>` | 薄的 HTTP handler：驗證 → 呼叫 domain/db/registry → 回應 | 以上全部 | 直接 import 某個 adapter（必須經過 registry）；import `@supabase/*`（資料庫與登入者都經過 `_shared/db`） |
 | `apps/web/src/features/<feature>` | 畫面與互動（morning、shadowing、noon、evening、resume、dashboard、settings） | `contracts`、`apps/web/src/{api,audio,ui,storage}` | 其他 feature（共用的東西放 `ui`）；`@supabase/supabase-js`（只有 `api` 可以） |
 | `apps/web/src/api` | 前端唯一的網路層（呼叫 Edge Functions、Supabase 讀表） | `contracts`、`@supabase/supabase-js` | 外部 AI 網址 |
 | `apps/web/src/audio` | 錄音、WAV 編碼、播放、VAD（聲音偵測）、TTS 播放 | 無外部依賴 | 網路 |
@@ -69,8 +69,10 @@
 1. **dependency-cruiser 規則**（CI 必過）：上表「禁止」欄逐條寫成規則；`packages/domain` 不得 import 任何非 `contracts` 的模組；feature 之間互相 import 直接失敗。
 2. **ESLint `no-restricted-globals`／`no-restricted-imports`**：`fetch` 只允許出現在 `providers/*`、`news/*`、`apps/web/src/api/*`；`Deno.env` 只允許在 `config/*`；`Date.now`／`new Date()` 在 `domain` 禁用。
 3. **型別**：供應商 ID、模型 ID、卡片狀態都是字串字面值聯集（union）＋`switch` 窮舉檢查（`never`），新增狀態沒處理就編譯失敗；金額用 `type Ntd = number & { __brand: 'Ntd' }` 之類的品牌型別，避免單位混用。
-4. **錯誤用 `Result<T, AppError>` 回傳**，跨模組不丟例外（第 6 節）；ESLint 規則禁止在 `domain` 使用 `throw`。
-5. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
+4. **錯誤用 `Result<T, AppError>` 回傳**，跨模組不丟例外（第 6 節）；ESLint 禁止在 `domain` 與 `_shared/{providers,db,news}` 的**正式程式**使用 `throw`；測試程式（`*.test.ts`、`*.test-d.ts`、`test/`）可以 `throw`，但正式程式不得 import 測試程式（dependency-cruiser）。
+5. **`@supabase/*` 只有兩個出入口**：`apps/web/src/api/**` 與 `supabase/functions/_shared/db/**`（dependency-cruiser，regex 涵蓋 `npm:`／`jsr:` 前綴）；全 repo 禁止 `http:`／`https:`／`npm:`／`jsr:` import（ESLint `no-restricted-imports`），Deno 第三方套件經 `deno.json` `imports` 對應成裸名稱。
+6. **測試檔定義**（ESLint 與 dependency-cruiser 共用）：`(^|/)test/|\.test(-d)?\.ts$`。完整規則表見 ADR-008 修訂 1。
+7. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
 
 ## 4. 資料模型與儲存 schema
 - 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。只有 Edge Functions 用 service role（後端專用的高權限金鑰）寫入需要伺服器驗證的欄位。
@@ -178,7 +180,7 @@ export interface TtsProvider extends ProviderInfo {
 | TTS | 備料時預產生：Azure Neural TTS（F0）；即時：瀏覽器 Web Speech `speechSynthesis` | Gemini `gemini-3.8-flash-lite-tts` | — |
 
 ## 6. 錯誤處理
-1. **不丟例外跨模組**：`domain`、`providers`、`db` 一律回 `Result<T, AppError>`；HTTP handler 是唯一把錯誤轉成回應的地方。
+1. **不丟例外跨模組**：`domain`、`providers`、`db`、`news` 一律回 `Result<T, AppError>`，正式程式不寫 `throw`（§3.2 第 4 點，lint 執行）；`fetch`、`supabase-js`、`JSON.parse` 丟出的例外在模組內 `catch` 轉成 `err`，zod 用 `safeParse`；窮舉檢查用 `const unreachable: never = x; return unreachable;`。HTTP handler 是唯一把錯誤轉成回應的地方（handler 最外層可以 `try/catch` 兜底，轉成 500 回應）。測試程式不受此限（ADR-008 修訂 1）。
 2. **錯誤回應格式**：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`；HTTP 狀態：驗證失敗 400、未登入 401、額度用完 429、供應商失敗 502、逾時 504。
 3. **錄音先存再處理**（AC-25）：前端錄完先寫進 IndexedDB，再上傳 Storage，成功後才呼叫 STT；任何一步失敗，錄音仍在 IndexedDB 或 Storage，`evening_answer.status=failed`＋`failure`，畫面顯示原因（例如「Groq 免費額度今天用完，約 X 分鐘後可重送」）與兩個按鈕：「稍後重送」「改用其他供應商」（手動）。
 4. **絕不自動改用其他供應商或付費**：registry 沒有備援清單（ADR-003）；`quota_exhausted` 直接回給使用者。
@@ -345,11 +347,11 @@ english-coach/
 | NFR-06 | `sw`（斷線提示） | 不做離線練習 |
 
 ## 15. 測試策略（給 TechLead／QA 參考，細節等寫程式時再定）
-- `domain`：Vitest 單元測試，時間由參數注入，100% 分支涵蓋狀態機與 SRS。
+- `domain`：Vitest 單元測試，時間由參數注入，100% 分支涵蓋狀態機與 SRS。測試可以 `throw`／`expect`（例如 `test/result.ts` 的 `expectOk`），不能讀時鐘或用 `Math.random`；性質測試用固定種子的亂數產生器（不新增 fast-check 等依賴）。
 - `providers`：契約測試用錄好的回應樣本（不打真 API）；真 API 只在手動的 smoke 測試跑。
 - **AC-25 專用測試**（ADR-003）：registry 遇到每一種 `ProviderErrorKind` 都只呼叫被選中的那一個 adapter 一次（假 adapter 計數）；所有預設值的 `tier` 都是 `free`；沒有 `paid_consent_at` 時選付費會回 `paid_not_allowed`；E2E 用假 STT 回 429，畫面顯示原因且錄音仍在 IndexedDB。
 - **Q-18 測試**：`SrsSettingsSchema` 的邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；改設定後既有 `due_date` 不變。
-- 架構測試：dependency-cruiser＋ESLint 規則在 CI 必過。
+- 架構測試：dependency-cruiser＋ESLint 規則在 CI 必過；ADR-008 修訂 1 的每條新規則都要在 `tooling/arch-rules.test.ts`／`lint-rules.test.ts` 各有違規與合法範例。
 - **AC 在哪一張單驗收（G2 核准 TechLead 建議 b）**：本專案沒有 CLI；「第一次能在畫面上走完該 AC」的那張任務單，視同憲章 §5 的 CLI PR，QA 在那張單寫並執行 Q-xxx（Playwright，Android 尺寸、假供應商）。之前只有程式庫或 API 的單視同 library PR，QA 只驗單元層。
 - **PoC 分支**：A-xxx 用 `poc/A-xxx`，不合併到 main（憲章 §5）；O-001 的 pushguard 白名單包含 `task/*`、`fix/*`、`poc/*`（G2 核准 TechLead 建議 a，由 SRE 實作）。
 
@@ -377,3 +379,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 |---|---|---|
 | v0.1 | 2026-11-22 | 初稿（ARCH-001），送 G2 |
 | v1.0 | 2026-11-22 | G2 通過（Hansheng 18:46 核准）：技術棧與供應商依建議定案；Q-16 改為 AI／軟體工程／半導體產業三類每日輪替、每類 1 主 2 備（§11、`news_source`、`daily_plan` 欄位）；Q-18 複習間隔全部可在設定調整（§4.1、§4.2、`/settings` 驗證、AC-09／19／24 對應）；種子庫改為獨立任務單 6 批 × 100、第 1 批後抽查 20 條；補上「畫面走完 AC 的單＝CLI PR」與 `poc/*` pushguard 規則（§15）；Q-14～Q-20 標為已決定 |
+| v1.1 | 2026-11-22 | ADR-008 修訂 1（T-001 審查時 TechLead 提問）：第 4 條改為 `@supabase/*` 只能在 `apps/web/src/api` 與 `supabase/functions/_shared/db` import，並禁止 `http:`／`https:`／`npm:`／`jsr:` import；`throw` 禁令只管正式程式並延伸到 `_shared/{providers,db,news}`，測試程式可以 `throw`、import `vitest`，正式程式不得 import 測試程式（§3.1、§3.2、§6、§15） |

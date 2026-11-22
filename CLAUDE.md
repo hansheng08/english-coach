@@ -1,5 +1,5 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.0（G2 已通過，2026-11-22）。
+> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.1（G2 已通過，2026-11-22；v1.1 修訂 ADR-008 第 4、9 條）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
@@ -30,15 +30,18 @@ supabase start        # 本機後端（需要 Docker）
 | 模組 | 可以 import | 不可以 |
 |---|---|---|
 | `packages/contracts` | `zod` | 其他一切 |
-| `packages/domain` | `packages/contracts` | `fetch`、`Date.now()`、無參數 `new Date()`、`Math.random`、`throw`、資料庫、供應商 |
+| `packages/domain` | `packages/contracts` | `fetch`、`Date.now()`、無參數 `new Date()`、`Math.random`、`throw`（只限正式程式，見 §7）、資料庫、供應商 |
 | `supabase/functions/_shared/providers/<adapter>` | `contracts`、`config` | `domain`、`db`、其他 adapter |
 | `supabase/functions/_shared/providers/registry.ts` | `contracts`、adapters、`config/paid.ts` | 備援清單、自動改選供應商 |
 | `supabase/functions/_shared/config` | — | 唯一可以讀 `Deno.env` 的地方 |
-| `supabase/functions/_shared/db` | `contracts` | 供應商 |
-| `supabase/functions/<endpoint>` | 以上（adapter 只能經 registry） | 直接 import adapter |
+| `supabase/functions/_shared/db` | `contracts`、`@supabase/supabase-js`（後端唯一可以用的地方：查表、Storage、JWT → `user_id`） | 供應商；把 `SupabaseClient` 或 `{ data, error }` 傳出去 |
+| `supabase/functions/<endpoint>` | 以上（adapter 只能經 registry；資料庫與登入者只能經 `_shared/db`） | 直接 import adapter、`@supabase/*` |
 | `apps/web/src/features/<X>` | `contracts`、`apps/web/src/{api,audio,ui,storage}` | 其他 feature、`@supabase/supabase-js` |
 | `apps/web/src/api` | `contracts`、`@supabase/supabase-js` | 外部 AI 網址 |
 - `fetch` 只能出現在 `_shared/providers/**`、`_shared/news/**`、`apps/web/src/api/**`。
+- `@supabase/*` 只能在 `apps/web/src/api/**`、`supabase/functions/_shared/db/**` import（ADR-008 第 4 條修訂 1）。
+- 不寫 `http:`／`https:`／`npm:`／`jsr:` 開頭的 import；Deno 的第三方套件在 `supabase/functions` 的 `deno.json` `imports` 對應成裸名稱，程式只寫裸名稱（ESLint 會擋）。
+- 正式程式不得 import 測試程式（`*.test.ts`、`*.test-d.ts`、`test/` 資料夾）。
 
 ## 5. 絕對不要做
 1. **不寫入、不讀取、不印出任何金鑰**。金鑰只存在 Supabase secrets；程式只在 `_shared/config` 讀 `Deno.env`。repo 只能有 `.env.example`（只有變數名稱）。
@@ -56,7 +59,8 @@ supabase start        # 本機後端（需要 Docker）
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
-- 錯誤：`domain`、`providers`、`db` 回傳 `Result<T, AppError>`，不丟例外；只有 HTTP handler 把錯誤轉成回應：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`。
+- 錯誤：`domain`、`providers`、`db`、`news` 回傳 `Result<T, AppError>`，正式程式不寫 `throw`（ESLint 會擋）；`fetch`、`supabase-js`、`JSON.parse` 等會丟例外的呼叫要在這些模組內 `catch` 轉成 `err(...)`，zod 用 `safeParse`。只有 HTTP handler 把錯誤轉成回應：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`。
+- 窮舉檢查寫成 `default: { const unreachable: never = x; return unreachable; }`，不要寫會丟例外的 `assertNever`。
 - 狀態與 ID 用字串字面值聯集，`switch` 一定要有 `never` 窮舉檢查。
 - 所有 API 請求、回應與 AI 回傳 JSON 都要經過 `packages/contracts` 的 zod schema。
 - 時間：`plan_date` 一律是台北日期（`Asia/Taipei`），由 `domain` 的函式依傳入的 `now` 計算；DB 時間戳記用 `timestamptz`。
@@ -65,6 +69,7 @@ supabase start        # 本機後端（需要 Docker）
 
 ## 7. 測試規定
 - `domain` 每個公開函式都有 Vitest 單元測試；時間由參數注入。
+- **測試程式可以 `throw`**（ADR-008 修訂 1）：`*.test.ts`、`*.test-d.ts` 與 `test/` 資料夾的輔助檔（例如 `expectOk(r)` 遇到 `err` 就丟出）可以 `throw`、用 `expect`／`assert`、import `vitest`。測試程式**仍然不能**用 `Date.now`、無參數 `new Date()`、`Math.random`（要亂數就用固定種子的產生器放在 `test/`）、`as unknown as`、`@ts-ignore`。
 - adapter 用錄好的回應樣本做契約測試；CI 不打真 API。
 - AC-25 測試（ADR-003）不得刪改：registry 對每種錯誤只呼叫被選中的 adapter；預設值全部 `tier: 'free'`；沒有付費同意時付費 adapter 呼叫次數為 0。
 - 不得用 `it.skip`／`test.only` 提交；需要 skip 時寫進報告並附理由。
