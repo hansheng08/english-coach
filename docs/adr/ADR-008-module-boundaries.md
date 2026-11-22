@@ -1,6 +1,6 @@
 # ADR-008：模組邊界與架構測試
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（2026-11-22，ARCHITECTURE v1.1，見文末）
+- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（ARCHITECTURE v1.2），皆 2026-11-22，見文末
 
 ## 背景
 主要由 Claude Code 寫程式。要讓錯誤（例如在畫面直接呼叫 AI、在 domain 裡讀時間、在 handler 跳過 registry）在 CI 就失敗，而不是靠 Review 抓。
@@ -73,3 +73,42 @@
 ### 後果
 - T-001 依舊條文的實作正確，PR #2 不需要為此修改即可合併；上列規則與範例由 TechLead 排進 T-002 之前或 T-002 內（`domain`、`contracts` 第一批測試出現前），第 4 條的 Deno 部分在 T-003 驗證。
 - 已知限制：`globalThis.fetch(...)` 仍未被 `fetch` 規則擋下（T-001 報告盲點 5）；ESLint 目前只比對 `**/*.ts`，`.tsx` 要在 T-018 前納入——這兩項不在本修訂範圍，維持 TechLead 已列的後續。
+
+## 修訂 2（2026-11-22，Architect，ARCH-003；ARCHITECTURE v1.2）
+- 狀態：**已接受**（Architect 依憲章 §5 決定；不改 PRD、不改技術棧）
+- 起因：TASKS §5 第 20 點（前端 `*.test.tsx` 會被當成正式程式）；ADR-009 決定用套件名稱引用，需要對應的 lint 規則；ARCHITECTURE §5.0 的品牌型別需要「只能由建立函式產生」的執行方式。
+
+### 決定 3：測試檔定義涵蓋 `.test.tsx`
+- **新 regex**（ESLint 與 dependency-cruiser 共用，取代修訂 1 的版本）：`(^|/)test/|\.test\.tsx?$|\.test-d\.ts$`
+  - 前端元件測試 `*.test.tsx` **算測試程式**（理由：它和 `*.test.ts` 一樣只在 Vitest 跑、不會被打包；不算的話第 11 條「正式程式不得 import 測試程式」會在它 import `test/` 輔助檔時誤判，而且 `throw` 禁令會套到它身上）。
+  - `test/` 資料夾內的輔助檔**可以是 `.tsx`**（例如包住路由或 context 的 `renderWithProviders`）；regex 的 `(^|/)test/` 本來就不看副檔名。
+  - 型別測試維持只用 `*.test-d.ts`（不需要 JSX）；`@ts-expect-error` 的豁免仍只給 `**/*.test-d.ts`。
+- **ESLint**：測試檔的 `files` 寫成 `['**/*.test.{ts,tsx}', '**/*.test-d.ts', '**/test/**/*.{ts,tsx}']`；修訂 1 決定 2 的「正式程式／測試程式」兩組規則都改用這組 glob（`ignores` 同一組）。
+- **dependency-cruiser**：`TEST` 常數改成上面的 regex；`adr008-01`、`01t`、`02`、`02t`、`11` 的寫法不變。
+- 架構測試新增範例：`apps/web/src/features/noon/x.test.tsx` import `../../../test/render.tsx`（`apps/web/test/render.tsx`）→ 合法；`apps/web/src/features/noon/x.tsx`（正式程式）import 同一個輔助檔 → `adr008-11` 違規；`packages/domain/src/x.test.tsx` 裡 `throw` → 不報 #9。
+
+### 決定 4：跨套件引用（ADR-009 決定 1 的執行方式）
+- **ESLint `no-restricted-imports`**（`patterns` 用 `regex`，全 repo `.ts`／`.tsx`；和修訂 1 的 `http:`／`npm:` 禁令放同一條規則的 `patterns` 陣列，避免區塊互相覆蓋）：
+  1. 禁止相對路徑跨進套件：`regex: '^\\.{1,2}/(.*/)?packages/'`，訊息「ADR-009：用 @english-coach/<套件> 引用」。
+  2. 禁止深層引用：`regex: '^@english-coach/(contracts|domain)/(?!testing$)'`，以及 `^@english-coach/domain/testing$`（domain 沒有 testing 入口）。
+- **ESLint**（只在 `packages/**`、`supabase/functions/**`）：相對 import 必須寫副檔名：`regex: '^\\.{1,2}/(?!.*\\.(ts|tsx|json)$)'`，訊息「ADR-009：Deno 需要 .ts 副檔名」。
+- **dependency-cruiser**：不新增規則。`@english-coach/contracts/testing` 解析後是 `packages/contracts/test/index.ts`，正式程式 import 它會被既有的 `adr008-11` 擋下。
+- 架構／lint 測試新增範例：`apps/web/src/api/x.ts` import `../../../../packages/contracts/src/index.ts` → error；import `@english-coach/contracts/src/ids.ts` → error；import `@english-coach/contracts` → 合法；`packages/domain/src/x.ts` import `./y` → error、`./y.ts` → 合法；`packages/domain/src/x.ts` import `@english-coach/contracts/testing` → `adr008-11` 違規；`packages/domain/src/x.test.ts` import 同一個 → 合法。
+
+### 決定 5：品牌型別只能由建立函式產生（ARCHITECTURE §5.0 原則 3）
+- **ESLint `no-restricted-syntax`**：`TSAsExpression` 與 `TSTypeAssertion` 的目標型別名稱符合 `^(UserId|CardId|AnswerId|QuestionId|ArticleId|PlanDate|StoragePath|Ntd|Wav16kMono|PaidConsent)$` → error（訊息「用 schema 或建立函式產生品牌值」）。
+- **允許的檔案**（`ignores`）：`packages/contracts/src/ids.ts`（`Ntd` 運算）、`packages/contracts/src/audio.ts`（`Wav16kMono`）、`packages/domain/src/taipei-date.ts`（`PlanDate`）、`supabase/functions/_shared/providers/registry.ts`（`PaidConsent`），以及所有測試程式。各 ID 只能經 zod schema 產生（db 讀出的列先過列 schema）。
+- 注意：`no-restricted-imports` 也一樣，`packages/**`、`supabase/functions/**` 的區塊要包含全部 patterns（網址前綴、跨套件、副檔名）。這條規則和既有的 `as unknown as`、`Deno.env`、`domain` 禁令都用 `no-restricted-syntax`，同一個檔案只會套用最後一個符合的設定區塊，必須照 T-001 的做法把選擇器合併在同一區塊（T-001 報告已處理過同樣問題）。
+
+### 修訂 2 後的規則表（只列有變動的）
+| # | 規則 | 執行 |
+|---|---|---|
+| 測試檔 | `(^\|/)test/\|\.test\.tsx?$\|\.test-d\.ts$` | ESLint glob＋depcruise `TEST` |
+| 12 | 只能用套件名稱引用 `packages/*`；只允許 `@english-coach/contracts`、`@english-coach/contracts/testing`、`@english-coach/domain` 三個入口 | ESLint `no-restricted-imports` |
+| 13 | `packages/**`、`supabase/functions/**` 的相對 import 要寫副檔名 | ESLint `no-restricted-imports` |
+| 14 | 品牌型別的 `as` 只在建立函式所在檔案與測試程式 | ESLint `no-restricted-syntax` |
+
+### 後果
+- 這些規則由 TechLead 排進 T-051（或 T-051 之前的工具單）；第 12、13 條在有真實套件時才有意義，第 14 條在 T-051 寫出品牌型別時同時生效。
+- 修訂 1 寫的 regex 由本修訂取代；T-002 照修訂 1 實作不受影響，T-051 再換成新 regex。
+

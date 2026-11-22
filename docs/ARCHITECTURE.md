@@ -1,7 +1,7 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.1**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.2**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
-- 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
+- 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
 
 > 名詞（第一次出現時的一句話解釋）
@@ -71,8 +71,9 @@
 3. **型別**：供應商 ID、模型 ID、卡片狀態都是字串字面值聯集（union）＋`switch` 窮舉檢查（`never`），新增狀態沒處理就編譯失敗；金額用 `type Ntd = number & { __brand: 'Ntd' }` 之類的品牌型別，避免單位混用。
 4. **錯誤用 `Result<T, AppError>` 回傳**，跨模組不丟例外（第 6 節）；ESLint 禁止在 `domain` 與 `_shared/{providers,db,news}` 的**正式程式**使用 `throw`；測試程式（`*.test.ts`、`*.test-d.ts`、`test/`）可以 `throw`，但正式程式不得 import 測試程式（dependency-cruiser）。
 5. **`@supabase/*` 只有兩個出入口**：`apps/web/src/api/**` 與 `supabase/functions/_shared/db/**`（dependency-cruiser，regex 涵蓋 `npm:`／`jsr:` 前綴）；全 repo 禁止 `http:`／`https:`／`npm:`／`jsr:` import（ESLint `no-restricted-imports`），Deno 第三方套件經 `deno.json` `imports` 對應成裸名稱。
-6. **測試檔定義**（ESLint 與 dependency-cruiser 共用）：`(^|/)test/|\.test(-d)?\.ts$`。完整規則表見 ADR-008 修訂 1。
-7. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
+6. **測試檔定義**（ESLint 與 dependency-cruiser 共用；ADR-008 修訂 2）：`(^|/)test/|\.test\.tsx?$|\.test-d\.ts$`（前端 `*.test.tsx` 算測試；`test/` 資料夾內的 `.ts`／`.tsx` 都算）。完整規則表見 ADR-008 修訂 1、2。
+7. **套件之間只用套件名稱引用**（ADR-009）：禁止用相對路徑跨進 `packages/*`，禁止深層引用（只允許 `@english-coach/contracts`、`@english-coach/contracts/testing`、`@english-coach/domain`）；品牌型別的 `as` 轉型只能出現在建立函式所在檔案與測試程式（ESLint，ADR-008 修訂 2）。
+8. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
 
 ## 4. 資料模型與儲存 schema
 - 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。只有 Edge Functions 用 service role（後端專用的高權限金鑰）寫入需要伺服器驗證的欄位。
@@ -121,6 +122,299 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 - PRD AC-09 寫的 3／7／14 與「隔天」是**預設值**；可調整是 G2 的決定（Q-18）。PRD 文字是否要補註由 PM 決定（我不改 PRD）。
 
 ## 5. API 與供應商契約
+### 5.0 共用型別（`@english-coach/contracts`，ARCH-003；決策見 ADR-009）
+- **擁有者**：本節所有型別、zod schema 與純函式都在 `packages/contracts`（套件名稱 `@english-coach/contracts`，引用方式見 ADR-009 決定 1）。例外會在註解寫明（例如 `PaidConsent` 的建立函式在 registry，錯誤訊息文字在前端）。
+- **原則**：
+  1. 能用 discriminated union（用一個字面值欄位區分各種形狀）就用；`switch` 的 `default` 一律寫 `const unreachable: never = x; return unreachable;`。
+  2. 跨網路的資料（HTTP 請求／回應、外部 API 回傳）都要有 zod schema，型別用 `z.infer` 從 schema 推出來，不手寫第二份。
+  3. 只在「混用會出錯」的地方用品牌型別（branded type）：資料庫 ID、台北日期、金額、已驗證的音訊、付費同意。品牌值只能由 schema 的 `parse`／`safeParse` 或指定的建立函式產生；`as <品牌型別>` 只允許出現在該型別的建立函式所在檔案與測試程式（ESLint，ADR-008 修訂 2）。
+  4. 正式程式不 `throw`；contracts 不提供會丟例外的 `unwrap`。測試用的 `expectOk`／`expectErr` 放在 `packages/contracts/test/`，以 `@english-coach/contracts/testing` 匯出，正式程式 import 它會被 `adr008-11` 擋下。
+  5. contracts 只 import `zod`；裡面的函式都是純函式（不讀時間、不連網路）。
+
+#### 5.0.1 檔案配置
+| 檔案 | 內容 |
+|---|---|
+| 檔案（依 import 順序，箭頭右邊只能 import 左邊；`adr008-10` 禁止循環） | 內容 |
+|---|---|
+| 1. `src/brand.ts`、`src/result.ts`、`src/validation.ts` | `Brand<T, B>`；`Result`、`Ok`、`Err` 與 helper；`ValidationIssue`、`ValidationError`（三個檔案都不 import 任何東西） |
+| 2. `src/ids.ts` | 品牌 ID、`PlanDate`、`Ntd`、`NewsCategory`、`ProviderId`、`LlmModelId`、`SttModelId`、`VoiceId` 與 schema |
+| 3. `src/audio.ts`、`src/speech.ts` | `Wav16kMono`、`AudioPayload`、`parseWav16kMono`；`WordTiming`、`Transcript`、`PronunciationResult` 與 schema |
+| 4. `src/providers.ts` | `Tier`、`Capability`、`ProviderErrorKind`（T-002 已建，內容不變）、`CapabilitySchema`、`ProviderError`、`ProviderInfo`、`StreamChunk`、四種供應商介面與參數／結果型別、`PaidConsent` |
+| 5. `src/errors.ts` | `AppError`、`APP_ERROR_KINDS`、`httpStatusOf`、`isRetryable`、`toApiErrorBody`、`ApiErrorBodySchema` |
+| 6. `src/api.ts` | 跨網路的 API schema：`CardStreamEvent`（`/cards/generate` 的 NDJSON）；之後各端點的請求／回應 schema 也放這裡或依功能拆檔 |
+| `src/index.ts` | 重新匯出以上全部（相對路徑寫 `.ts` 副檔名，ADR-009） |
+| `test/index.ts` | `expectOk`、`expectErr`（只給測試程式用，`@english-coach/contracts/testing`） |
+
+#### 5.0.2 `Brand` 與 `Result`
+```ts
+// src/brand.ts
+declare const brand: unique symbol;
+/** 品牌型別：結構相同但不能互相指定。只能由建立函式或 zod `.brand()` 產生。 */
+export type Brand<T, B extends string> = T & { readonly [brand]: B };
+
+// src/result.ts
+export type Ok<T> = { readonly ok: true; readonly value: T };
+export type Err<E> = { readonly ok: false; readonly error: E };
+/** E 一律寫明（不設預設值，避免 result.ts 依賴 errors.ts 造成循環）：一般寫 Result<T, AppError>；供應商介面用 Result<T, ProviderError>（ProviderError 是 AppError 的子集合，可以直接往上傳）。 */
+export type Result<T, E> = Ok<T> | Err<E>;
+
+export function ok<T>(value: T): Ok<T>;
+export function err<E>(error: E): Err<E>;
+export function isOk<T, E>(r: Result<T, E>): r is Ok<T>;
+export function isErr<T, E>(r: Result<T, E>): r is Err<E>;
+export function map<T, U, E>(r: Result<T, E>, f: (value: T) => U): Result<U, E>;
+export function mapErr<T, E, F>(r: Result<T, E>, f: (error: E) => F): Result<T, F>;
+export function andThen<T, U, E>(r: Result<T, E>, f: (value: T) => Result<U, E>): Result<U, E>;
+export function unwrapOr<T, E>(r: Result<T, E>, fallback: T): T;
+/** 把多個 Result 合成一個：全部成功回 ok(陣列)，否則回第一個 err。 */
+export function all<T, E>(rs: readonly Result<T, E>[]): Result<T[], E>;
+/** 只給 I/O 模組（providers、db、news、api）包住會丟例外的呼叫；onThrow 必須把 unknown 轉成具體錯誤。 */
+export function tryCatch<T, E>(f: () => T, onThrow: (cause: unknown) => E): Result<T, E>;
+export function tryCatchAsync<T, E>(f: () => Promise<T>, onThrow: (cause: unknown) => E): Promise<Result<T, E>>;
+// 刻意不提供：unwrap()、expect()（會丟例外）。測試請用 @english-coach/contracts/testing 的 expectOk／expectErr。
+```
+- `tryCatch`／`tryCatchAsync` 內部用 `try/catch`，不 `throw`；`domain` 不應該需要它們（domain 不呼叫會丟例外的 API）。
+
+#### 5.0.3 ID、日期、金額、供應商與模型
+```ts
+// src/validation.ts
+export type ValidationIssue = { path: string; message: string };
+export type ValidationError = { kind: 'validation'; issues: ValidationIssue[]; message: string };
+
+// src/ids.ts（zod 4）
+export const UserIdSchema     = z.uuid().brand<'UserId'>();
+export const CardIdSchema     = z.uuid().brand<'CardId'>();
+export const AnswerIdSchema   = z.uuid().brand<'AnswerId'>();
+export const QuestionIdSchema = z.uuid().brand<'QuestionId'>();
+export const ArticleIdSchema  = z.uuid().brand<'ArticleId'>();
+/** 台北日期 YYYY-MM-DD（§4 plan_date）；只能由 domain 的台北日期函式或 schema 產生。 */
+export const PlanDateSchema   = z.iso.date().brand<'PlanDate'>();
+/** Storage 物件路徑，格式 `<user_id>/<bucket 內路徑>`。 */
+export const StoragePathSchema = z.string().regex(/^[0-9a-f-]{36}\/[\w./-]+$/).brand<'StoragePath'>();
+/** 新台幣整數元（付費月上限、用量）。 */
+export const NtdSchema        = z.number().int().nonnegative().brand<'Ntd'>();
+export type UserId = z.infer<typeof UserIdSchema>;      // 其他 ID 同樣寫法：CardId、AnswerId、QuestionId、ArticleId、PlanDate、StoragePath、Ntd
+/** 金額運算後要回到 Ntd 只能經過這兩個函式（本檔是唯一可以 `as Ntd` 的地方）。 */
+export function addNtd(a: Ntd, b: Ntd): Ntd;
+export function subNtdFloor0(a: Ntd, b: Ntd): Ntd;   // 結果小於 0 時回 0
+// PlanDate 由 domain 的台北日期函式（packages/domain/src/taipei-date.ts，唯一可以 `as PlanDate` 的正式程式檔）或 PlanDateSchema 產生。
+// db 讀出的列一律先用 zod 的列 schema 驗證，ID 因此自然帶品牌，不需要 `as`。
+
+/** 新聞類別（§11）；T-049 的 NewsSettingsSchema 用它。 */
+export const NEWS_CATEGORIES = ['ai', 'software', 'semiconductor'] as const;
+export const NewsCategorySchema = z.enum(NEWS_CATEGORIES);
+export type NewsCategory = z.infer<typeof NewsCategorySchema>;
+
+/** 供應商（不是品牌型別：字面值聯集就夠，新增時 switch 會編譯失敗）。付費版是不同的 id，因為金鑰不同（ADR-003 第 1 層）。 */
+export const PROVIDER_IDS = ['gemini', 'gemini-paid', 'groq', 'azure-speech', 'azure-speech-paid', 'webspeech'] as const;
+export const ProviderIdSchema = z.enum(PROVIDER_IDS);
+export type ProviderId = z.infer<typeof ProviderIdSchema>;
+// 'webspeech' 是瀏覽器內建 TTS，只出現在 meta 與設定，後端沒有它的 adapter。
+
+/** 模型 ID 以 §5.3 為準；新增模型＝改這裡＋設定頁選項（AC-24），不改其他程式。 */
+export const LLM_MODEL_IDS = ['gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'] as const;
+export const LlmModelIdSchema = z.enum(LLM_MODEL_IDS);
+export type LlmModelId = z.infer<typeof LlmModelIdSchema>;
+
+export const STT_MODEL_IDS = ['whisper-large-v3-turbo', 'gemini-3.5-transcribe', 'azure-stt-short'] as const;
+export const SttModelIdSchema = z.enum(STT_MODEL_IDS);
+export type SttModelId = z.infer<typeof SttModelIdSchema>;
+
+/** 語音 ID 帶供應商前綴，adapter 可以用 Extract<VoiceId, `azure:${string}`> 只接受自家語音。語音名稱未驗證，由 TTS adapter 單驗證後才能改。 */
+export const VOICE_IDS = ['azure:en-US-AvaNeural', 'azure:en-US-AndrewNeural', 'gemini:Kore', 'gemini:Puck'] as const;
+export const VoiceIdSchema = z.enum(VOICE_IDS);
+export type VoiceId = z.infer<typeof VoiceIdSchema>;
+```
+
+#### 5.0.4 錯誤：`ProviderError`、`AppError`
+```ts
+// src/providers.ts（前三個型別 T-002 已建，逐字不變）
+export type Tier = 'free' | 'paid';
+export type Capability = 'llm' | 'stt' | 'pronunciation' | 'tts';
+export type ProviderErrorKind =
+  | 'quota_exhausted' | 'rate_limited' | 'unavailable' | 'timeout'
+  | 'auth' | 'region_blocked' | 'invalid_response' | 'not_configured' | 'paid_not_allowed';
+
+// （以下仍在 src/providers.ts）
+export const CapabilitySchema = z.enum(['llm', 'stt', 'pronunciation', 'tts']);   // 型別測試：z.infer 等於 Capability
+type ProviderErrorBase = { provider: ProviderId; capability: Capability; message: string };
+/** 供應商層的錯誤（registry 與 adapter 只會回這些）。 */
+export type ProviderError =
+  | (ProviderErrorBase & { kind: 'quota_exhausted' | 'rate_limited'; retryAfterSec: number | null })
+  | (ProviderErrorBase & { kind: 'paid_not_allowed'; reason: 'no_consent' | 'monthly_cap_reached' })
+  | (ProviderErrorBase & { kind: 'unavailable' | 'timeout' | 'auth' | 'region_blocked' | 'invalid_response' | 'not_configured' });
+
+// src/errors.ts
+export type Entity = 'card' | 'answer' | 'question' | 'plan' | 'resume' | 'article' | 'audio';
+
+/** 全系統唯一的錯誤型別（以 kind 區分）。message 只給開發者看（英文、不含使用者文字或逐字稿，CLAUDE.md §5 第 9 點）；畫面文字由前端依 kind 產生。 */
+export type AppError =
+  | ProviderError
+  | ValidationError
+  | { kind: 'unauthenticated'; message: string }
+  | { kind: 'not_found'; entity: Entity; message: string }
+  | { kind: 'conflict'; entity: Entity; message: string }
+  | { kind: 'storage_failed'; op: 'upload' | 'download' | 'delete' | 'sign'; message: string }
+  | { kind: 'db_failed'; message: string }
+  | { kind: 'news_unavailable'; category: NewsCategory; message: string }   // 只在 daily-prep 內部流通，不會直接回給前端
+  | { kind: 'plan_not_ready'; message: string }
+  | { kind: 'internal'; message: string };                                // handler 最外層兜底
+
+export const APP_ERROR_KINDS = [
+  'quota_exhausted', 'rate_limited', 'unavailable', 'timeout', 'auth', 'region_blocked',
+  'invalid_response', 'not_configured', 'paid_not_allowed',
+  'validation', 'unauthenticated', 'not_found', 'conflict', 'storage_failed', 'db_failed',
+  'news_unavailable', 'plan_not_ready', 'internal',
+] as const;
+export type AppErrorKind = (typeof APP_ERROR_KINDS)[number];   // 型別測試：AppErrorKind 等於 AppError['kind']
+
+export type HttpErrorStatus = 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 | 503 | 504;
+export function httpStatusOf(e: AppError): HttpErrorStatus;     // 依下表，switch＋never 窮舉
+export function isRetryable(e: AppError): boolean;              // 依下表
+export function toApiErrorBody(e: AppError): ApiErrorBody;      // 只有 HTTP handler 呼叫
+
+/** §6 第 2 點的錯誤回應（跨網路，有 zod）。 */
+export const ApiErrorBodySchema = z.object({
+  error: z.object({
+    kind: z.enum(APP_ERROR_KINDS),
+    message: z.string(),
+    retryable: z.boolean(),
+    provider: ProviderIdSchema.optional(),
+    capability: CapabilitySchema.optional(),
+    retryAfterSec: z.number().int().nonnegative().optional(),
+    reason: z.enum(['no_consent', 'monthly_cap_reached']).optional(),
+    issues: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+  }),
+});
+export type ApiErrorBody = z.infer<typeof ApiErrorBodySchema>;
+```
+
+**錯誤碼對照表**（`httpStatusOf`、`isRetryable` 照這張表實作；前端 `apps/web/src/ui/error-messages.ts` 依 `kind` 用 `switch`＋`never` 產生畫面文字，新增 kind 沒處理就編譯失敗）
+| kind | HTTP | 可重試 | 畫面文字（範本，前端擁有） | 降級／按鈕（§6） |
+|---|---|---|---|---|
+| `quota_exhausted` | 429 | 是 | 「{供應商}的免費額度用完了（{能力}），約 {n} 分鐘後可重送。不會自動改用其他或付費供應商。」 | 錄音保留；「稍後重送」「到設定改用其他供應商」（手動，AC-25）；發音評分 → 「不評分」模式；`daily-prep` → 舊文章 |
+| `rate_limited` | 429 | 是 | 「{供應商}暫時太忙（每分鐘次數上限），約 {n} 秒後可重送。」 | 同上 |
+| `unavailable` | 502 | 是 | 「{供應商}暫時無法使用。」 | 同上 |
+| `timeout` | 504 | 是 | 「{供應商}超過 {秒} 秒沒有回應。」 | 同上；生卡串流 → 已收到的欄位保留，其餘背景補齊 |
+| `invalid_response` | 502 | 是 | 「AI 回傳的內容格式不對（已重試 1 次）。」 | 同上（同模型重試 1 次後才回這個錯） |
+| `auth` | 502 | 否 | 「{供應商}的金鑰無效或沒有權限，請 Hansheng 檢查 Supabase secrets。」 | 只能手動改供應商 |
+| `region_blocked` | 502 | 否 | 「{供應商}不支援目前的伺服器地區。」 | 只能手動改供應商 |
+| `not_configured` | 503 | 否 | 「{供應商}還沒設定金鑰。」 | 只能手動改供應商 |
+| `paid_not_allowed` | 403 | 否 | `no_consent`：「付費供應商要先在設定頁同意並設定每月上限。」；`monthly_cap_reached`：「本月付費上限 NT${上限} 已用完。」 | 不呼叫付費 adapter（AC-25）；「到設定」 |
+| `validation` | 400 | 否 | 「送出的資料不正確：{第一個 issue}」 | 停在原畫面，錄音保留 |
+| `unauthenticated` | 401 | 否 | （不顯示，直接導向登入頁） | 登入後回原頁 |
+| `not_found` | 404 | 否 | 「找不到這筆{項目}（可能已刪除）。」 | 回列表 |
+| `conflict` | 409 | 否 | 「這筆{項目}已經被更新，已重新載入。」 | 重新讀取 |
+| `storage_failed` | 502 | 是 | 「錄音或檔案上傳失敗，已保留在手機上。」 | 錄音留在 IndexedDB；「稍後重送」 |
+| `db_failed` | 500 | 是 | 「伺服器暫時存不了資料。」 | 「重試」 |
+| `news_unavailable` | （不回前端） | — | — | `daily-prep` 換下一類或改用舊文章（§11.2） |
+| `plan_not_ready` | 503 | 是 | 「今天的素材沒備好。」 | 「重試」；字卡複習照常（§6 第 5 點） |
+| `internal` | 500 | 是 | 「發生未預期的錯誤。」 | 「重試」 |
+- 這張表沒有任何一列會讓系統自己換供應商或改用付費（AC-25）；「可重試」只表示畫面可以出現重送按鈕，重送也只打同一個供應商。
+
+#### 5.0.5 音訊與語音結果
+```ts
+// src/audio.ts
+/** 已確認是 RIFF/WAVE、PCM 16-bit、16 kHz、單聲道、≤ 30 s 的音訊。只能由 parseWav16kMono 產生（本檔是唯一可以 `as Wav16kMono` 的地方）。 */
+export type Wav16kMono = Brand<{ readonly bytes: Uint8Array; readonly durationMs: number }, 'Wav16kMono'>;
+export function parseWav16kMono(bytes: Uint8Array, maxDurationMs?: number /* 預設 30_000 */): Result<Wav16kMono, ValidationError>;
+
+/** STT 的輸入。晚上的回答是瀏覽器錄的 WebM/Opus；跟讀是 WAV。 */
+export type AudioPayload =
+  | { readonly format: 'wav-pcm16-16k-mono'; readonly wav: Wav16kMono }
+  | { readonly format: 'webm-opus'; readonly bytes: Uint8Array };   // 大小上限由 endpoint 的 schema 檢查
+
+// src/speech.ts（會回給前端，所以有 zod）
+export const WordTimingSchema = z.object({
+  word: z.string().min(1),
+  startMs: z.number().int().nonnegative(),
+  endMs: z.number().int().nonnegative(),
+  confidence: z.number().min(0).max(1).nullable(),               // 供應商沒給就是 null
+}).refine((w) => w.endMs >= w.startMs);
+export type WordTiming = z.infer<typeof WordTimingSchema>;
+
+const TranscriptBase = z.object({
+  text: z.string(),
+  language: z.literal('en'),
+  durationMs: z.number().int().nonnegative(),
+  provider: ProviderIdSchema,
+  model: SttModelIdSchema,
+});
+/** 有沒有逐字時間戳記用 timing 區分（AC-15 的停頓與語速需要 'words'）。 */
+export const TranscriptSchema = z.discriminatedUnion('timing', [
+  TranscriptBase.extend({ timing: z.literal('words'), words: z.array(WordTimingSchema) }),
+  TranscriptBase.extend({ timing: z.literal('none') }),
+]);
+export type Transcript = z.infer<typeof TranscriptSchema>;
+
+export const PronunciationResultSchema = z.object({
+  score0to100: z.number().min(0).max(100),
+  recognizedText: z.string(),
+  words: z.array(WordTimingSchema),
+  provider: ProviderIdSchema,
+});
+export type PronunciationResult = z.infer<typeof PronunciationResultSchema>;
+```
+
+#### 5.0.6 串流
+```ts
+// src/providers.ts
+/** 供應商層的串流片段：只有文字增量與結束；解析 JSON 是呼叫端的事。 */
+export type StreamChunk =
+  | { readonly type: 'delta'; readonly text: string }
+  | { readonly type: 'done'; readonly finishReason: 'stop' | 'max_tokens' | 'safety'; readonly usage: { inputTokens: number; outputTokens: number } | null };
+
+// src/api.ts
+/** /cards/generate 回給前端的 NDJSON，每行一個事件（跨網路，有 zod）。順序：chunk → example → synonyms → done；中途失敗送 error 後結束。 */
+export const CardStreamEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('chunk'), chunk: z.string().min(1), meaningZh: z.string() }),
+  z.object({ type: z.literal('example'), en: z.string(), zh: z.string() }),
+  z.object({ type: z.literal('synonyms'), items: z.array(z.string()).min(2) }),
+  z.object({ type: z.literal('done'), cardId: CardIdSchema, meta: z.object({ llmModel: LlmModelIdSchema }) }),
+  z.object({ type: z.literal('error'), error: ApiErrorBodySchema.shape.error }),
+]);
+export type CardStreamEvent = z.infer<typeof CardStreamEventSchema>;
+```
+
+#### 5.0.7 供應商介面（取代 v1.1 §5.2 的程式碼）
+```ts
+// src/providers.ts（續）
+export interface ProviderInfo { readonly id: ProviderId; readonly capability: Capability; readonly tier: Tier; readonly displayName: string }
+
+export type LlmRequest<T> = {
+  model: LlmModelId; system: string; prompt: string;
+  schema: z.ZodType<T>;               // 回傳先 JSON.parse（tryCatch）再 safeParse；失敗回 invalid_response
+  maxOutputTokens: number; timeoutMs: number;
+};
+export type LlmStreamRequest = Omit<LlmRequest<unknown>, 'schema'>;   // 串流不帶 schema，呼叫端逐行用 CardStreamEventSchema 等驗證
+
+export type SttOptions = { language: 'en'; wordTimestamps: boolean; prompt?: string; timeoutMs: number };
+export type TtsResult = { audio: Uint8Array; mime: 'audio/mpeg' | 'audio/wav' | 'audio/ogg'; durationMs: number };
+
+export interface LlmProvider extends ProviderInfo {
+  readonly capability: 'llm';
+  generate<T>(req: LlmRequest<T>): Promise<Result<T, ProviderError>>;
+  stream(req: LlmStreamRequest): AsyncIterable<Result<StreamChunk, ProviderError>>;   // 出現 err 後不再產生
+}
+export interface SttProvider extends ProviderInfo {
+  readonly capability: 'stt';
+  transcribe(audio: AudioPayload, opts: SttOptions): Promise<Result<Transcript, ProviderError>>;  // wordTimestamps=true 時保證 timing='words'，否則回 invalid_response
+}
+export interface PronunciationProvider extends ProviderInfo {
+  readonly capability: 'pronunciation';
+  assess(audio: Wav16kMono, referenceText: string, opts: { timeoutMs: number }): Promise<Result<PronunciationResult, ProviderError>>;
+}
+export interface TtsProvider extends ProviderInfo {
+  readonly capability: 'tts';
+  synthesize(text: string, voice: VoiceId, opts: { timeoutMs: number }): Promise<Result<TtsResult, ProviderError>>;
+}
+
+/** ADR-003 第 2 層：只有 _shared/providers/registry.ts 的 grantPaidConsent(settings, usage) 能建立（唯一可以 `as PaidConsent` 的檔案）。 */
+export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCapNtd: Ntd; readonly usedThisMonthNtd: Ntd }, 'PaidConsent'>;
+```
+- 與 v1.1 的差異：`stream()` 的參數有了名字（`LlmStreamRequest`）；STT／發音／TTS 補上 `timeoutMs`（§6 第 6 點本來就要求每次外部呼叫設逾時）；`assess` 回傳改用具名的 `PronunciationResult`；`TtsResult.mime` 收斂成三種；介面各自固定 `capability`，registry 回傳型別因此能依能力縮小。
+- **型別測試（T-051）**：每個聯集用 `expectTypeOf` 比對完整成員；`AppErrorKind` 等於 `AppError['kind']`；`CardId` 不能指定給 `AnswerId`、`string` 不能指定給 `PlanDate`（`@ts-expect-error`）；`httpStatusOf` 對 `APP_ERROR_KINDS` 每一項都有值且符合上表；`Transcript` 用 `timing` 縮小後才能讀 `words`；`parseWav16kMono` 對 8 kHz、雙聲道、> 30 s、非 RIFF 都回 `validation`。
+
 ### 5.1 HTTP API（Edge Functions，全部要 Supabase JWT；請求與回應都用 `packages/contracts` 的 zod schema 驗證）
 | 端點 | 輸入 → 輸出 | 時間預算 | AC |
 |---|---|---|---|
@@ -144,30 +438,7 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 - 所有 AI 結果回應都帶 `meta: { llmModel?, sttProvider?, pronProvider?, ttsProvider? }`，結果頁顯示（AC-24）。
 
 ### 5.2 供應商介面（`packages/contracts/src/providers.ts`）
-```ts
-export type Tier = 'free' | 'paid';
-export type Capability = 'llm' | 'stt' | 'pronunciation' | 'tts';
-export interface ProviderInfo { id: ProviderId; capability: Capability; tier: Tier; displayName: string }
-
-export type ProviderErrorKind =
-  | 'quota_exhausted' | 'rate_limited' | 'unavailable' | 'timeout'
-  | 'auth' | 'region_blocked' | 'invalid_response' | 'not_configured' | 'paid_not_allowed';
-export interface ProviderError { kind: ProviderErrorKind; provider: ProviderId; retryAfterSec?: number; message: string }
-
-export interface LlmProvider extends ProviderInfo {
-  generate<T>(req: { model: LlmModelId; system: string; prompt: string; schema: ZodType<T>; maxOutputTokens: number; timeoutMs: number }): Promise<Result<T, ProviderError>>;
-  stream(req: /* 同上 */): AsyncIterable<Result<StreamChunk, ProviderError>>;
-}
-export interface SttProvider extends ProviderInfo {
-  transcribe(audio: AudioPayload, opts: { language: 'en'; wordTimestamps: boolean; prompt?: string }): Promise<Result<Transcript, ProviderError>>;
-}
-export interface PronunciationProvider extends ProviderInfo {
-  assess(audio: Wav16kMono, referenceText: string): Promise<Result<{ score0to100: number; recognizedText: string; words: WordTiming[] }, ProviderError>>;
-}
-export interface TtsProvider extends ProviderInfo {
-  synthesize(text: string, voice: VoiceId): Promise<Result<{ audio: Uint8Array; mime: string; durationMs: number }, ProviderError>>;
-}
-```
+- 完整定義見 §5.0.4（`ProviderError`）與 §5.0.7（四種介面、`PaidConsent`）。v1.1 這裡的程式碼已由 §5.0 取代；`Tier`、`Capability`、`ProviderErrorKind` 三個型別內容不變。
 - 所有 adapter 只用 `fetch` 呼叫 REST，**不使用供應商 SDK**（少依賴、可完全掌握呼叫哪個端點；ADR-003）。
 - AI 回傳一律要求 JSON 並用 zod 驗證；驗證失敗回 `invalid_response`，最多重試 1 次（同一供應商同一模型）。
 
@@ -181,7 +452,7 @@ export interface TtsProvider extends ProviderInfo {
 
 ## 6. 錯誤處理
 1. **不丟例外跨模組**：`domain`、`providers`、`db`、`news` 一律回 `Result<T, AppError>`，正式程式不寫 `throw`（§3.2 第 4 點，lint 執行）；`fetch`、`supabase-js`、`JSON.parse` 丟出的例外在模組內 `catch` 轉成 `err`，zod 用 `safeParse`；窮舉檢查用 `const unreachable: never = x; return unreachable;`。HTTP handler 是唯一把錯誤轉成回應的地方（handler 最外層可以 `try/catch` 兜底，轉成 500 回應）。測試程式不受此限（ADR-008 修訂 1）。
-2. **錯誤回應格式**：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`；HTTP 狀態：驗證失敗 400、未登入 401、額度用完 429、供應商失敗 502、逾時 504。
+2. **錯誤回應格式**：`ApiErrorBodySchema`（§5.0.4）：`{ error: { kind, message, retryable, provider?, capability?, retryAfterSec?, reason?, issues? } }`；`kind` 只能是 `APP_ERROR_KINDS` 之一，HTTP 狀態、可否重試、畫面文字與降級方式見 §5.0.4 錯誤碼對照表（驗證失敗 400、未登入 401、付費未同意 403、額度用完／太頻繁 429、供應商失敗 502、未設定金鑰或素材沒備好 503、逾時 504）。
 3. **錄音先存再處理**（AC-25）：前端錄完先寫進 IndexedDB，再上傳 Storage，成功後才呼叫 STT；任何一步失敗，錄音仍在 IndexedDB 或 Storage，`evening_answer.status=failed`＋`failure`，畫面顯示原因（例如「Groq 免費額度今天用完，約 X 分鐘後可重送」）與兩個按鈕：「稍後重送」「改用其他供應商」（手動）。
 4. **絕不自動改用其他供應商或付費**：registry 沒有備援清單（ADR-003）；`quota_exhausted` 直接回給使用者。
 5. **降級模式**（不花錢、不換供應商）：發音評分失敗 → 仍顯示正確率與語速、發音分數「無」，不擋關（AC-06 允許）；當天新聞抓不到 → 用最近一篇未讀文章並在頁面註明（AC-01）；`daily-prep` 整體失敗 → 開 App 時重試一次，再失敗就顯示「今天的素材沒備好」＋重試按鈕，字卡複習（不需 AI）照常可用。
@@ -290,12 +561,16 @@ english-coach/
 │     ├─ ui/                     # 共用元件
 │     └─ sw/                     # Service Worker 設定
 ├─ packages/
-│  ├─ contracts/src/             # zod schema、供應商介面、AppError、Result
-│  └─ domain/src/                # 純邏輯＋單元測試
+│  ├─ contracts/                 # @english-coach/contracts（ADR-009）
+│  │  ├─ package.json            # exports: "." → src/index.ts、"./testing" → test/index.ts
+│  │  ├─ src/                    # zod schema、供應商介面、AppError、Result（§5.0）
+│  │  └─ test/                   # expectOk／expectErr（只給測試）
+│  └─ domain/                    # @english-coach/domain：package.json＋src/（純邏輯＋單元測試）
 ├─ supabase/
 │  ├─ config.toml
 │  ├─ migrations/                # schema、RLS、pg_cron、seed_chunk 匯入
 │  └─ functions/
+│     ├─ deno.json               # imports：@english-coach/*、zod、@supabase/supabase-js 對應（ADR-009）
 │     ├─ _shared/{config,db,providers,news}/
 │     ├─ api/                    # 單一路由函式（減少冷啟動次數）
 │     ├─ daily-prep/             # 05:00 備料（pg_cron 觸發）
@@ -303,7 +578,7 @@ english-coach/
 ├─ test/e2e/                     # Playwright（假供應商）
 └─ docs/
 ```
-- `supabase/functions` 如何引用 `packages/*`（Deno import map 指到 workspace 路徑）**不確定**是否被 Supabase CLI 打包支援；第一張開發單先驗證，不行就改為把 `contracts`、`domain` 放在 `supabase/functions/_shared/` 並由前端以路徑別名引用。
+- 引用方式已決定（ADR-009 決定 1）：所有地方都用套件名稱 `@english-coach/contracts`、`@english-coach/domain`；前端與工具經 pnpm workspace，Deno 經 `supabase/functions/deno.json` 的 `imports` 指到 `packages/*/src/index.ts`。Supabase CLI 打包時能否帶上 `supabase/functions` 以外的檔案**未驗證**，由 T-003 驗證；不行就照 ADR-009 的備案把兩個套件搬到 `supabase/functions/_shared/`，套件名稱不變。
 
 ## 13. 部署與可觀測性
 - **環境**：本機用 `supabase start`（Docker）跑完整後端；正式環境一個 Supabase Free 專案＋前端靜態檔（Supabase 不提供前端 HTML 託管，前端放 Cloudflare Pages 或 GitHub Pages 免費方案，G4 由 SRE 決定）。
@@ -347,7 +622,7 @@ english-coach/
 | NFR-06 | `sw`（斷線提示） | 不做離線練習 |
 
 ## 15. 測試策略（給 TechLead／QA 參考，細節等寫程式時再定）
-- `domain`：Vitest 單元測試，時間由參數注入，100% 分支涵蓋狀態機與 SRS。測試可以 `throw`／`expect`（例如 `test/result.ts` 的 `expectOk`），不能讀時鐘或用 `Math.random`；性質測試用固定種子的亂數產生器（不新增 fast-check 等依賴）。
+- `domain`：Vitest 單元測試，時間由參數注入，100% 分支涵蓋狀態機與 SRS。測試可以 `throw`／`expect`（例如 `@english-coach/contracts/testing` 的 `expectOk`），不能讀時鐘或用 `Math.random`；性質測試用固定種子的亂數產生器（不新增 fast-check 等依賴）。
 - `providers`：契約測試用錄好的回應樣本（不打真 API）；真 API 只在手動的 smoke 測試跑。
 - **AC-25 專用測試**（ADR-003）：registry 遇到每一種 `ProviderErrorKind` 都只呼叫被選中的那一個 adapter 一次（假 adapter 計數）；所有預設值的 `tier` 都是 `free`；沒有 `paid_consent_at` 時選付費會回 `paid_not_allowed`；E2E 用假 STT 回 429，畫面顯示原因且錄音仍在 IndexedDB。
 - **Q-18 測試**：`SrsSettingsSchema` 的邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；改設定後既有 `due_date` 不變。
@@ -380,3 +655,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v0.1 | 2026-11-22 | 初稿（ARCH-001），送 G2 |
 | v1.0 | 2026-11-22 | G2 通過（Hansheng 18:46 核准）：技術棧與供應商依建議定案；Q-16 改為 AI／軟體工程／半導體產業三類每日輪替、每類 1 主 2 備（§11、`news_source`、`daily_plan` 欄位）；Q-18 複習間隔全部可在設定調整（§4.1、§4.2、`/settings` 驗證、AC-09／19／24 對應）；種子庫改為獨立任務單 6 批 × 100、第 1 批後抽查 20 條；補上「畫面走完 AC 的單＝CLI PR」與 `poc/*` pushguard 規則（§15）；Q-14～Q-20 標為已決定 |
 | v1.1 | 2026-11-22 | ADR-008 修訂 1（T-001 審查時 TechLead 提問）：第 4 條改為 `@supabase/*` 只能在 `apps/web/src/api` 與 `supabase/functions/_shared/db` import，並禁止 `http:`／`https:`／`npm:`／`jsr:` import；`throw` 禁令只管正式程式並延伸到 `_shared/{providers,db,news}`，測試程式可以 `throw`、import `vitest`，正式程式不得 import 測試程式（§3.1、§3.2、§6、§15） |
+| v1.2 | 2026-11-22 | ARCH-003：新增 §5.0 contracts 共用型別（`Result`＋helper、`Brand`、品牌 ID、`ProviderId`／`LlmModelId`／`SttModelId`／`VoiceId`、`ProviderError`／`AppError`＋錯誤碼對照表、`Wav16kMono`、`AudioPayload`、`WordTiming`、`Transcript`、`PronunciationResult`、`StreamChunk`、`CardStreamEvent`、供應商介面、`PaidConsent`），§5.2 改指向 §5.0；§6 第 2 點錯誤格式改用 `ApiErrorBodySchema`；新增 ADR-009（套件名稱 `@english-coach/contracts` 與引用方式）與 ADR-008 修訂 2（測試檔含 `.test.tsx`、跨套件引用與品牌轉型規則）；§3.2、§12 同步 |

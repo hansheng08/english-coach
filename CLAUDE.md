@@ -1,16 +1,16 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.1（G2 已通過，2026-11-22；v1.1 修訂 ADR-008 第 4、9 條）。
+> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.2（G2 已通過，2026-11-22；v1.1 為 ADR-008 修訂 1，v1.2 為 contracts 型別、ADR-009、ADR-008 修訂 2）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
 - 單一使用者（Hansheng）的英文口說學習 PWA，Android＋Chrome 優先。需求：`docs/PRD.md`（AC-01～25、NFR-01～06）。
-- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-008`。動手前先讀任務單「背景」指定的章節。
+- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-009`。動手前先讀任務單「背景」指定的章節。
 
 ## 2. 技術棧（G2 已核准）
 - TypeScript 5 strict 全端；pnpm workspaces。
 - 前端 `apps/web`：React 19＋Vite＋vite-plugin-pwa；CSS Modules。
 - 後端 `supabase/`：Postgres（migrations＋RLS）、Storage、Edge Functions（Deno TS）、pg_cron。
-- 共用：`packages/contracts`（zod schema、供應商介面、`Result`、`AppError`）、`packages/domain`（純邏輯）。
+- 共用：`@english-coach/contracts`（`packages/contracts`：zod schema、供應商介面、`Result`、`AppError`，定義見 ARCHITECTURE §5.0）、`@english-coach/domain`（`packages/domain`：純邏輯）。
 - 測試：Vitest、Playwright；檢查：ESLint（typescript-eslint strict-type-checked）、dependency-cruiser。
 
 ## 3. 指令（每次修改後都要跑，貼原始輸出到報告）
@@ -41,7 +41,9 @@ supabase start        # 本機後端（需要 Docker）
 - `fetch` 只能出現在 `_shared/providers/**`、`_shared/news/**`、`apps/web/src/api/**`。
 - `@supabase/*` 只能在 `apps/web/src/api/**`、`supabase/functions/_shared/db/**` import（ADR-008 第 4 條修訂 1）。
 - 不寫 `http:`／`https:`／`npm:`／`jsr:` 開頭的 import；Deno 的第三方套件在 `supabase/functions` 的 `deno.json` `imports` 對應成裸名稱，程式只寫裸名稱（ESLint 會擋）。
-- 正式程式不得 import 測試程式（`*.test.ts`、`*.test-d.ts`、`test/` 資料夾）。
+- 正式程式不得 import 測試程式（`*.test.ts`、`*.test.tsx`、`*.test-d.ts`、`test/` 資料夾內的 `.ts`／`.tsx`；regex `(^|/)test/|\.test\.tsx?$|\.test-d\.ts$`）。
+- 套件只用名稱引用：`@english-coach/contracts`、`@english-coach/contracts/testing`（只給測試）、`@english-coach/domain`。不准用 `../../packages/...` 相對路徑，不准深層引用（ADR-009；ESLint 會擋）。
+- `packages/**`、`supabase/functions/**` 裡的相對 import 要寫副檔名（`./ids.ts`），Deno 需要。
 
 ## 5. 絕對不要做
 1. **不寫入、不讀取、不印出任何金鑰**。金鑰只存在 Supabase secrets；程式只在 `_shared/config` 讀 `Deno.env`。repo 只能有 `.env.example`（只有變數名稱）。
@@ -61,6 +63,9 @@ supabase start        # 本機後端（需要 Docker）
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
 - 錯誤：`domain`、`providers`、`db`、`news` 回傳 `Result<T, AppError>`，正式程式不寫 `throw`（ESLint 會擋）；`fetch`、`supabase-js`、`JSON.parse` 等會丟例外的呼叫要在這些模組內 `catch` 轉成 `err(...)`，zod 用 `safeParse`。只有 HTTP handler 把錯誤轉成回應：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`。
 - 窮舉檢查寫成 `default: { const unreachable: never = x; return unreachable; }`，不要寫會丟例外的 `assertNever`。
+- `Result<T, E>` 的 `E` 一律寫明；用 contracts 的 `ok`／`err`／`map`／`andThen`／`tryCatch` 等 helper，沒有 `unwrap`。錯誤只能是 `AppError` 的 18 種 `kind`（§5.0.4），不要自己新增；新增要 Architect 改 §5.0。
+- 品牌型別（各種 ID、`PlanDate`、`Ntd`、`Wav16kMono`、`PaidConsent`）只能由 zod schema 或指定的建立函式產生，不要 `as CardId`（ESLint 會擋；測試程式例外）。
+- 跨網路的型別都從 zod schema 用 `z.infer` 推出，不手寫第二份。
 - 狀態與 ID 用字串字面值聯集，`switch` 一定要有 `never` 窮舉檢查。
 - 所有 API 請求、回應與 AI 回傳 JSON 都要經過 `packages/contracts` 的 zod schema。
 - 時間：`plan_date` 一律是台北日期（`Asia/Taipei`），由 `domain` 的函式依傳入的 `now` 計算；DB 時間戳記用 `timestamptz`。
@@ -69,7 +74,7 @@ supabase start        # 本機後端（需要 Docker）
 
 ## 7. 測試規定
 - `domain` 每個公開函式都有 Vitest 單元測試；時間由參數注入。
-- **測試程式可以 `throw`**（ADR-008 修訂 1）：`*.test.ts`、`*.test-d.ts` 與 `test/` 資料夾的輔助檔（例如 `expectOk(r)` 遇到 `err` 就丟出）可以 `throw`、用 `expect`／`assert`、import `vitest`。測試程式**仍然不能**用 `Date.now`、無參數 `new Date()`、`Math.random`（要亂數就用固定種子的產生器放在 `test/`）、`as unknown as`、`@ts-ignore`。
+- **測試程式可以 `throw`**（ADR-008 修訂 1、2）：`*.test.ts`、`*.test.tsx`、`*.test-d.ts` 與 `test/` 資料夾的輔助檔（可以是 `.tsx`）（例如 `expectOk(r)` 遇到 `err` 就丟出）可以 `throw`、用 `expect`／`assert`、import `vitest`。測試程式**仍然不能**用 `Date.now`、無參數 `new Date()`、`Math.random`（要亂數就用固定種子的產生器放在 `test/`）、`as unknown as`、`@ts-ignore`。
 - adapter 用錄好的回應樣本做契約測試；CI 不打真 API。
 - AC-25 測試（ADR-003）不得刪改：registry 對每種錯誤只呼叫被選中的 adapter；預設值全部 `tier: 'free'`；沒有付費同意時付費 adapter 呼叫次數為 0。
 - 不得用 `it.skip`／`test.only` 提交；需要 skip 時寫進報告並附理由。
