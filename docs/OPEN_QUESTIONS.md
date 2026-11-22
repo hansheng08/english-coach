@@ -16,3 +16,14 @@
 | Q-11 | 已決定 | 每日新聞的來源、內容形式和失敗處理？ | 從 2～3 個公開的科技新聞來源自動取得（來源由 Architect 提名、Hansheng 確認），AI 依原文改寫成 250～300 字並附原文連結，不轉貼全文；當天抓不到時改用最近一篇未讀文章，並在頁面註明。 | 原文長度不一，改寫才能固定 250～300 字並避免轉貼全文的版權問題；失敗時仍維持零準備。 | AC-01、AC-02 |
 | Q-12 | 已決定 | 到期舊卡不足 15 張（例如第一週）時怎麼辦？ | 用新卡補滿，維持每天 25 張。 | 中午 15 分鐘固定任務量不變；缺點是前期新卡多、種子庫消耗快。 | AC-07、Q-10 |
 | Q-13 | 已決定 | Reviewing 從何時開始？哪些晚上作答算「自然講出」？ | 中午答對 2 次即進 Reviewing，開始 3／7／14 天間隔，在 Reviewing 時忘記就退回 Learning；晚上首答和無稿重答都算偵測範圍。 | 若要等 14 天測試通過才算 Reviewing，前 3 週晚上沒有 Reviewing 卡可引導，Mastered 會延後約 24 天。 | AC-19、AC-20、M2 |
+
+## G2 待決定（提出者：Architect，ARCH-001，2026-11-22；依憲章 §1 新增，詳見 docs/ARCHITECTURE.md）
+| 編號 | 狀態 | 提出者 | 問題 | 建議答案 | 理由 | 影響 |
+|---|---|---|---|---|---|---|
+| Q-14 | 待決定 | Architect | AC-10（與 AC-03 的「反白任意詞句看中文」）要求 3 秒內完成 AI 生卡，Gemini 免費層能否可靠做到？ | AC-03 維持 3 秒（設計上建卡不等 AI）。AC-10 改為「3 秒內顯示核心 chunk 並可播放發音；8 秒內（p95）補齊例句與 ≥ 2 個同義替換」。如要精確數字，G2 後開 A-001 PoC 實測 50 次。 | 公開數據估算 p50 約 1.5 s，但免費層無容量保證，p95 約 3.8～9 s（未驗證，ADR-005）。 | AC-03、AC-10 |
+| Q-15 | 待決定 | Architect | Gemini 免費層會把送出的內容用於改善 Google 產品（Groq、Azure F0 未驗證），是否接受把去個資的履歷文字、逐字稿送免費層？ | 接受；錄音不送 Gemini，履歷先在瀏覽器移除電話、Email、地址。若不接受，唯一方案是付費層（違反 NT$0 預設）。 | 官方定價頁免費層標示「Used to improve our products: Yes」。 | NFR-04、Q-06、AC-11、AC-15 |
+| Q-16 | 待決定 | Architect | 新聞來源確認：主要 IEEE Spectrum、Semiconductor Engineering、NIST News；備用 The GitHub Blog、InfoQ；排除 MIT Technology Review。是否接受「條款只明確允許個人瀏覽，AI 改寫是否在允許範圍內不確定」的風險？ | 接受上述主要 3 個；個人、不公開、不存原文、附連結。若想讓軟體工程主題每天出現，改把 GitHub Blog 升為主要、NIST 降為備用。 | 都有官方 RSS 並實測可抓；NIST 授權最清楚；MIT TR 條款禁止內容用於改善 AI（ADR-006）。 | AC-01、AC-02、Q-11 |
+| Q-17 | 待決定 | Architect | AC-19「中午答對」是否包含評「猶豫」？ | 包含：秒答與猶豫都算答對（累計 2 次進 Reviewing）；在 Reviewing 時猶豫留在同一間隔階段，不前進。 | 符合 AC-09「猶豫的間隔不長於秒答」，又不讓猶豫卡卡住在 Learning。 | AC-09、AC-19 |
+| Q-18 | 待決定 | Architect | Reviewing 卡走完 3／7／14 天後還沒 Mastered，下一次間隔多久？ | 維持每 14 天出現一次，直到晚上自然講出轉 Mastered。 | PRD 只定義到 14 天；延長間隔會讓 Mastered 機會變少。 | AC-09、AC-19、M2 |
+| Q-19 | 待決定 | Architect | Supabase 免費專案連續 7 天無活動會被暫停（可手動恢復）；是否接受？ | 接受；Hansheng 每天使用即不會暫停。出差停用超過一週時，回來在 Supabase 後台按恢復。pg_cron 是否算活動不確定。 | 免費且不綁卡是不會意外計費的關鍵（ADR-002）。替代方案 Cloudflare 不會暫停，但要另做登入。 | NFR-02、NFR-03、AC-01 |
+| Q-20 | 待決定 | Architect | 需要 Hansheng 本人開立並把金鑰存進 Supabase secrets 的帳號：Supabase、Gemini（**沒有連結帳單**的 Google Cloud 專案）、Groq（免費方案）、Azure（Speech F0 資源；註冊可能要信用卡驗證，未驗證）。另外 Whisper 可能把 um/uh 等贅詞省略，影響 AC-15 的贅詞計數。是否同意先開帳號並在 PoC 實測贅詞保留？ | 同意；金鑰由 Hansheng 在自己電腦用 `supabase secrets set` 輸入，不經過對話。贅詞若保留不足，改用 Gemini Transcribe（手動切換）。 | 金鑰不得出現在對話或檔案（憲章 §11、NFR-05）；贅詞是 M3 的主要指標。 | AC-14、AC-15、AC-24、NFR-05、M3 |
