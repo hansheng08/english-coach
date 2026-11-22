@@ -24,33 +24,115 @@ beforeAll(async () => {
 
 const hits = (rule: string, from: string) => violations.filter((v) => v.rule === rule && v.from === from);
 
-// 每條規則：[規則名稱, ADR-008 條號, 違規範例, 合法範例]
-const CASES: [string, string, string, string][] = [
-  ['adr008-01-domain-imports-contracts-only', '#1', 'packages/domain/src/bad.ts', 'packages/domain/src/good.ts'],
-  ['adr008-02-contracts-imports-zod-only', '#2', 'packages/contracts/src/bad.ts', 'packages/contracts/src/index.ts'],
-  ['adr008-03-features-isolated', '#3', 'apps/web/src/features/a/bad-feature.ts', 'apps/web/src/features/a/good.ts'],
-  ['adr008-04-supabase-js-only-in-api', '#4', 'apps/web/src/features/a/bad-supabase.ts', 'apps/web/src/api/client.ts'],
-  ['adr008-05-endpoints-via-registry', '#5', 'supabase/functions/api/bad.ts', 'supabase/functions/api/good.ts'],
-  ['adr008-06-paid-config-only-registry', '#6', 'supabase/functions/_shared/providers/gemini/bad-paid.ts', 'supabase/functions/_shared/providers/registry.ts'],
-  ['adr008-10-no-circular', '#10', 'packages/domain/src/cycle-a.ts', 'packages/domain/src/good.ts'],
+interface Case {
+  rule: string;
+  adr: string;
+  bad: string[]; // 違規範例（要被這條規則回報）
+  good: string[]; // 合法範例（不得被任何規則回報）
+}
+
+// 每條規則：違規範例與合法範例（路徑相對 tooling/fixtures/arch/）
+const CASES: Case[] = [
+  {
+    rule: 'adr008-01-domain-imports-contracts-only',
+    adr: '#1',
+    bad: ['packages/domain/src/bad.ts'],
+    good: ['packages/domain/src/good.ts'],
+  },
+  {
+    rule: 'adr008-01t-domain-tests-imports',
+    adr: '#1t (rev 1)',
+    bad: ['packages/domain/src/bad-zod.test.ts'],
+    good: ['packages/domain/src/x.test.ts', 'packages/domain/test/result.ts'],
+  },
+  {
+    rule: 'adr008-02-contracts-imports-zod-only',
+    adr: '#2',
+    bad: ['packages/contracts/src/bad.ts'],
+    good: ['packages/contracts/src/index.ts'],
+  },
+  {
+    rule: 'adr008-02t-contracts-tests-imports',
+    adr: '#2t (rev 1)',
+    bad: ['packages/contracts/src/bad-domain.test.ts'],
+    good: ['packages/contracts/src/x.test.ts'],
+  },
+  {
+    rule: 'adr008-03-features-isolated',
+    adr: '#3',
+    bad: ['apps/web/src/features/a/bad-feature.ts'],
+    good: ['apps/web/src/features/a/good.ts'],
+  },
+  {
+    rule: 'adr008-04-supabase-only-in-api-and-db',
+    adr: '#4 (rev 1)',
+    bad: [
+      'apps/web/src/features/a/bad-supabase.ts',
+      'supabase/functions/api/bad-supabase.ts',
+      'supabase/functions/_shared/providers/gemini/bad-supabase.ts',
+      'supabase/functions/api/bad-npm.ts',
+    ],
+    good: ['apps/web/src/api/client.ts', 'supabase/functions/_shared/db/client.ts'],
+  },
+  {
+    rule: 'adr008-05-endpoints-via-registry',
+    adr: '#5',
+    bad: ['supabase/functions/api/bad.ts'],
+    good: ['supabase/functions/api/good.ts'],
+  },
+  {
+    rule: 'adr008-06-paid-config-only-registry',
+    adr: '#6',
+    bad: ['supabase/functions/_shared/providers/gemini/bad-paid.ts'],
+    good: ['supabase/functions/_shared/providers/registry.ts'],
+  },
+  {
+    rule: 'adr008-10-no-circular',
+    adr: '#10',
+    bad: ['packages/domain/src/cycle-a.ts'],
+    good: ['packages/domain/src/good.ts'],
+  },
+  {
+    rule: 'adr008-11-no-test-code-in-production',
+    adr: '#11 (rev 1)',
+    bad: ['packages/domain/src/bad-uses-test.ts'],
+    good: ['packages/domain/src/x.test.ts', 'packages/domain/test/result.ts'],
+  },
 ];
 
-describe('dependency-cruiser rules (ADR-008)', () => {
-  it('ADR-008: the config defines exactly the 7 named rules', () => {
-    expect(ruleNames).toEqual(CASES.map((c) => c[0]));
+describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
+  it('ADR-008: the config defines exactly the 10 named rules', () => {
+    expect(ruleNames).toEqual(CASES.map((c) => c.rule));
   });
 
-  for (const [rule, adr, bad, good] of CASES) {
-    it(`ADR-008 ${adr} ${rule}: violating fixture is reported`, () => {
-      expect(hits(rule, bad).length).toBeGreaterThan(0);
+  for (const c of CASES) {
+    c.bad.forEach((path, i) => {
+      const name =
+        i === 0
+          ? `ADR-008 ${c.adr} ${c.rule}: violating fixture is reported`
+          : `ADR-008 ${c.adr} ${c.rule}: violating fixture ${path} is reported`;
+      it(name, () => {
+        expect(hits(c.rule, path).length).toBeGreaterThan(0);
+      });
     });
-    it(`ADR-008 ${adr} ${rule}: legal fixture is not reported`, () => {
-      expect(hits(rule, good)).toEqual([]);
+    c.good.forEach((path, i) => {
+      const name =
+        i === 0
+          ? `ADR-008 ${c.adr} ${c.rule}: legal fixture is not reported`
+          : `ADR-008 ${c.adr} ${c.rule}: legal fixture ${path} is not reported`;
+      it(name, () => {
+        expect(hits(c.rule, path)).toEqual([]);
+      });
     });
   }
 
   it('ADR-008: legal fixtures trigger no rule at all', () => {
-    const legal = CASES.map((c) => c[3]);
+    const legal = CASES.flatMap((c) => c.good);
     expect(violations.filter((v) => legal.includes(v.from))).toEqual([]);
+  });
+
+  it('ADR-008 #4 (rev 1): "npm:" specifiers are recorded as the raw string', () => {
+    const v = violations.find((x) => x.from === 'supabase/functions/api/bad-npm.ts');
+    expect(v?.to).toBe('npm:@supabase/supabase-js@2');
   });
 });
