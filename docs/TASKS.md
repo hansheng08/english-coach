@@ -1,6 +1,6 @@
 # TASKS：english-coach 任務清單
-- 版本：**v1.1（O-001 完成）**｜日期：2026-11-22｜擁有者：TechLead｜路線：完整（憲章 v3 §2）
-- 輸入：`docs/PRD.md` v1.0（`0276440`；v1.1 草稿 `47d97d6` 回寫 G2 決定並新增 AC-26，待 Hansheng 確認）、`docs/ARCHITECTURE.md` **v1.0**＋ADR-001～008（全部已接受）＋`CLAUDE.md`（`8f96012`）、`docs/OPEN_QUESTIONS.md`（Q-14～Q-20 已於 2026-11-22 18:46 G2 決定）
+- 版本：**v1.2（T-001 完成；T-002 改範圍、拆出 T-051）**｜日期：2026-11-22｜擁有者：TechLead｜路線：完整（憲章 v3 §2）
+- 輸入：`docs/PRD.md` **v1.1 定稿**（`354e489`）、`docs/ARCHITECTURE.md` **v1.1**＋ADR-001～008（全部已接受；ADR-008 修訂 1）＋`CLAUDE.md`（`9924288`）、`docs/OPEN_QUESTIONS.md`（Q-14～Q-20 已於 2026-11-22 18:46 G2 決定）
 - G2 已通過，可以開始派單；派單前仍要先完成第 0 節的前置條件。第一張是 O-001（`docs/tasks/O-001.md`）。
 - 本清單只排順序、範圍和驗收方式；每張單的細節在派工時才寫成 `docs/tasks/<編號>.md`（憲章 §0、§13）。
 
@@ -15,7 +15,7 @@
 | 1 | G2 通過 | Hansheng | 已完成（2026-11-22 18:46） | — |
 | 2 | Cursor GitHub App 授權本 repo（私有 repo） | Hansheng | 已完成：2026-11-22 Bot 讀得到 Actions（`gh run list`、`gh run view`） | O-001 的 G3 審查（TechLead 要讀得到 CI） |
 | 3 | Hansheng 電腦已裝 pstack、Node.js ≥ 22（建議用當下的 LTS；pushguard 用）、Claude Code ≥ v2.1.295（`onFailure` 需要） | Hansheng | `/pstack:poteto-mode` 可執行；`node --version`、`claude --version` | O-001 |
-| 4 | O-001 的 PR 跑出 `ci-ok` 後，立即設 main 分支保護（必須走 PR、`ci-ok` 必過、禁止 force push、禁止刪 main） | Hansheng | Hansheng 已設定（幕僚長 2026-11-22 20:49 轉達）；**是否真的生效：不確定**，見 §5 第 14 點 | T-001 |
+| 4 | O-001 的 PR 跑出 `ci-ok` 後，立即設 main 分支保護（必須走 PR、`ci-ok` 必過、禁止 force push、禁止刪 main） | Hansheng | **已決定維持現狀**（Hansheng，21:21）：GitHub 端實際不檢查，只靠 pushguard＋權限規則；見 §5 第 14 點 | T-001 |
 | 5 | 開好 Supabase、Gemini（**沒有連結帳單**的專案）、Groq（免費）、Azure Speech F0 帳號，金鑰由 Hansheng 用 `supabase secrets set` 自己輸入（Q-20） | Hansheng | 真 API smoke 測試能跑 | A-001、A-002 與真 API smoke 測；CI 與一般任務單只用假供應商，不受影響 |
 
 ## 1. 共通規則（每張單都適用）
@@ -41,20 +41,21 @@
 | 編號 | 標題 | 依賴 | AC／NFR | 相關 Q | 驗收方式（共通驗收以外） | QA | 狀態 | 分支 | PR |
 |---|---|---|---|---|---|---|---|---|---|
 | O-001 | CI workflow（彙總 job `ci-ok`）＋`.claude/settings.json`＋pushguard hook（只放行推目前的 `task/*`、`fix/*`、`poc/*`；擋推 main、合併、開 PR）＋秘密掃描；決定 CI 範圍 | 前置 1、3 | NFR-05 | — | 見 `docs/tasks/O-001.md`（AC-O1-1～AC-O1-10） | 免 QA（CI／`.claude/` 設定） | 完成（2026-11-22 20:40 合併） | task/O-001 | [#1](https://github.com/hansheng08/english-coach/pull/1) |
-| T-001 | monorepo 骨架：`package.json`（`packageManager`、`typecheck`／`lint`／`arch`／`test`／`check` 指令）、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`tsconfig.base.json`＋根 `tsconfig.json`、`eslint.config.js`（ADR-008 規則 7～9）、`.dependency-cruiser.cjs`（ADR-008 規則 1～6、10）、`.gitignore`；`tooling/` 下的規則測試與測試用範例 | O-001、前置 4 | NFR-05（基礎） | — | `pnpm check` 全過；`tooling/` 的單元測試證明每條架構規則真的會擋（違規範例被擋、合法範例不擋）；CI 的 `check` job 第一次實際執行並成功；見 `docs/tasks/T-001.md`（AC-T1-1～AC-T1-11） | 免 QA（無產品程式） | 待辦（任務單已就緒：`docs/tasks/T-001.md`；派單前請先看 §5 第 14 點） | task/T-001 |  |
-| T-002 | `packages/contracts` 基礎：`Result`、`AppError`、`ProviderErrorKind`、`Tier`／`Capability`、四種供應商介面、ID 聯集 | T-001 | AC-24、AC-25（型別） | — | Vitest＋`expectTypeOf` 型別測試；contracts 只 import `zod`（`pnpm arch`） | library | 待辦 | task/T-002 | |
-| T-003 | Supabase 骨架：`supabase/config.toml`、`functions/api` 單一路由（health＋JWT 檢查）、`_shared/config`（唯一讀 `Deno.env`）、後端用的 `.env.example`（只有變數名稱，名稱見 §5 第 15 點）；**讓 CI 的 `db` job 開始執行**；**驗證 Deno 能否引用 `packages/contracts`**（ARCH §12） | T-002 | NFR-05、AC-23（基礎） | Q-19 | `supabase start`；`supabase functions serve` 後 `curl` health：無 JWT 回 401、有 JWT 回 200；報告寫明 Deno 引用方式結果（不行就停下回報，不自行改目錄） | library | 待辦 | task/T-003 |  |
+| T-001 | monorepo 骨架：`package.json`（`packageManager`、`typecheck`／`lint`／`arch`／`test`／`check` 指令）、`pnpm-lock.yaml`、`pnpm-workspace.yaml`、`tsconfig.base.json`＋根 `tsconfig.json`、`eslint.config.js`（ADR-008 規則 7～9）、`.dependency-cruiser.cjs`（ADR-008 規則 1～6、10）、`.gitignore`；`tooling/` 下的規則測試與測試用範例 | O-001、前置 4 | NFR-05（基礎） | — | `pnpm check` 全過；`tooling/` 的單元測試證明每條架構規則真的會擋（違規範例被擋、合法範例不擋）；CI 的 `check` job 第一次實際執行並成功；見 `docs/tasks/T-001.md`（AC-T1-1～AC-T1-11） | 免 QA（無產品程式） | 完成（2026-11-22 21:29 合併） | task/T-001 | [#2](https://github.com/hansheng08/english-coach/pull/2) |
+| T-002 | **（v1.2 改範圍）** ADR-008 修訂 1 的規則（ESLint、dependency-cruiser、規則測試與範例：`@supabase/*` 兩個出入口、禁 `http:`／`https:`／`npm:`／`jsr:` import、正式程式不得 `throw`／測試可以、正式程式不得 import 測試、domain／contracts 測試只能 import 自己＋`contracts`＋`vitest`）；ESLint 涵蓋 `.tsx`；`globalThis`／`window`／`self` 的 `fetch` 也擋；`engines.node` 改為 `^22.13.0 \|\| ^24.0.0 \|\| >=26.0.0`；`packages/contracts` 骨架（只含 ARCHITECTURE §5.2 已逐字定義的 `Tier`、`Capability`、`ProviderErrorKind`） | T-001 | NFR-05（ADR-008 修訂 1） | — | `pnpm check` 全過；每條新規則在 `tooling/` 測試各有違規與合法範例；突變測試；`packages/contracts` 的型別測試 import `vitest` 而 `pnpm arch` 不報錯；見 `docs/tasks/T-002.md`（AC-T2-1～AC-T2-12） | 免 QA（沒有執行期行為：工具規則＋純型別） | 待辦（任務單已就緒：`docs/tasks/T-002.md`） | task/T-002 |  |
+| T-051 | **（新增，從 T-002 拆出）** `packages/contracts` 其餘型別：`Result`／`ok`／`err`、`AppError`、ID 聯集（`ProviderId`、`LlmModelId`、`VoiceId`）、`ProviderInfo`／`ProviderError`、四種供應商介面與參數型別（`StreamChunk`、`AudioPayload`、`Transcript`、`Wav16kMono`、`WordTiming`） | T-002、ARCH-003（Architect 補上這些型別的定義，§5 第 17 點） | AC-24、AC-25（型別） | — | Vitest＋`expectTypeOf` 型別測試；contracts 只 import `zod`（`pnpm arch`） | library | 待辦（等 ARCH-003） | task/T-051 |  |
+| T-003 | Supabase 骨架：`supabase/config.toml`、`functions/api` 單一路由（health＋JWT 檢查）、`_shared/config`（唯一讀 `Deno.env`）、後端用的 `.env.example`（只有變數名稱，名稱見 §5 第 15 點）；**讓 CI 的 `db` job 開始執行**；**驗證 Deno 能否引用 `packages/contracts`**（ARCH §12） | T-051 | NFR-05、AC-23（基礎） | Q-19 | `supabase start`；`supabase functions serve` 後 `curl` health：無 JWT 回 401、有 JWT 回 200；報告寫明 Deno 引用方式結果（不行就停下回報，不自行改目錄） | library | 待辦 | task/T-003 |  |
 | T-004 | migration 1：`profile`（含 `settings.srs`／`settings.news` 的 jsonb 欄位）、`card`（`interval_step` 0～4）、`card_review`（含 `interval_days_applied`）、`seed_chunk`（含 `batch` 1～6）＋RLS | T-003 | AC-09、AC-19、AC-24（資料） | Q-18、Q-19 | `supabase db reset` 成功；`supabase test db`：A 使用者讀不到 B 的資料 | library | 待辦 | task/T-004 | |
 | T-005 | migration 2：`news_source`（`category`、`priority`、`fetch_mode`、`include_url_pattern`、`terms_checked_at`）、`news_article`（含 `category`，不存原文全文）、`daily_plan`（含 `planned_category`、`actual_category`、`category_skipped`）、`resume`、`question`＋RLS | T-004 | AC-01、AC-02、AC-11 | Q-16、Q-19 | 同 T-004；`news_article` 沒有原文全文欄位 | library | 待辦 | task/T-005 | |
 | T-006 | migration 3：`shadow_attempt`、`evening_answer`、`slot_checkin`、`provider_call`、`weekly_metric` view＋RLS；錄音欄位 `audio_expires_at` | T-005 | AC-06、AC-14、AC-21、AC-22 | Q-19 | 同 T-004；`weekly_metric` 以測試資料查出預期值 | library | 待辦 | task/T-006 | |
 | T-007 | `_shared/db` repository 基礎（回 `Result`）＋`provider_call` 寫入（不含內容） | T-006 | AC-24（紀錄）、NFR-04 | Q-19 | 本機 DB 整合測試；`pnpm arch` 確認 db 不 import 供應商 | library | 待辦 | task/T-007 | |
-| T-008 | `contracts` 的 `SrsSettingsSchema`（預設 3／7／14、14、1）＋`domain`：台北日期計算＋SRS 間隔（天數由參數傳入，不寫死） | T-002 | AC-09 | Q-17、Q-18 | 單元測試：schema 邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；跨台北午夜邊界；程式內沒有 3／7／14 常數（只在 schema 預設） | library | 待辦 | task/T-008 | |
+| T-008 | `contracts` 的 `SrsSettingsSchema`（預設 3／7／14、14、1）＋`domain`：台北日期計算＋SRS 間隔（天數由參數傳入，不寫死） | T-051 | AC-09 | Q-17、Q-18 | 單元測試：schema 邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；跨台北午夜邊界；程式內沒有 3／7／14 常數（只在 schema 預設） | library | 待辦 | task/T-008 |  |
 | T-009 | `domain`：字卡狀態機 Collected→Learning→Reviewing（第 1～3 階、之後 `after_last`）→Mastered；Reviewing 忘記退回 Learning | T-008 | AC-19、AC-20 | Q-17、Q-18 | 狀態轉換表逐列測試（含猶豫留同階）；`switch` 有 `never` 窮舉 | library | 待辦 | task/T-009 | |
 | T-010 | `domain/plan`：每日 25 張選卡（15 舊＋10 新、不足補齊、升級語塊優先）、今晚題目、跟讀 5 句選句 | T-009 | AC-05、AC-07、AC-13、AC-16 | — | 單元測試：第一週舊卡不足、新卡不足用種子庫、前晚無作答全用新聞句 | library | 待辦 | task/T-010 | |
-| T-011 | `domain/shadowing`：逐字比對正確率、語速比、解鎖判斷（≥ 80%／≥ 70%）、遮住約一半字詞 | T-002 | AC-05、AC-06 | — | 單元測試含門檻邊界（79.9%／80%、69.9%／70%）；發音分數不影響解鎖 | library | 待辦 | task/T-011 | |
-| T-012 | `domain/speech-metrics`：停頓（> 2 s）、贅詞、每分鐘字數（依逐字時間戳記） | T-002 | AC-15 | Q-20 | 單元測試用固定時間戳記樣本 | library | 待辦 | task/T-012 | |
-| T-013 | `domain/chunk-hit`：目標 chunk 是否講出與加分 | T-002 | AC-18、AC-20 | — | 單元測試含大小寫、詞形變化、部分命中案例 | library | 待辦 | task/T-013 | |
-| T-049 | **（新增）** `contracts` 的 `NewsSettingsSchema`（`rotation_order`、`anchor_date`、`lookback_hours`）＋`domain/news-rotation`：今天輪到的類別、跳類別順序 | T-002 | AC-01、AC-02 | Q-16 | ARCHITECTURE §11.2 指定的測試：連續 9 天類別序列；三種跳類別；三類全空改用舊文章；`anchor_date` 之前的日期（負數取餘）；schema 擋重複類別、`lookback_hours` 超出 1～168 | library | 待辦 | task/T-049 | |
+| T-011 | `domain/shadowing`：逐字比對正確率、語速比、解鎖判斷（≥ 80%／≥ 70%）、遮住約一半字詞 | T-051 | AC-05、AC-06 | — | 單元測試含門檻邊界（79.9%／80%、69.9%／70%）；發音分數不影響解鎖 | library | 待辦 | task/T-011 |  |
+| T-012 | `domain/speech-metrics`：停頓（> 2 s）、贅詞、每分鐘字數（依逐字時間戳記） | T-051 | AC-15 | Q-20 | 單元測試用固定時間戳記樣本 | library | 待辦 | task/T-012 |  |
+| T-013 | `domain/chunk-hit`：目標 chunk 是否講出與加分 | T-051 | AC-18、AC-20 | — | 單元測試含大小寫、詞形變化、部分命中案例 | library | 待辦 | task/T-013 |  |
+| T-049 | **（新增）** `contracts` 的 `NewsSettingsSchema`（`rotation_order`、`anchor_date`、`lookback_hours`）＋`domain/news-rotation`：今天輪到的類別、跳類別順序 | T-051 | AC-01、AC-02 | Q-16 | ARCHITECTURE §11.2 指定的測試：連續 9 天類別序列；三種跳類別；三類全空改用舊文章；`anchor_date` 之前的日期（負數取餘）；schema 擋重複類別、`lookback_hours` 超出 1～168 | library | 待辦 | task/T-049 |  |
 | T-014 | `providers/registry`＋`config/paid.ts`＋`DEFAULT_SETTINGS`（全部 free）＋ADR-003 指定的 AC-25 測試 | T-003 | AC-24、AC-25、NFR-03 | — | ADR-003「測試」節全部項目：假 adapter 計數、預設 tier、`paid_not_allowed`、`resolvePaid` 型別測試、只有 registry 可 import `paid.ts` | library | 待辦 | task/T-014 | |
 | T-015 | Gemini adapter（`generate`／`stream`，只用 `fetch` REST）＋契約測試 | T-014 | AC-24 | Q-15、Q-20 | 錄好的回應樣本做契約測試；zod 失敗只重試 1 次同模型 | library | 待辦 | task/T-015 | |
 | T-016 | Groq Whisper adapter（含逐字時間戳記） | T-014 | AC-14 | Q-20 | 契約測試；429 回 `quota_exhausted`／`rate_limited` 不換供應商 | library | 待辦 | task/T-016 | |
@@ -100,12 +101,12 @@
 - **O-001 時被略過的 CI job 何時開始執行**（由 O-001 的 `detect` 依檔案決定）：`check` → **T-001**（有 `package.json`＋`pnpm-lock.yaml`）；`db` → **T-003**（有 `supabase/config.toml`，只在 PR 跑；`supabase test db` 要等 T-004 建 `supabase/tests/`）；`bundle`、`e2e` → **T-018**（有 `apps/web/package.json`、根目錄 `build` 指令、Playwright 設定；`e2e` 只在 PR 跑）。在那之前，G3 要把仍被略過的 job 逐一列名。
 
 ## 4. 關鍵路徑與可平行的單
-- **關鍵路徑**（15 張，以依賴欄用程式計算）：O-001 → T-001 → T-002 → T-003 → T-004 → T-005 → T-006 → T-007 → T-022 → T-023 → T-025 → T-033 → T-039 → T-040 → T-042。
-- 次長（14 張）：同一路徑在 T-025 後改走 T-026 → T-027 → T-031（或 T-034）；以及關鍵路徑去掉最後的 T-042。T-014 → T-015 這條只有 7 張就接到 T-023，不在關鍵路徑上。
-- 可平行（檔案完全不重疊才同時派）：`domain` 純邏輯單 T-008～T-013、T-049 只依賴 T-002，可在 T-003～T-007 期間進行；T-018、T-019、T-029、T-035 只依賴骨架；T-050 在 T-024 合併後可隨時進行（每批之間不擋其他單）。
+- **關鍵路徑**（16 張，v1.2 以依賴欄用程式重算）：O-001 → T-001 → T-002 → **T-051** → T-003 → T-004 → T-005 → T-006 → T-007 → T-022 → T-023 → T-025 → T-033 → T-039 → T-040 → T-042。v1.2 把 T-002 拆成 T-002＋T-051，所以多一張；T-051 要等 Architect 補型別定義（ARCH-003，§5 第 17 點），**這是目前關鍵路徑上唯一的外部等待**，T-002 執行期間可以同時進行。
+- 一樣長（16 張）：同一路徑在 T-025 後改走 T-026 → T-027 → T-034 → A-001（A-001 是 PoC、`poc/` 分支不合併，且「G2 決定後才開」）。次長（15 張）：T-025 後改走 T-026 → T-027 → T-031（或 T-034），或關鍵路徑去掉最後的 T-042。T-014 → T-015 這條很短，就接到 T-023，不在關鍵路徑上。
+- 可平行（檔案完全不重疊才同時派）：`domain` 純邏輯單 T-008～T-013、T-049 只依賴 T-051，可在 T-003～T-007 期間進行；T-018、T-019、T-029、T-035 只依賴骨架；T-050 在 T-024 合併後可隨時進行（每批之間不擋其他單）。
 - 預設仍一次派一張；是否平行由幕僚長依用量預算決定。
 
-## 5. 待釐清、衝突與不確定（v1.0 狀態）
+## 5. 待釐清、衝突與不確定（v1.2 狀態）
 1. ~~G2 尚未通過~~ → **已解決**：G2 於 2026-11-22 18:46 通過，ADR-001～008 已接受。
 2. ~~pushguard 與 PoC 分支衝突~~ → **已決定**：pushguard 白名單包含 `task/*`、`fix/*`、`poc/*`（G2 核准 TechLead 建議 a；ARCHITECTURE §15、CLAUDE.md §9）。已寫進 O-001。
 3. pushguard 的實作語言 → **交給 O-001 並在單內決定**：Node.js 標準庫的 `.mjs`（不用 Go、不加依賴），測試用 `node --test`。
@@ -113,15 +114,20 @@
 5. Deno 引用 `packages/*`：ARCHITECTURE v1.0 §12 仍標「不確定」，T-003 先驗證；不行時要 Architect 決定改目錄，T-003 之後的後端單會延後。
 6. ~~QA 規則對 PWA 的對應~~ → **已決定**：「第一次能在畫面上走完該 AC」的單視同 CLI PR（G2 核准 TechLead 建議 b；ARCHITECTURE §15、CLAUDE.md §7）。
 7. ~~種子庫內容來源~~ → **已決定**：獨立任務單 6 批 × 100、第 1 批後 Hansheng 抽查 20 條、匯入程式與內容產生分開（ARCHITECTURE §4 `seed_chunk`）。對應 T-050＋T-024。
-8. Q-08 沒有對應 AC → **PM 已處理（待確認）**：PRD v1.1 草稿（`47d97d6`）新增 AC-26，T-047 改對應 AC-26；v1.1 經 Hansheng 確認前，以草稿文字為驗收依據。
+8. Q-08 沒有對應 AC → **已解決（PRD v1.1 於 2026-11-22 19:45 由 Hansheng 定稿，`354e489`）**：PRD v1.1 草稿（`47d97d6`）新增 AC-26，T-047 改對應 AC-26；v1.1 經 Hansheng 確認前，以草稿文字為驗收依據。
 9. 前端託管：G4 由 SRE 決定；本清單不含部署單，G4 時再開 O-xxx。
 10. AC-04 VAD 計次準確度未驗證，T-028 以「可手動 +1」作為備援；這樣是否算達成 AC-04：不確定。
-11. **（新）PRD 文字與 G2 決定不一致** → **PM 已處理（待確認）**：PRD v1.1 草稿已改寫 AC-01、AC-02（三類輪替）、AC-09、AC-19（間隔可調）、AC-10（3 s／8 s）。v1.1 經 Hansheng 確認前，T-020、T-025、T-026、T-032、T-034 依 G2 決定（與 v1.1 草稿一致）驗收。
+11. **（新）PRD 文字與 G2 決定不一致** → **已解決（PRD v1.1 於 2026-11-22 19:45 由 Hansheng 定稿，`354e489`）**：PRD v1.1 草稿已改寫 AC-01、AC-02（三類輪替）、AC-09、AC-19（間隔可調）、AC-10（3 s／8 s）。v1.1 經 Hansheng 確認前，T-020、T-025、T-026、T-032、T-034 依 G2 決定（與 v1.1 草稿一致）驗收。
 12. **（新）O-001 任務單撰寫者**：憲章 §5 寫「第一張 O-001 由 SRE 撰寫」，名冊也把 `docs/tasks/O-xxx.md` 列給 SRE；這次依幕僚長交接由 TechLead 撰寫，請幕僚長確認是否需要 SRE 複核。
 13. **（新）A-002 範圍**：Q-20 只決定「贅詞保留程度在 PoC 實測」；ADR-004 另建議量 Azure 短音訊延遲（AC-06 ≤ 5 s），是否一起量：不確定，由 Architect 寫單時決定。
-14. **（新）main 分支保護是否生效：不確定**。2026-11-22 20:5x 用 Hansheng 的 token 查 GitHub API：`GET /branches/main` 回 `protected: false`，但同一回應的 `protection` 顯示 `enabled: true`、必過檢查 `ci-ok`、`enforcement_level: non_admins`（管理員不受限）；`GET /branches/main/protection` 與 rulesets 都回 403「Upgrade to GitHub Pro or make this repository public to enable this feature」。repo 是私有、帳號是個人 Free 方案。可能的意思是：私有 repo 在 Free 方案下分支保護不會被強制；就算生效，`non_admins` 也不擋 Hansheng 本人（Claude Code 用的就是 Hansheng 的帳號）。目前實際擋住 Claude Code 推 main 的只有 pushguard 與 deny 規則。要改成公開 repo、升級 GitHub Pro，還是接受現狀，需要 Hansheng 決定；決定前派 T-001 等於沒有最後一道防線（範本 §1 第 7 項）。
+14. **main 分支保護 → 已決定（Hansheng，幕僚長 2026-11-22 21:21 轉達）：維持現狀**，只靠 pushguard 與 `.claude/settings.json` 權限規則。佐證：2026-11-22 20:53 TechLead 的 docs 直推 main 成功且沒有「bypassed」訊息，表示 GitHub 端沒有在檢查。原紀錄：2026-11-22 20:5x 用 Hansheng 的 token 查 GitHub API：`GET /branches/main` 回 `protected: false`，但同一回應的 `protection` 顯示 `enabled: true`、必過檢查 `ci-ok`、`enforcement_level: non_admins`（管理員不受限）；`GET /branches/main/protection` 與 rulesets 都回 403「Upgrade to GitHub Pro or make this repository public to enable this feature」。repo 是私有、帳號是個人 Free 方案。可能的意思是：私有 repo 在 Free 方案下分支保護不會被強制；就算生效，`non_admins` 也不擋 Hansheng 本人（Claude Code 用的就是 Hansheng 的帳號）。目前實際擋住 Claude Code 推 main 的只有 pushguard 與 deny 規則。要改成公開 repo、升級 GitHub Pro，還是接受現狀，需要 Hansheng 決定；決定前派 T-001 等於沒有最後一道防線（範本 §1 第 7 項）。
 15. **（新）環境變數名稱沒有定義**：ARCHITECTURE v1.0 只寫了 `VITE_SUPABASE_ANON_KEY`、`GEMINI_PAID_API_KEY`；其他（Supabase 網址、Gemini／Groq／Azure 金鑰與區域）沒有名稱。`.env.example` 因此從 T-001 移到 T-003（後端）與 T-018（前端）；名稱由誰定（Architect 補，或 TechLead 在那兩張單提案送 Architect Review）：不確定。
-16. **（新）遠端分支 `task/O-001` 還在**：2026-11-22 20:5x `git ls-remote` 仍看得到 `refs/heads/task/O-001`（`fe39d0a`，已併入 main）。與「已刪除」的轉達不符；TechLead 沒有動它，請幕僚長確認後處理（憲章 §9）。
+16. **（新）遠端分支 `task/O-001` 還在**：2026-11-22 20:5x `git ls-remote` 仍看得到 `refs/heads/task/O-001`（`fe39d0a`，已併入 main）。與「已刪除」的轉達不符；TechLead 沒有動它，請幕僚長確認後處理（憲章 §9）。 → **Hansheng 自己刪**（幕僚長 21:21 轉達），TechLead 不動。
+17. **（新，擋 T-051）contracts 型別沒有定義**：ARCHITECTURE v1.1 §5.2 的介面用到下列型別，但全文與 ADR 都沒有定義：`Result`（形狀與 `ok`／`err`）、`AppError`（有哪些 `kind`；§6 第 2 點只有 HTTP 回應格式）、`ProviderId`、`LlmModelId`、`VoiceId`、`StreamChunk`、`AudioPayload`、`Transcript`、`Wav16kMono`、`WordTiming`；`stream()` 的參數寫成註解「同上」。這些是架構決定，TechLead 和 Claude Code 都不該自己發明，所以從 T-002 拆出 T-051，等 Architect 補定義（建議派工 ARCH-003）。T-002 只放 §5.2 已逐字寫出的 `Tier`、`Capability`、`ProviderErrorKind`。
+18. **（新）`packages/contracts` 的引用方式沒有定義**：workspace 套件名稱（例如 `@english-coach/contracts`）或相對路徑／路徑別名，ARCHITECTURE 沒寫；和 §5 第 5 點（Deno 怎麼引用 `packages/*`）是同一個問題。T-002 不建 `packages/contracts/package.json`，只建 `src/` 與 `tsconfig.json`；由 Architect 在 ARCH-003 一起決定，T-003 驗證 Deno 端。
+19. **（新）T-001 審查提出的兩點 → 已決定**（Architect，ADR-008 修訂 1，`9924288`）：(a) 第 4 條擴及後端，`@supabase/*` 只能在 `apps/web/src/api/**`、`supabase/functions/_shared/db/**`；(b) 正式程式不得 `throw`，測試程式可以。規則與範例由 **T-002** 實作（Architect 指示「T-002 之前或 T-002 內」）。選擇放進 T-002、不另開單的理由：T-002 的第一個 contracts 測試一 import `vitest` 就會違反舊第 2 條，兩件事必須同一張單一起過 CI；而且都是工具規則，同一位審查者一次看完。第 4 條的 Deno 部分（`deno.json` `imports`）在 T-003 驗證。
+20. **（新）測試檔的定義只含 `.ts`**：ADR-008 修訂 1 的測試檔 regex 是 `(^|/)test/|\.test(-d)?\.ts$`；T-018 起前端的 `*.test.tsx` 會被當成「正式程式」，第 11 條（正式程式不得 import 測試）可能誤判。T-002 照 ADR 原文實作；是否改成 `\.test(-d)?\.tsx?$` 請 Architect 在 T-018 前決定。
+21. **（新）T-001 審查的後續已排入 T-002**：ESLint 只比對 `**/*.ts`（`.tsx` 不會被 lint）、`globalThis.fetch` 沒被擋、`engines.node` 應為 `^22.13.0 || ^24.0.0 || >=26.0.0`（Vitest 5、ESLint 10、dependency-cruiser 18 的實際需求）。
 
 ## 6. 變更紀錄
 | 版本 | 日期 | 變更 |
@@ -129,3 +135,4 @@
 | v0.1 | 2026-11-22 | 初稿（依幕僚長交接、憲章 v3）：O-001、T-001～T-048、A-001～A-002；送 G2 |
 | v1.0 | 2026-11-22 | G2 通過後更新：Q-14～Q-20 改為已決定；新聞改三類輪替（T-005、T-022、T-023、T-025、T-026，新增 T-049）；複習間隔與輪替可在設定調整（T-004、T-008、T-009、T-020、T-032）；種子庫拆成匯入程式 T-024＋內容產生 T-050（6 批）；A-002 改為待辦；§5 第 1、2、6、7 點已決定，第 3、4 點交 O-001，第 8 點依 PRD v1.1 草稿改對應 AC-26；新增 §5 第 11～13 點；O-001 任務單已寫好 |
 | v1.1 | 2026-11-22 | O-001 完成（PR #1）；T-001 任務單就緒並補上範圍（`tooling/` 規則測試；`.env.example` 移到 T-003／T-018）；T-003、T-018 寫明讓哪些 CI job 開始執行；§4 加上被略過 job 的開始時點；前置 2 完成、前置 4 標為不確定；新增 §5 第 14～16 點 |
+| v1.2 | 2026-11-22 | T-001 完成（PR #2）；依 ADR-008 修訂 1（`9924288`）把 T-002 改為「修訂 1 的規則＋`.tsx`＋`globalThis.fetch`＋`engines.node`＋contracts 骨架」，任務單就緒；contracts 其餘型別拆成 T-051（等 ARCH-003），T-003、T-008、T-011～T-013、T-049 改依賴 T-051；關鍵路徑重算為 16 張；前置 4 依 Hansheng 決定維持現狀；輸入改為 PRD v1.1 定稿、ARCHITECTURE v1.1；新增 §5 第 17～21 點 |
