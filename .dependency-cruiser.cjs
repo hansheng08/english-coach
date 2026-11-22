@@ -1,19 +1,42 @@
-/** ADR-008 的架構規則（第 1～6、10 條）。路徑相對 repo 根目錄；測試用同一份規則掃 tooling/fixtures/arch。 */
+/** ADR-008（含修訂 1）的架構規則。路徑相對 repo 根目錄；測試用同一份規則掃 tooling/fixtures/arch。 */
+
+// 測試程式（ADR-008 修訂 1；ESLint 共用同一個定義）
+const TEST = '(^|/)test/|\\.test(-d)?\\.ts$';
+// 各套件內的測試程式（regex 沒有「且」，所以逐一寫出；避免巢狀量詞，否則 dependency-cruiser 判定為不安全 regex）
+const testOf = (dir) => `^${dir}/test/|^${dir}/.*/test/|^${dir}/.*\\.test(-d)?\\.ts$`;
+// vitest（含 @vitest/*）：解析後在 node_modules 裡，或無法解析時只剩裸名稱
+const VITEST = '^(@?vitest)($|/)|^@vitest/|node_modules/(vitest|@vitest)/';
+const ZOD = '^zod($|/)|node_modules/zod/';
+
 module.exports = {
   forbidden: [
     {
       name: 'adr008-01-domain-imports-contracts-only',
-      comment: 'ADR-008 #1: packages/domain may only import packages/contracts (and itself)',
+      comment: 'ADR-008 #1: packages/domain (production code) may only import packages/contracts (and itself)',
       severity: 'error',
-      from: { path: '^packages/domain/' },
+      from: { path: '^packages/domain/', pathNot: TEST },
       to: { pathNot: '^packages/(domain|contracts)/' },
     },
     {
-      name: 'adr008-02-contracts-imports-zod-only',
-      comment: 'ADR-008 #2: packages/contracts may only import zod (and itself)',
+      name: 'adr008-01t-domain-tests-imports',
+      comment: 'ADR-008 #1t (rev 1): domain tests may only import domain, contracts and vitest',
       severity: 'error',
-      from: { path: '^packages/contracts/' },
-      to: { pathNot: ['^packages/contracts/', '^zod($|/)', 'node_modules/zod/'] },
+      from: { path: testOf('packages/domain') },
+      to: { pathNot: ['^packages/(domain|contracts)/', VITEST] },
+    },
+    {
+      name: 'adr008-02-contracts-imports-zod-only',
+      comment: 'ADR-008 #2: packages/contracts (production code) may only import zod (and itself)',
+      severity: 'error',
+      from: { path: '^packages/contracts/', pathNot: TEST },
+      to: { pathNot: ['^packages/contracts/', ZOD] },
+    },
+    {
+      name: 'adr008-02t-contracts-tests-imports',
+      comment: 'ADR-008 #2t (rev 1): contracts tests may only import contracts and vitest',
+      severity: 'error',
+      from: { path: testOf('packages/contracts') },
+      to: { pathNot: ['^packages/contracts/', VITEST] },
     },
     {
       name: 'adr008-03-features-isolated',
@@ -23,11 +46,11 @@ module.exports = {
       to: { path: '^apps/web/src/features/([^/]+)/', pathNot: '^apps/web/src/features/$1/' },
     },
     {
-      name: 'adr008-04-supabase-js-only-in-api',
-      comment: 'ADR-008 #4: only apps/web/src/api may import @supabase/supabase-js',
+      name: 'adr008-04-supabase-only-in-api-and-db',
+      comment: 'ADR-008 #4 (rev 1): @supabase/* only in apps/web/src/api and supabase/functions/_shared/db',
       severity: 'error',
-      from: { pathNot: '^apps/web/src/api/' },
-      to: { path: ['^@supabase/supabase-js($|/)', 'node_modules/@supabase/supabase-js/'] },
+      from: { pathNot: '^(apps/web/src/api|supabase/functions/_shared/db)/' },
+      to: { path: ['^(npm:|jsr:)?@supabase/', 'node_modules/@supabase/'] },
     },
     {
       name: 'adr008-05-endpoints-via-registry',
@@ -49,6 +72,13 @@ module.exports = {
       severity: 'error',
       from: {},
       to: { circular: true },
+    },
+    {
+      name: 'adr008-11-no-test-code-in-production',
+      comment: 'ADR-008 #11 (rev 1): production code must not import test code',
+      severity: 'error',
+      from: { pathNot: TEST },
+      to: { path: TEST, pathNot: 'node_modules/' },
     },
   ],
   options: {

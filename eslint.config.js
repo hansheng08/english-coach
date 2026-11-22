@@ -1,6 +1,11 @@
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
+// ADR-008（含修訂 1）。no-restricted-syntax 在重疊路徑會互相覆蓋（後面的設定取代前面的整個選項），
+// 所以下面把檔案分成「互不重疊」的區塊，每個檔案只會落在其中一個區塊。
+const TS = '{ts,tsx}';
+const under = (dir) => `${dir}/**/*.${TS}`;
+
 const asUnknownAs = {
   selector: "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword']",
   message: 'CLAUDE.md §6: "as unknown as" is not allowed; parse the value with a zod schema instead',
@@ -9,7 +14,7 @@ const denoEnv = {
   selector: "MemberExpression[object.name='Deno'][property.name='env']",
   message: 'ADR-008 #7: Deno.env may only be read in supabase/functions/_shared/config/**',
 };
-const domainSelectors = [
+const clockSelectors = [
   {
     selector: "MemberExpression[object.name='Date'][property.name='now']",
     message: 'ADR-008 #9: domain must not read the clock; pass now as a parameter',
@@ -24,12 +29,24 @@ const domainSelectors = [
   },
   {
     selector: "MemberExpression[object.name='Math'][property.name='random']",
-    message: 'ADR-008 #9: domain must be deterministic; do not use Math.random',
+    message: 'ADR-008 #9: domain must be deterministic; do not use Math.random (tests: use a seeded generator in test/)',
   },
-  {
-    selector: 'ThrowStatement',
-    message: 'ADR-008 #9: domain must not throw; return Result<T, AppError>',
-  },
+];
+const throwSelector = {
+  selector: 'ThrowStatement',
+  message: 'ADR-008 #9: production code must not throw; return err(AppError) (only test code may throw)',
+};
+
+// 測試程式（與 .dependency-cruiser.cjs 的 TEST 同一個定義：(^|/)test/|\.test(-d)?\.ts$）
+const TEST_GLOBS = ['**/*.test.ts', '**/*.test-d.ts', '**/test/**'];
+const testGlobsUnder = (dir) => [`${dir}/**/*.test.ts`, `${dir}/**/*.test-d.ts`, `${dir}/**/test/**/*.${TS}`];
+
+const DOMAIN = 'packages/domain';
+const CONFIG = 'supabase/functions/_shared/config';
+const SHARED_THROW_DIRS = [
+  'supabase/functions/_shared/providers',
+  'supabase/functions/_shared/db',
+  'supabase/functions/_shared/news',
 ];
 
 const FETCH_ALLOWED = [
@@ -37,8 +54,7 @@ const FETCH_ALLOWED = [
   'supabase/functions/_shared/news/**',
   'apps/web/src/api/**',
 ];
-const CONFIG_DIR = 'supabase/functions/_shared/config/**';
-const DOMAIN = 'packages/domain/**';
+const FETCH_MSG = 'ADR-008 #8: fetch is only allowed in _shared/providers/**, _shared/news/** and apps/web/src/api/**';
 
 export default defineConfig(
   {
@@ -56,7 +72,7 @@ export default defineConfig(
     ],
   },
   {
-    files: ['**/*.ts'],
+    files: [`**/*.${TS}`],
     extends: [tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: {
@@ -77,29 +93,68 @@ export default defineConfig(
     rules: { '@typescript-eslint/ban-ts-comment': 'off' },
   },
   {
-    // ADR-008 #7（Deno.env）＋ CLAUDE.md §6（as unknown as）；domain 與 config 資料夾另外處理，避免規則選項互相覆蓋
-    files: ['**/*.ts'],
-    ignores: [CONFIG_DIR, DOMAIN],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
+    // ADR-008 #4（修訂 1）：不得用網址或 npm:／jsr: 前綴 import（Deno 端用 deno.json 的 imports 對應成裸名稱）
+    files: [`**/*.${TS}`],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: '^(https?|npm|jsr):',
+              message:
+                'ADR-008 #4: do not import with http(s):, npm: or jsr: specifiers; map the package to a bare name in deno.json "imports"',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
-    files: [CONFIG_DIR],
+    // ADR-008 #8：fetch（含 globalThis／window／self 的寫法）只能在 providers／news／web api
+    files: [`**/*.${TS}`],
+    ignores: FETCH_ALLOWED,
+    rules: {
+      'no-restricted-globals': ['error', { name: 'fetch', message: FETCH_MSG }],
+      'no-restricted-properties': [
+        'error',
+        ...['globalThis', 'window', 'self'].map((object) => ({ object, property: 'fetch', message: FETCH_MSG })),
+      ],
+    },
+  },
+
+  // ── no-restricted-syntax：互不重疊的區塊 ──────────────────────────────
+  {
+    // A. domain 正式程式：#7、#9（時鐘、亂數、throw）
+    files: [under(DOMAIN)],
+    ignores: TEST_GLOBS,
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors, throwSelector] },
+  },
+  {
+    // B. domain 測試程式：時鐘與亂數仍禁止，throw 放行
+    files: testGlobsUnder(DOMAIN),
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors] },
+  },
+  {
+    // C. _shared/{providers,db,news} 正式程式：#9b（throw）
+    files: SHARED_THROW_DIRS.map(under),
+    ignores: TEST_GLOBS,
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, throwSelector] },
+  },
+  {
+    // D. _shared/config：唯一可以讀 Deno.env 的地方
+    files: [under(CONFIG)],
     rules: { 'no-restricted-syntax': ['error', asUnknownAs] },
   },
   {
-    // ADR-008 #9（以及 #7）
-    files: [DOMAIN],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...domainSelectors] },
+    // E. 其餘所有檔案（含 _shared/{providers,db,news} 的測試程式）
+    files: [`**/*.${TS}`],
+    ignores: [under(DOMAIN), under(CONFIG), ...SHARED_THROW_DIRS.map(under)],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
   },
   {
-    // ADR-008 #8：fetch 只能在 providers／news／web api
-    files: ['**/*.ts'],
-    ignores: FETCH_ALLOWED,
-    rules: {
-      'no-restricted-globals': [
-        'error',
-        { name: 'fetch', message: 'ADR-008 #8: fetch is only allowed in _shared/providers/**, _shared/news/** and apps/web/src/api/**' },
-      ],
-    },
+    // E'. _shared/{providers,db,news} 的測試程式：可以 throw，其他同 E
+    files: SHARED_THROW_DIRS.flatMap(testGlobsUnder),
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
   },
 );
