@@ -49,7 +49,7 @@
 ## 決定 2：共用型別的設計規則（定義在 ARCHITECTURE §5.0）
 1. 型別全部放 `@english-coach/contracts`；檔案依 import 順序分層（`brand`／`result`／`validation` → `ids` → `audio`／`speech` → `providers` → `errors` → `api`），避免 `adr008-10` 循環。
 2. `Result<T, E>` 用 `ok: true | false` 區分；`E` 一律寫明（不設預設值）；helper：`ok`、`err`、`isOk`、`isErr`、`map`、`mapErr`、`andThen`、`unwrapOr`、`all`、`tryCatch`、`tryCatchAsync`；**不提供** `unwrap`／`expect`。測試用 `expectOk`／`expectErr` 在 `/testing`。
-3. `AppError` 是以 `kind` 區分的聯集，`kind` 一共 18 種（9 種供應商錯誤＋9 種應用錯誤），每一種都對應 HTTP 狀態、能否重試、畫面文字與降級方式（ARCHITECTURE §5.0.4 錯誤碼對照表）；沒有任何一種會觸發自動換供應商或付費（AC-25）。`httpStatusOf`、`isRetryable` 是 contracts 的純函式；畫面文字由前端 `apps/web/src/ui/error-messages.ts` 以 `switch`＋`never` 產生。
+3. `AppError` 是以 `kind` 區分的聯集，`kind` 一共 18 種（9 種供應商錯誤＋9 種應用錯誤），每一種都對應 HTTP 狀態、能否重試、畫面文字與降級方式（ARCHITECTURE §5.0.4 錯誤碼對照表；`httpStatusOf` 必須對每一種 kind 都回值，包括正常不會回前端的 `news_unavailable`＝503、可重試，ARCHITECTURE v1.2.1）；沒有任何一種會觸發自動換供應商或付費（AC-25）。`httpStatusOf`、`isRetryable` 是 contracts 的純函式；畫面文字由前端 `apps/web/src/ui/error-messages.ts` 以 `switch`＋`never` 產生。
 4. 品牌型別只用在混用會出錯的值：各種 ID、`PlanDate`、`StoragePath`、`Ntd`、`Wav16kMono`、`PaidConsent`。供應商、模型、語音用字面值聯集＋`z.enum`（新增時 `switch` 編譯失敗就夠了）。
 5. 跨網路的型別都由 zod schema 推出（`z.infer`），不手寫第二份。
 

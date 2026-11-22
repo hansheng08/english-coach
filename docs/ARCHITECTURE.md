@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.2**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.2.1**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -256,7 +256,7 @@ export type AppError =
   | { kind: 'conflict'; entity: Entity; message: string }
   | { kind: 'storage_failed'; op: 'upload' | 'download' | 'delete' | 'sign'; message: string }
   | { kind: 'db_failed'; message: string }
-  | { kind: 'news_unavailable'; category: NewsCategory; message: string }   // 只在 daily-prep 內部流通，不會直接回給前端
+  | { kind: 'news_unavailable'; category: NewsCategory; message: string }   // 正常只在 daily-prep 內部流通；httpStatusOf 仍回 503（見對照表）
   | { kind: 'plan_not_ready'; message: string }
   | { kind: 'internal'; message: string };                                // handler 最外層兜底
 
@@ -307,9 +307,10 @@ export type ApiErrorBody = z.infer<typeof ApiErrorBodySchema>;
 | `conflict` | 409 | 否 | 「這筆{項目}已經被更新，已重新載入。」 | 重新讀取 |
 | `storage_failed` | 502 | 是 | 「錄音或檔案上傳失敗，已保留在手機上。」 | 錄音留在 IndexedDB；「稍後重送」 |
 | `db_failed` | 500 | 是 | 「伺服器暫時存不了資料。」 | 「重試」 |
-| `news_unavailable` | （不回前端） | — | — | `daily-prep` 換下一類或改用舊文章（§11.2） |
+| `news_unavailable` | 503 | 是 | 「今天的 {類別} 新聞暫時抓不到。」（正常不會出現在畫面：`daily-prep` 會先換類別或改用舊文章；只有程式錯誤讓它漏到 handler 時才顯示） | `daily-prep` 內部：換下一類 → 三類都沒有就改用舊文章（§11.2）；漏到前端時同 `plan_not_ready`：「重試」，字卡複習照常 |
 | `plan_not_ready` | 503 | 是 | 「今天的素材沒備好。」 | 「重試」；字卡複習照常（§6 第 5 點） |
 | `internal` | 500 | 是 | 「發生未預期的錯誤。」 | 「重試」 |
+- `httpStatusOf`、`isRetryable` 對全部 18 種 kind 都有值（沒有「不適用」），型別測試逐一檢查。`news_unavailable` 取 503／可重試的理由：它表示「新聞來源暫時沒有可用文章」，是暫時性、隔天或稍後重抓就可能恢復的狀況，和 `plan_not_ready`（503／可重試）同類；不用 502，因為「類別在 48 小時內沒有新文章」不是上游故障。
 - 這張表沒有任何一列會讓系統自己換供應商或改用付費（AC-25）；「可重試」只表示畫面可以出現重送按鈕，重送也只打同一個供應商。
 
 #### 5.0.5 音訊與語音結果
@@ -538,9 +539,9 @@ RSS 都在 2026-11-22 18:5x（台北時間）實測回 200；robots.txt 以 Pyth
 - **今天輪到的類別**：`planned = rotation_order[(plan_date − anchor_date 的天數) mod 3]`。只看日期，不看前一天用了哪類，所以結果可重現、可測試，某天跳類別也不影響之後的輪替。
 - **備援順序**（05:00 `daily-prep`）：
   1. 在 `planned` 類別內，依 `priority` 1→2→3 試每個啟用的來源，找第一篇「`lookback_hours` 內發布、還沒用過（URL 與原文雜湊都沒出現過）、正文 ≥ 250 字、LLM 判定屬於該類別」的文章。來源抓取失敗（HTTP 錯誤、逾時、robots 不允許）視為該來源沒有新聞，換下一個來源。
-  2. 整個類別都沒有 → 依 `rotation_order` 換**下一個**類別（`ai → software → semiconductor → ai`），把跳過的類別記入 `category_skipped`。
+  2. 整個類別都沒有（`_shared/news` 對該類別回 `err({ kind: 'news_unavailable', category })`）→ 依 `rotation_order` 換**下一個**類別（`ai → software → semiconductor → ai`），把跳過的類別記入 `category_skipped`。
   3. 三類都沒有 → 改用最近一篇未讀的已改寫文章（優先 `planned` 類別），`is_fallback_article=true`，頁面註明「今天沒有新文章，這是 <日期> 的文章」（AC-01）。
-  4. 連舊文章都沒有（例如第一天）→ `daily_plan.status=failed`，首頁顯示原因與重試，其他練習照常。
+  4. 連舊文章都沒有（例如第一天）→ `daily_plan.status=failed`，首頁顯示原因與重試，其他練習照常。此時 `POST /plan/today` 回 `plan_not_ready`（503／可重試），**不是** `news_unavailable`：`news_unavailable` 只在 `daily-prep` 內部用來決定換類別，不直接回給前端（萬一漏到 handler，`httpStatusOf` 仍回 503、可重試，見 §5.0.4）。
 - 頁面顯示「今天的類別：AI／軟體工程／半導體產業」；換過類別時多一行「今天的 <原類別> 沒有新文章，改用 <實際類別>」。
 - 測試（`domain`，時間由參數注入）：連續 9 天的類別序列；三種跳類別情況；三類全空時改用舊文章；`anchor_date` 之前的日期（mod 負數）也正確。
 
@@ -656,3 +657,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.0 | 2026-11-22 | G2 通過（Hansheng 18:46 核准）：技術棧與供應商依建議定案；Q-16 改為 AI／軟體工程／半導體產業三類每日輪替、每類 1 主 2 備（§11、`news_source`、`daily_plan` 欄位）；Q-18 複習間隔全部可在設定調整（§4.1、§4.2、`/settings` 驗證、AC-09／19／24 對應）；種子庫改為獨立任務單 6 批 × 100、第 1 批後抽查 20 條；補上「畫面走完 AC 的單＝CLI PR」與 `poc/*` pushguard 規則（§15）；Q-14～Q-20 標為已決定 |
 | v1.1 | 2026-11-22 | ADR-008 修訂 1（T-001 審查時 TechLead 提問）：第 4 條改為 `@supabase/*` 只能在 `apps/web/src/api` 與 `supabase/functions/_shared/db` import，並禁止 `http:`／`https:`／`npm:`／`jsr:` import；`throw` 禁令只管正式程式並延伸到 `_shared/{providers,db,news}`，測試程式可以 `throw`、import `vitest`，正式程式不得 import 測試程式（§3.1、§3.2、§6、§15） |
 | v1.2 | 2026-11-22 | ARCH-003：新增 §5.0 contracts 共用型別（`Result`＋helper、`Brand`、品牌 ID、`ProviderId`／`LlmModelId`／`SttModelId`／`VoiceId`、`ProviderError`／`AppError`＋錯誤碼對照表、`Wav16kMono`、`AudioPayload`、`WordTiming`、`Transcript`、`PronunciationResult`、`StreamChunk`、`CardStreamEvent`、供應商介面、`PaidConsent`），§5.2 改指向 §5.0；§6 第 2 點錯誤格式改用 `ApiErrorBodySchema`；新增 ADR-009（套件名稱 `@english-coach/contracts` 與引用方式）與 ADR-008 修訂 2（測試檔含 `.test.tsx`、跨套件引用與品牌轉型規則）；§3.2、§12 同步 |
+| v1.2.1 | 2026-11-22 | T-051 審查（TechLead）：§5.0.4 錯誤碼對照表 `news_unavailable` 補齊為 503／可重試／畫面文字／降級方式，`httpStatusOf`、`isRetryable` 對 18 種 kind 都有值；§11.2 備援規則寫明 `news_unavailable` 只在 `daily-prep` 內部使用，第 4 步對前端回 `plan_not_ready` |
