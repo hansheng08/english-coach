@@ -1,0 +1,23 @@
+# gitleaks 設定：預設規則 + 本專案 3 種供應商金鑰。不使用 allowlist 排除資料夾。
+title = "english-coach gitleaks"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "gemini-google-api-key"
+description = "Gemini / Google API key"
+regex = '''AIza[0-9A-Za-z_\-]{35}'''
+keywords = ["aiza"]
+
+[[rules]]
+id = "groq-api-key"
+description = "Groq API key"
+regex = '''gsk_[A-Za-z0-9]{20,}'''
+keywords = ["gsk_"]
+
+[[rules]]
+id = "azure-speech-key"
+description = "Azure Speech key assigned to an AZURE_SPEECH_* variable"
+regex = '''(?i)AZURE_SPEECH(?:_[A-Z0-9]+)*_KEY["']?\s*[:=]\s*["']?[0-9a-f]{32}\b'''
+keywords = ["azure_speech"]
