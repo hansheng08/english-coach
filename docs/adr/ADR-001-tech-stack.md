@@ -1,5 +1,5 @@
 # ADR-001：語言、前端與工具鏈
-- 狀態：**提議中**（Hansheng 於 G2 決定）｜日期：2026-11-22｜提出：Architect（ARCH-001）
+- 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
 - 相關：PRD NFR-01、NFR-03、NFR-05；ADR-002
 
 ## 背景
@@ -16,8 +16,8 @@ english-coach 是 Android Chrome 優先的 PWA（NFR-01），所以前端一定�
 | PWA／Web Audio 支援 | 原生 | 原生（前端） | 間接，AudioWorklet 要寫 JS interop |
 | 依賴數 | 少（見下） | 多一套語言 | Flutter SDK 本身很大 |
 
-## 決定（建議）
-採用 **A：TypeScript 全端**。
+## 決定
+採用 **A：TypeScript 全端**（G2 依建議核准）。
 - 前端：React 19＋Vite＋`vite-plugin-pwa`。CSS 用 Vite 內建 CSS Modules，不加 UI 框架。
 - 後端：TypeScript on Supabase Edge Functions（Deno），見 ADR-002。
 - 工具：pnpm workspaces、TypeScript 5（`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`）、ESLint＋typescript-eslint（strict-type-checked）、dependency-cruiser、Vitest、Playwright。
@@ -41,4 +41,4 @@ english-coach 是 Android Chrome 優先的 PWA（NFR-01），所以前端一定�
 ## 後果
 - 好處：前後端一種語言，契約型別共用；AI 寫錯欄位名稱會在編譯期失敗。
 - 代價：前端在 Node、後端在 Deno，兩種執行環境；`packages/*` 給 Deno 引用的方式「不確定」（見 ARCHITECTURE §12），第一張開發單先驗證。
-- 若 Hansheng 選 B（Go 後端），ADR-002 的託管選項要重評（需要能跑容器且不綁卡的免費主機，目前沒找到合適的，「不確定」）。
+- 未採用 B（Go 後端）：找不到能跑容器又不綁卡的免費主機。

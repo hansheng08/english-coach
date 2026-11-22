@@ -1,12 +1,12 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v0.1。技術棧待 G2 確認；若 G2 改棧，本檔由 Architect 更新。
+> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.0（G2 已通過，2026-11-22）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
 - 單一使用者（Hansheng）的英文口說學習 PWA，Android＋Chrome 優先。需求：`docs/PRD.md`（AC-01～25、NFR-01～06）。
 - 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-008`。動手前先讀任務單「背景」指定的章節。
 
-## 2. 技術棧（建議版，G2 確認前不要開始寫產品程式）
+## 2. 技術棧（G2 已核准）
 - TypeScript 5 strict 全端；pnpm workspaces。
 - 前端 `apps/web`：React 19＋Vite＋vite-plugin-pwa；CSS Modules。
 - 後端 `supabase/`：Postgres（migrations＋RLS）、Storage、Edge Functions（Deno TS）、pg_cron。
@@ -51,6 +51,8 @@ supabase start        # 本機後端（需要 Docker）
 8. 不在 Service Worker 快取 API 回應。
 9. 不在 log 寫使用者文字、逐字稿或錄音內容。
 10. 不修改 `docs/` 裡別人擁有的文件；`docs/reports/<編號>.md` 是你唯一要寫的文件。
+11. 不把複習間隔（3／7／14／14／1）或新聞輪替順序寫死在程式裡：一律從 `settings.srs`／`settings.news` 讀，預設值只放在 `packages/contracts` 的 schema（ARCHITECTURE §4.2、§11.2）。
+12. 不抓 `news_source` 白名單以外的網址；不抓 robots.txt 不允許的網址。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
@@ -67,6 +69,7 @@ supabase start        # 本機後端（需要 Docker）
 - AC-25 測試（ADR-003）不得刪改：registry 對每種錯誤只呼叫被選中的 adapter；預設值全部 `tier: 'free'`；沒有付費同意時付費 adapter 呼叫次數為 0。
 - 不得用 `it.skip`／`test.only` 提交；需要 skip 時寫進報告並附理由。
 - E2E 以 Pixel 尺寸（360×640 級）檢查無橫向捲動（NFR-01）。
+- **AC 驗收時點**：本專案沒有 CLI。「第一次能在畫面上走完某條 AC」的任務單，視同憲章 §5 的 CLI PR：該單要有能讓 QA 用 Playwright 走完該 AC 的畫面；之前只有程式庫或 API 的單視同 library PR（只驗單元層）。任務單的「驗收標準」會寫明本單屬於哪一種。
 
 ## 8. 時間預算（寫功能時要守的數字，見 ARCHITECTURE §8）
 - 建卡 `POST /cards` 不呼叫 AI；`/cards/generate` 用串流，逾時 8 s。
@@ -74,5 +77,6 @@ supabase start        # 本機後端（需要 Docker）
 
 ## 9. Git（摘自憲章 v3 §5、§13）
 - 只在任務單指定的分支工作；commit 訊息 `[ClaudeCode] <編號> <摘要>`；`git push -u origin <分支>`。
+- 分支：T-xxx、O-xxx → `task/<編號>`；QA 修復 → `fix/Q-xxx`；PoC A-xxx → `poc/A-xxx`（**永遠不合併到 main**）。pushguard（O-001）只放行「推送目前所在的 `task/*`、`fix/*`、`poc/*` 分支到 origin 同名分支」，其他 push 一律拒絕或問人。
 - 不碰 main、不 merge、不開 PR、不 force push、不刪分支或既有檔案。
 - 完成後寫 `docs/reports/<編號>.md`，每個驗證項目貼原始輸出（最後 20 行以內）。

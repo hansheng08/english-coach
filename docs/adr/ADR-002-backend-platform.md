@@ -1,5 +1,5 @@
 # ADR-002：後端平台、資料庫與儲存
-- 狀態：**提議中**（Hansheng 於 G2 決定）｜日期：2026-11-22｜提出：Architect（ARCH-001）
+- 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
 - 相關：AC-01、AC-12、AC-22、AC-23、AC-25、NFR-02～05、Q-01、Q-06
 
 ## 背景
@@ -18,7 +18,7 @@
 | 本機開發 | `supabase start`（Docker）完整模擬 | `wrangler dev` | Emulator Suite |
 | AI 熟悉度 | 高 | 高 | 高 |
 
-## 決定（建議）
+## 決定
 採用 **A：Supabase Free**，專案區域 **ap-northeast-1（東京）**，Edge Functions 固定東京執行（與 DB 同區，也在 Gemini 支援地區內）。
 - 前端靜態檔另放免費靜態託管（Cloudflare Pages 或 GitHub Pages；G4 由 SRE 決定），因為 Supabase Edge Functions 不直接提供 HTML 頁面（官方限制頁：沒有自訂網域時 `text/html` 會被改成 `text/plain`）。
 - 每天 05:00（台北）pg_cron 觸發 `daily-prep`；每天 03:00 觸發 `purge-audio`（刪 90 天前錄音）。
@@ -28,6 +28,6 @@
 ## 後果
 - 好處：Auth、DB、Storage、排程都在同一處，RLS 保護資料；免費方案沒有綁卡，就算程式有 bug 也不會被收費。
 - 代價：
-  - 7 天沒有活動會暫停（Q-19）；pg_cron 自己的排程是否算「活動」：不確定。
+  - 7 天沒有活動會暫停（Q-19 已接受：長時間不用時回來手動恢復）；pg_cron 自己的排程是否算「活動」：不確定。
   - Edge Function 冷啟動時間：未驗證（列入 3 秒評估的變數）。
   - 免費方案沒有每日備份（Pro 才有 7 天備份）；MVP 接受，G4 由 SRE 評估是否加定期匯出。
