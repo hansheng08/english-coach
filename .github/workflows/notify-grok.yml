@@ -1,0 +1,27 @@
+name: Notify Grok on merge
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  notify:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Notify Grok chief of staff
+        env:
+          WEBHOOK_URL: ${{ secrets.GROK_CHIEF_WEBHOOK_URL }}
+          WEBHOOK_KEY: ${{ secrets.GROK_CHIEF_WEBHOOK_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then echo "Webhook not configured, skip."; exit 0; fi
+          jq -n --arg pr "$PR_NUMBER" --arg title "$PR_TITLE" --arg branch "$BRANCH" \
+            '{event: "pr-merged", pr: $pr, title: $title, branch: $branch}' \
+          | curl -sS -X POST "$WEBHOOK_URL" \
+              -H "Authorization: Bearer $WEBHOOK_KEY" \
+              -H "Content-Type: application/json" \
+              --data @-
