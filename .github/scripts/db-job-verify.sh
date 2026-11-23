@@ -23,7 +23,8 @@ else
   "imports": {
     "@english-coach/contracts": "../../packages/contracts/src/index.ts",
     "@english-coach/domain": "../../packages/domain/src/index.ts",
-    "zod": "npm:zod@^4.6.7"
+    "zod": "npm:zod@^4.6.7",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.119.2"
   }
 }
 DENOEOF
@@ -61,11 +62,6 @@ eval "$(supabase --workdir "$WORKDIR" status -o env)"
 : "${ANON_KEY:?ANON_KEY missing from supabase status -o env}"
 echo "API_URL is set (value not printed)."
 echo "ANON_KEY is set (value not printed)."
-if [[ -n "${JWT_SECRET:-}" ]]; then
-  echo "JWT_SECRET is set in status -o env (value not printed)."
-else
-  echo "WARNING: JWT_SECRET missing from status -o env; probe will fall back to Auth /user."
-fi
 
 echo "== dummy function env (ADR-010 names, dummy values, not secrets) =="
 {
@@ -75,20 +71,7 @@ echo "== dummy function env (ADR-010 names, dummy values, not secrets) =="
   echo "AZURE_SPEECH_KEY=dummy"
   echo "AZURE_SPEECH_REGION=dummy"
   echo "APP_ALLOWED_ORIGINS=http://localhost:5173"
-  # Probe-only; not a product env name. Used to verify local HS256 user JWTs
-  # inside the Edge Runtime without calling Auth at 127.0.0.1.
-  if [[ -n "${JWT_SECRET:-}" ]]; then
-    printf 'O003_PROBE_JWT_SECRET=%s\n' "$JWT_SECRET"
-  fi
 } > "$ENV_FILE"
-
-# Also write the secret into the staged function dir (bind-mounted into
-# Edge Runtime) in case --env-file does not inject custom names.
-if [[ -n "${JWT_SECRET:-}" ]]; then
-  umask 077
-  printf '%s' "$JWT_SECRET" > "$WORKDIR/supabase/functions/api/.o003-jwt-secret"
-  echo "Wrote probe JWT secret file in staged function dir (value not printed)."
-fi
 
 echo "== ADR-009 host path check (file must exist on the runner before serve) =="
 CONTRACTS_SRC="${WORKDIR}/packages/contracts/src/index.ts"
@@ -110,6 +93,14 @@ echo $! > "$SERVE_PID_FILE"
 echo "serve pid=$(cat "$SERVE_PID_FILE")"
 
 HEALTH_URL="${API_URL}${HEALTH_PATH}"
+echo "== wait for functions serve to replace the start-owned edge runtime =="
+served=0
+for i in $(seq 1 90); do
+  if grep -q 'Serving functions on' "$SERVE_LOG"; then served=1; echo "SERVE_READY after ${i}s"; break; fi
+  sleep 1
+done
+[[ "$served" -eq 1 ]] || { echo "ERROR: functions serve never printed 'Serving functions on'"; tail -n 80 "$SERVE_LOG"; exit 1; }
+
 echo "== wait for ${HEALTH_PATH} (ignore BOOT_ERROR 503 until the worker boots) =="
 ready=0
 for i in $(seq 1 45); do
@@ -203,11 +194,10 @@ if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
 fi
 echo "Got user access_token (value not printed)."
 
-echo "== user JWT claims on host (no token or secret values) =="
-ACCESS_TOKEN="$ACCESS_TOKEN" JWT_SECRET="${JWT_SECRET:-}" python3 - <<'JWTPY'
-import os, json, base64, hmac, hashlib, sys
+echo "== user JWT claims on host (no token values) =="
+ACCESS_TOKEN="$ACCESS_TOKEN" python3 - <<'JWTPY'
+import os, json, base64, sys
 tok = os.environ.get("ACCESS_TOKEN") or ""
-secret = os.environ.get("JWT_SECRET") or ""
 parts = tok.split(".")
 print(f"jwt parts={len(parts)}")
 if len(parts) < 2:
@@ -227,20 +217,17 @@ except Exception as exc:
 
 print(
     "alg=" + str(header.get("alg")),
+    "has_kid=" + str(bool(header.get("kid"))),
     "role=" + str(payload.get("role")),
     "aud=" + str(payload.get("aud")),
     "has_sub=" + str(bool(payload.get("sub"))),
     "is_anonymous=" + str(payload.get("is_anonymous")),
     "claim_keys=" + ",".join(sorted(map(str, payload.keys()))),
 )
-if secret and len(parts) == 3:
-    pad = "=" * ((4 - len(parts[2]) % 4) % 4)
-    sig = base64.urlsafe_b64decode(parts[2] + pad)
-    expected = hmac.new(secret.encode("utf-8"), f"{parts[0]}.{parts[1]}".encode("ascii"), hashlib.sha256).digest()
-    print("host_hs256=" + ("ok" if hmac.compare_digest(sig, expected) else "mismatch"))
-else:
-    print("host_hs256=skipped")
 JWTPY
+
+echo "== JWKS algs (public key types only, no key values) =="
+curl -sS "${API_URL}/auth/v1/.well-known/jwks.json" | jq -r '"JWKS algs=" + ([.keys[] | (.alg // .kty)] | join(","))'
 
 echo "== health with user JWT → 200 {ok:true} =="
 USER_BODY="$(mktemp)"
@@ -261,6 +248,8 @@ if ! jq -e '.ok == true' "$USER_BODY" >/dev/null; then
   echo "ERROR: body is not {\"ok\": true}"
   exit 1
 fi
+echo "== o003-auth function log =="
+grep -E 'o003-auth' "$SERVE_LOG" || true
 
 echo "== ADR-010: injected key names (presence only) =="
 if grep -q 'o003-env has_supabase_url=' "$SERVE_LOG"; then

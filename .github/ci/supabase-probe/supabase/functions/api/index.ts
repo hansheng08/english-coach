@@ -2,6 +2,7 @@
 // ADR-009 (1): import @english-coach/contracts and actually use it.
 // ADR-010: verify_jwt = false; GET /health requires a user JWT (role=authenticated).
 import { httpStatusOf, toApiErrorBody, type AppError } from '@english-coach/contracts';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 function jsonError(error: AppError, status = httpStatusOf(error)): Response {
   return Response.json(toApiErrorBody(error), { status });
@@ -45,140 +46,41 @@ function decodeJsonPart(part: string): Record<string, unknown> | null {
   }
 }
 
-async function loadProbeSecret(): Promise<{ secret?: string; source: string }> {
-  const fromEnv = Deno.env.get('O003_PROBE_JWT_SECRET');
-  if (fromEnv && fromEnv.length > 0) return { secret: fromEnv, source: 'env' };
-  try {
-    const text = (await Deno.readTextFile(new URL('./.o003-jwt-secret', import.meta.url))).trim();
-    if (text.length > 0) return { secret: text, source: 'file' };
-  } catch {
-    // file is written only at CI runtime in the staged workdir
-  }
-  return { source: 'none' };
-}
-
-function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
-  return diff === 0;
-}
-
-async function verifyHs256(token: string, secret: string): Promise<Record<string, unknown> | null> {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign', 'verify'],
-  );
-  const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
-  const signature = base64UrlToBytes(parts[2]);
-  const signed = new Uint8Array(await crypto.subtle.sign({ name: 'HMAC', hash: 'SHA-256' }, key, data));
-  if (!timingSafeEqual(signed, signature)) return null;
-  return decodeJsonPart(parts[1]);
-}
-
-function subjectOf(payload: Record<string, unknown>): string | undefined {
-  if (typeof payload.sub === 'string' && payload.sub.length > 0) return payload.sub;
-  // Auth GET /user returns the user row (id), not a JWT payload (sub).
-  if (typeof payload.id === 'string' && payload.id.length > 0) return payload.id;
-  return undefined;
-}
-
-function isUserPayload(payload: Record<string, unknown>): boolean {
-  return payload.role === 'authenticated' && payload.is_anonymous !== true && subjectOf(payload) !== undefined;
-}
-
 function publishableApiKey(): string {
   const publishable = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
-  if (publishable) {
-    try {
-      const parsed: unknown = JSON.parse(publishable);
-      if (parsed && typeof parsed === 'object' && parsed !== null && 'default' in parsed) {
-        const def = (parsed as { default?: unknown }).default;
-        if (typeof def === 'string' && def.length > 0) return def;
-      }
-    } catch {
-      if (publishable.length > 0 && !publishable.startsWith('{')) return publishable;
+  if (!publishable) return '';
+  try {
+    const parsed: unknown = JSON.parse(publishable);
+    if (parsed && typeof parsed === 'object' && 'default' in parsed) {
+      const def = (parsed as { default?: unknown }).default;
+      if (typeof def === 'string') return def;
     }
-  }
-  return Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+  } catch { /* not JSON */ }
+  return '';
 }
 
-function authBaseUrls(): string[] {
-  const raw = Deno.env.get('SUPABASE_URL');
-  const urls: string[] = [];
-  const add = (u?: string | null) => {
-    if (u && u.length > 0 && !urls.includes(u)) urls.push(u);
-  };
-  add(raw);
-  if (raw) {
-    add(raw.replace(/127\.0\.0\.1|localhost/g, 'kong').replace(/:54321\b/, ':8000'));
-    add(raw.replace(/127\.0\.0\.1|localhost/g, 'host.docker.internal'));
-  }
-  add('http://kong:8000');
-  add('http://auth:9999');
-  add('http://supabase_kong_english-coach-ci-probe:8000');
-  add('http://supabase_auth_english-coach-ci-probe:9999');
-  return urls;
-}
-
-async function authUserPayload(token: string): Promise<Record<string, unknown> | null> {
-  const apikey = publishableApiKey();
-  const pathsFor = (base: string): string[] => {
-    if (base.includes(':9999')) return [`${base}/user`, `${base}/auth/v1/user`];
-    return [`${base}/auth/v1/user`, `${base}/user`];
-  };
-  for (const base of authBaseUrls()) {
-    for (const url of pathsFor(base)) {
-      try {
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}`, apikey },
-        });
-        console.log(`o003-auth-fetch status=${response.status}`);
-        if (!response.ok) continue;
-        const body: unknown = await response.json();
-        if (!body || typeof body !== 'object') continue;
-        return body as Record<string, unknown>;
-      } catch (err) {
-        const name = err instanceof Error ? err.name : 'unknown';
-        console.log(`o003-auth-fetch-error name=${name}`);
-      }
-    }
-  }
-  return null;
+let authClient: SupabaseClient | undefined;
+function getAuthClient(): SupabaseClient {
+  authClient ??= createClient(Deno.env.get('SUPABASE_URL') ?? '', publishableApiKey(), {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  return authClient;
 }
 
 async function isAuthenticatedUser(token: string): Promise<boolean> {
   try {
-    const parts = token.split('.');
-    const header = parts.length >= 1 ? decodeJsonPart(parts[0]) : null;
-    const unverified = parts.length >= 2 ? decodeJsonPart(parts[1]) : null;
-    const { secret, source } = await loadProbeSecret();
+    const header = decodeJsonPart(token.split('.')[0] ?? '');
+    const { data, error } = await getAuthClient().auth.getClaims(token);
+    const claims = data?.claims;
+    const accepted = !error && claims?.role === 'authenticated' && claims?.is_anonymous !== true &&
+      typeof claims?.sub === 'string' && claims.sub.length > 0;
     const alg = typeof header?.alg === 'string' ? header.alg : 'none';
-    let hs256 = 'skipped';
-    let payload: Record<string, unknown> | null = null;
-    // Local GoTrue (CLI 3.2.0) issues user access tokens as ES256; JWT_SECRET HS256
-    // only verifies legacy/anon tokens. Use Auth /user for non-HS256.
-    if (secret && alg === 'HS256') {
-      payload = await verifyHs256(token, secret);
-      hs256 = payload ? 'ok' : 'mismatch';
-    } else if (secret && alg !== 'HS256') {
-      hs256 = 'skipped_alg';
-    }
-    const sourcePayload = payload ?? await authUserPayload(token);
-    const accepted = sourcePayload !== null && isUserPayload(sourcePayload);
-    const claims = payload ?? unverified;
-    console.log(
-      `o003-auth has_probe_secret=${secret ? 'true' : 'false'} secret_source=${source} alg=${alg} jwt_parts=${parts.length} hs256=${hs256} role=${String(claims?.role ?? sourcePayload?.role ?? 'none')} has_sub=${typeof claims?.sub === 'string'} has_id=${typeof sourcePayload?.id === 'string'} is_anonymous=${String((sourcePayload ?? claims)?.is_anonymous)} accepted=${accepted}`,
-    );
+    const hasKid = typeof header?.kid === 'string';
+    const path = !alg.startsWith('HS') && hasKid ? 'jwks' : 'auth_user_fallback';
+    console.log(`o003-auth via=getClaims alg=${alg} has_kid=${hasKid} path=${path} error=${error ? error.name : 'none'} role=${String(claims?.role ?? 'none')} accepted=${accepted}`);
     return accepted;
   } catch (err) {
-    const name = err instanceof Error ? err.name : 'unknown';
-    console.log(`o003-auth-error name=${name}`);
+    console.log(`o003-auth-error name=${err instanceof Error ? err.name : 'unknown'}`);
     return false;
   }
 }
