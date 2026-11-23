@@ -1,10 +1,10 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v3 §5）。對應 `docs/ARCHITECTURE.md` v1.2（G2 已通過，2026-11-22；v1.1 為 ADR-008 修訂 1，v1.2 為 contracts 型別、ADR-009、ADR-008 修訂 2）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.3（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
 - 單一使用者（Hansheng）的英文口說學習 PWA，Android＋Chrome 優先。需求：`docs/PRD.md`（AC-01～25、NFR-01～06）。
-- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-009`。動手前先讀任務單「背景」指定的章節。
+- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-010`。動手前先讀任務單「背景」指定的章節。
 
 ## 2. 技術棧（G2 已核准）
 - TypeScript 5 strict 全端；pnpm workspaces。
@@ -22,9 +22,11 @@ pnpm lint             # eslint .
 pnpm arch             # depcruise（架構規則）
 pnpm test             # vitest run
 pnpm e2e              # playwright test（使用假供應商，不打真 API）
-supabase start        # 本機後端（需要 Docker）
+supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude Code 不執行，見下方
 ```
 - 指令名稱以 `package.json` 為準；如果不存在，停下來寫進報告，不要自己發明替代指令。
+- CI 跑在 Linux（ubuntu-latest、Node 24、pnpm 12）。`pnpm typecheck` 也檢查 `supabase/functions/**`（Node 端，用 `supabase/functions/_types/deno.d.ts` 的最小 Deno 宣告，ADR-010）；不跑 `deno check`。
+- `supabase start`／`functions serve`／`db reset`／health 的 401／200 檢查只在 CI 的 `db` job 跑（SRE 擁有）；模式 C 的 Claude Code 沒有 Supabase CLI、不能 `curl`，不要嘗試，也不要自己裝。
 
 ## 4. 模組邊界（違反會讓 `pnpm arch`／`pnpm lint` 失敗，不要用 disable 註解繞過）
 | 模組 | 可以 import | 不可以 |
@@ -33,9 +35,9 @@ supabase start        # 本機後端（需要 Docker）
 | `packages/domain` | `packages/contracts` | `fetch`、`Date.now()`、無參數 `new Date()`、`Math.random`、`throw`（只限正式程式，見 §7）、資料庫、供應商 |
 | `supabase/functions/_shared/providers/<adapter>` | `contracts`、`config` | `domain`、`db`、其他 adapter |
 | `supabase/functions/_shared/providers/registry.ts` | `contracts`、adapters、`config/paid.ts` | 備援清單、自動改選供應商 |
-| `supabase/functions/_shared/config` | — | 唯一可以讀 `Deno.env` 的地方 |
+| `supabase/functions/_shared/config` | — | 唯一可以讀 `Deno.env` 的地方；只讀 ARCHITECTURE §7.1 列出的變數名稱 |
 | `supabase/functions/_shared/db` | `contracts`、`@supabase/supabase-js`（後端唯一可以用的地方：查表、Storage、JWT → `user_id`） | 供應商；把 `SupabaseClient` 或 `{ data, error }` 傳出去 |
-| `supabase/functions/<endpoint>` | 以上（adapter 只能經 registry；資料庫與登入者只能經 `_shared/db`） | 直接 import adapter、`@supabase/*` |
+| `supabase/functions/<endpoint>` | 以上（adapter 只能經 registry；資料庫與登入者只能經 `_shared/db`） | 直接 import adapter、`@supabase/*`；`Deno.serve` 只在該函式的 `index.ts` |
 | `apps/web/src/features/<X>` | `contracts`、`apps/web/src/{api,audio,ui,storage}` | 其他 feature、`@supabase/supabase-js` |
 | `apps/web/src/api` | `contracts`、`@supabase/supabase-js` | 外部 AI 網址 |
 - `fetch` 只能出現在 `_shared/providers/**`、`_shared/news/**`、`apps/web/src/api/**`。
@@ -47,7 +49,8 @@ supabase start        # 本機後端（需要 Docker）
 
 ## 5. 絕對不要做
 1. **不寫入、不讀取、不印出任何金鑰**。金鑰只存在 Supabase secrets；程式只在 `_shared/config` 讀 `Deno.env`。repo 只能有 `.env.example`（只有變數名稱）。
-2. **不把金鑰放進前端**：任何 `VITE_` 變數不得含 KEY／SECRET／TOKEN（唯一例外：`VITE_SUPABASE_ANON_KEY`）。
+2. **不把金鑰放進前端**：任何 `VITE_` 變數不得含 KEY／SECRET／TOKEN（唯一例外：`VITE_SUPABASE_PUBLISHABLE_KEY`）。
+   - 環境變數只用 ARCHITECTURE §7.1 的名稱；不讀 `SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_DB_URL`；自訂名稱不得以 `SUPABASE_` 開頭。
 3. **不自動改用其他供應商或付費方案**（AC-25、ADR-003）：額度用完或失敗 → 回 `ProviderError` 給前端；只有 `invalid_response` 可以對同一家同一模型重試 1 次。
 4. 不使用供應商 SDK（Gemini、Groq、Azure 都用 `fetch` 呼叫 REST）。
 5. 不新增依賴；需要時停下來寫進報告（新增依賴要 Architect Review）。
@@ -62,9 +65,11 @@ supabase start        # 本機後端（需要 Docker）
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
 - 錯誤：`domain`、`providers`、`db`、`news` 回傳 `Result<T, AppError>`，正式程式不寫 `throw`（ESLint 會擋）；`fetch`、`supabase-js`、`JSON.parse` 等會丟例外的呼叫要在這些模組內 `catch` 轉成 `err(...)`，zod 用 `safeParse`。只有 HTTP handler 把錯誤轉成回應：`{ error: { kind, provider?, message, retryable, retryAfterSec? } }`。
+- **身分驗證（ADR-010）**：`supabase/config.toml` 每個函式都 `verify_jwt = false`；`api` 的每條路由都經過路由器裡的 `requireUser`（`_shared/db/auth.ts`），簽名是 `(req, ctx: AuthContext) => Promise<Response>`，不寫公開路由；`AuthContext` 只有 `auth.ts` 能建立。查表用 `createUserDb(ctx)`（受 RLS 限制）；secret 金鑰只給 `daily-prep`、`purge-audio`。
+- Deno API 只能用 `Deno.env.get`（只在 `_shared/config`）與 `Deno.serve`（只在 `<函式>/index.ts`）；`index.ts` 以外的檔案不在 import 時讀 `Deno`，好讓 Vitest 在 Node 上測。要用其他 Deno API 先停下回報（要改 `_types/deno.d.ts`，Architect Review）。
 - 窮舉檢查寫成 `default: { const unreachable: never = x; return unreachable; }`，不要寫會丟例外的 `assertNever`。
 - `Result<T, E>` 的 `E` 一律寫明；用 contracts 的 `ok`／`err`／`map`／`andThen`／`tryCatch` 等 helper，沒有 `unwrap`。錯誤只能是 `AppError` 的 18 種 `kind`（§5.0.4），不要自己新增；新增要 Architect 改 §5.0。
-- 品牌型別（各種 ID、`PlanDate`、`Ntd`、`Wav16kMono`、`PaidConsent`）只能由 zod schema 或指定的建立函式產生，不要 `as CardId`（ESLint 會擋；測試程式例外）。
+- 品牌型別（各種 ID、`PlanDate`、`Ntd`、`Wav16kMono`、`PaidConsent`、`AuthContext`）只能由 zod schema 或指定的建立函式產生，不要 `as CardId`（ESLint 會擋；測試程式例外）。
 - 跨網路的型別都從 zod schema 用 `z.infer` 推出，不手寫第二份。
 - 狀態與 ID 用字串字面值聯集，`switch` 一定要有 `never` 窮舉檢查。
 - 所有 API 請求、回應與 AI 回傳 JSON 都要經過 `packages/contracts` 的 zod schema。
@@ -85,7 +90,7 @@ supabase start        # 本機後端（需要 Docker）
 - 建卡 `POST /cards` 不呼叫 AI；`/cards/generate` 用串流，逾時 8 s。
 - 跟讀比對 ≤ 5 s；逐字稿 ≤ 30 s；診斷 ≤ 30 s；履歷出題 ≤ 60 s。
 
-## 9. Git（摘自憲章 v3 §5、§13）
+## 9. Git（摘自憲章 v4 §5、§13）
 - 只在任務單指定的分支工作；commit 訊息 `[ClaudeCode] <編號> <摘要>`；`git push -u origin <分支>`。
 - 分支：T-xxx、O-xxx → `task/<編號>`；QA 修復 → `fix/Q-xxx`；PoC A-xxx → `poc/A-xxx`（**永遠不合併到 main**）。pushguard（O-001）只放行「推送目前所在的 `task/*`、`fix/*`、`poc/*` 分支到 origin 同名分支」，其他 push 一律拒絕或問人。
 - 不碰 main、不 merge、不開 PR、不 force push、不刪分支或既有檔案。

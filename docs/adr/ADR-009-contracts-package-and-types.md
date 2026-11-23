@@ -1,5 +1,6 @@
 # ADR-009：`@english-coach/contracts` 套件名稱、引用方式與共用型別
 - 狀態：**已接受**（Architect，ARCH-003，2026-11-22；不改 PRD、不改技術棧，依憲章 §5 由 Architect 決定，不需 G2）｜日期：2026-11-22｜提出：Architect
+- 修訂：修訂 1（2026-11-23，見文末）
 - 相關：ARCHITECTURE §3.2、§5.0、§6、§12；ADR-003、ADR-008（修訂 1、2）；TASKS §5 第 5、17、18 點；T-051、T-003
 
 ## 背景
@@ -57,3 +58,14 @@
 - 好處：T-051 可以照 §5.0 直接寫，不用自己發明；三種環境用同一個名字引用；套件搬家（備案）時引用處不變。
 - 代價：`packages/*` 與 `supabase/functions/**` 的相對 import 要寫副檔名；多一個 `supabase/functions/package.json`；T-051 要 `pnpm install` 加入 zod（會改 `pnpm-lock.yaml`，依 T-001 的做法由 Hansheng 在確認視窗核准安裝）。
 - 對進行中的 T-002：T-002 的 `index.ts` 若用不帶副檔名的相對路徑重新匯出，T-051 改成 `./providers.ts`；T-002 的 `tsconfig.json` 在 T-051 加上 `allowImportingTsExtensions`／`emitDeclarationOnly`。T-002 本身不需要改範圍。
+
+## 修訂 1（2026-11-23，Architect；ARCHITECTURE v1.3，隨 ADR-010）
+- 狀態：**已接受**（送 G2 PR `[G2] T-003 Supabase 架構補充`）
+- 起因：模式 C 的 run-task 沒有 Supabase CLI、不允許 `curl`（TASKS §5 第 27 點 (a)）；幕僚長轉達：Supabase CLI 的驗證放在 CI `db` job，由 SRE 負責。
+- 「工作假設與驗證」改為：
+  - (1) `functions serve` 下 `api` 能 import `@english-coach/contracts` 並執行、(2) 打包（`supabase functions deploy --dry-run` 或等效指令）成功且含 contracts → **改由 CI `db` job 驗證**（SRE 開 O-xxx；和 ADR-010 的 health 401／200 檢查同一個 job）。
+  - (3) Node 端 `tsc -b`、`pnpm arch` 能解析 `supabase/functions/**` 對 `@english-coach/*` 的 import → 仍由 T-003 驗證（`pnpm check` 就能跑）。
+  - 任一項失敗時的處理不變：停下回報 Architect，修訂本 ADR 後才走備案。
+- `supabase/functions/package.json` 的 `@supabase/supabase-js` 依賴已由 Hansheng 核准安裝（幕僚長 2026-11-23 轉達）；版本照決定 1 第 4 點 `^2.119.2` 起算，安裝時用當下最新的 2.x。
+- Node 端 `supabase/functions` 的 tsconfig 與 Deno 型別見 ADR-010 決定 3。
+
