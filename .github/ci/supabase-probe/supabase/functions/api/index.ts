@@ -81,9 +81,15 @@ async function verifyHs256(token: string, secret: string): Promise<Record<string
   return decodeJsonPart(parts[1]);
 }
 
+function subjectOf(payload: Record<string, unknown>): string | undefined {
+  if (typeof payload.sub === 'string' && payload.sub.length > 0) return payload.sub;
+  // Auth GET /user returns the user row (id), not a JWT payload (sub).
+  if (typeof payload.id === 'string' && payload.id.length > 0) return payload.id;
+  return undefined;
+}
+
 function isUserPayload(payload: Record<string, unknown>): boolean {
-  return payload.role === 'authenticated' && payload.is_anonymous !== true && typeof payload.sub === 'string' &&
-    payload.sub.length > 0;
+  return payload.role === 'authenticated' && payload.is_anonymous !== true && subjectOf(payload) !== undefined;
 }
 
 function publishableApiKey(): string {
@@ -152,16 +158,22 @@ async function isAuthenticatedUser(token: string): Promise<boolean> {
     const header = parts.length >= 1 ? decodeJsonPart(parts[0]) : null;
     const unverified = parts.length >= 2 ? decodeJsonPart(parts[1]) : null;
     const { secret, source } = await loadProbeSecret();
+    const alg = typeof header?.alg === 'string' ? header.alg : 'none';
     let hs256 = 'skipped';
     let payload: Record<string, unknown> | null = null;
-    if (secret) {
+    // Local GoTrue (CLI 3.2.0) issues user access tokens as ES256; JWT_SECRET HS256
+    // only verifies legacy/anon tokens. Use Auth /user for non-HS256.
+    if (secret && alg === 'HS256') {
       payload = await verifyHs256(token, secret);
       hs256 = payload ? 'ok' : 'mismatch';
+    } else if (secret && alg !== 'HS256') {
+      hs256 = 'skipped_alg';
     }
     const sourcePayload = payload ?? await authUserPayload(token);
     const accepted = sourcePayload !== null && isUserPayload(sourcePayload);
+    const claims = payload ?? unverified;
     console.log(
-      `o003-auth has_probe_secret=${secret ? 'true' : 'false'} secret_source=${source} alg=${String(header?.alg ?? 'none')} jwt_parts=${parts.length} hs256=${hs256} role=${String((payload ?? unverified)?.role ?? 'none')} has_sub=${typeof (payload ?? unverified)?.sub === 'string'} is_anonymous=${String((payload ?? unverified)?.is_anonymous)} accepted=${accepted}`,
+      `o003-auth has_probe_secret=${secret ? 'true' : 'false'} secret_source=${source} alg=${alg} jwt_parts=${parts.length} hs256=${hs256} role=${String(claims?.role ?? sourcePayload?.role ?? 'none')} has_sub=${typeof claims?.sub === 'string'} has_id=${typeof sourcePayload?.id === 'string'} is_anonymous=${String((sourcePayload ?? claims)?.is_anonymous)} accepted=${accepted}`,
     );
     return accepted;
   } catch (err) {
