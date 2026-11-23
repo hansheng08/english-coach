@@ -81,11 +81,12 @@ if [[ ! -f "$CONTRACTS_SRC" ]]; then
 fi
 echo "Host can see contracts at $CONTRACTS_SRC"
 
-echo "== supabase functions serve (background, --no-verify-jwt, ADR-010) =="
+echo "== supabase functions serve (background, --no-verify-jwt --debug, ADR-010) =="
 # --no-verify-jwt matches config.toml verify_jwt = false so requests reach the function.
 # JWT checks happen inside the function (requireUser / probe equivalent).
+# --debug: capture container mount list to confirm packages/contracts is mounted.
 rm -f "$SERVE_LOG"
-supabase --workdir "$WORKDIR" functions serve --no-verify-jwt --env-file "$ENV_FILE" \
+supabase --workdir "$WORKDIR" functions serve --no-verify-jwt --debug --env-file "$ENV_FILE" \
   >"$SERVE_LOG" 2>&1 &
 echo $! > "$SERVE_PID_FILE"
 echo "serve pid=$(cat "$SERVE_PID_FILE")"
@@ -107,6 +108,25 @@ done
 echo "---- functions serve log ----"
 cat "$SERVE_LOG" || true
 echo "---- end serve log ----"
+echo "== container mount list (serve --debug + docker inspect) =="
+if grep -E -i 'mount|bind|import.?map|deno\.json|packages/contracts|volume' "$SERVE_LOG" >/tmp/o003-mount-grep.txt; then
+  cat /tmp/o003-mount-grep.txt
+else
+  echo "(no mount/import_map/packages.contracts lines in serve debug log yet)"
+fi
+cid="$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '/edge.runtime|edge-runtime|supabase_edge/ {print $1; exit}')"
+if [[ -n "${cid:-}" ]]; then
+  echo "edge-runtime container: $cid"
+  docker inspect -f '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}' "$cid" || true
+  if docker inspect -f '{{range .Mounts}}{{println .Source}}{{end}}' "$cid" | grep -q 'packages/contracts'; then
+    echo "MOUNT_OK: packages/contracts appears in the container mount list."
+  else
+    echo "MOUNT_MISSING: packages/contracts not found in docker inspect mounts."
+  fi
+else
+  echo "No edge-runtime container found while collecting mounts."
+fi
+echo "---- end mount list ----"
 if [[ "$ready" -ne 1 ]]; then
   echo "ERROR: health worker did not boot (wanted HTTP 200/401/404, last was ${code:-000})."
   if grep -q 'Module not found .*packages/contracts' "$SERVE_LOG"; then

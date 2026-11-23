@@ -431,5 +431,8 @@ enabled = true
 
 # CI probe only (O-003). Not product code. T-003 will add supabase/config.toml at the repo root.
 # ADR-010: verify_jwt = false; authentication happens inside the function.
+# import_map is relative to supabase/. CLI 3.2.0 does not auto-read
+# supabase/functions/deno.json unless this is set (supabase/supabase#35021, supabase/cli#3467).
 [functions.api]
 verify_jwt = false
+import_map = "./functions/deno.json"
