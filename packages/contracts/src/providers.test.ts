@@ -1,5 +1,5 @@
 import { describe, expectTypeOf, it } from 'vitest';
-import type { Capability, ProviderErrorKind, Tier } from './providers';
+import type { Capability, ProviderErrorKind, Tier } from './providers.ts';
 
 describe('providers types (ARCHITECTURE §5.2)', () => {
   it('Tier is "free" | "paid"', () => {

@@ -4,9 +4,10 @@
     "composite": true,
     "emitDeclarationOnly": true,
     "declaration": true,
+    "allowImportingTsExtensions": true,
     "outDir": "../../dist/contracts",
-    "rootDir": "src",
+    "rootDir": ".",
     "types": []
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

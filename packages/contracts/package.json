@@ -1,0 +1,12 @@
+{
+  "name": "@english-coach/contracts",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./test/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

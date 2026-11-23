@@ -1,0 +1,11 @@
+{
+  "name": "@english-coach/domain",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@english-coach/contracts": "workspace:*"
+  }
+}
