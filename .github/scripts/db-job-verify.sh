@@ -72,6 +72,15 @@ AZURE_SPEECH_REGION=dummy
 APP_ALLOWED_ORIGINS=http://localhost:5173
 ENVEOF
 
+echo "== ADR-009 host path check (file must exist on the runner before serve) =="
+CONTRACTS_SRC="${WORKDIR}/packages/contracts/src/index.ts"
+ls -la "$CONTRACTS_SRC"
+if [[ ! -f "$CONTRACTS_SRC" ]]; then
+  echo "ERROR: $CONTRACTS_SRC missing on the host; staging failed."
+  exit 1
+fi
+echo "Host can see contracts at $CONTRACTS_SRC"
+
 echo "== supabase functions serve (background, --no-verify-jwt, ADR-010) =="
 # --no-verify-jwt matches config.toml verify_jwt = false so requests reach the function.
 # JWT checks happen inside the function (requireUser / probe equivalent).
@@ -100,6 +109,9 @@ cat "$SERVE_LOG" || true
 echo "---- end serve log ----"
 if [[ "$ready" -ne 1 ]]; then
   echo "ERROR: health worker did not boot (wanted HTTP 200/401/404, last was ${code:-000})."
+  if grep -q 'Module not found .*packages/contracts' "$SERVE_LOG"; then
+    echo "ADR-009 (1) FAILED: supabase functions serve (CLI ${SUPABASE_CLI_VERSION:-unknown}) did not load packages/contracts even though the file exists on the host as a sibling of supabase/. Per ADR-009, stop and report to Architect; do not apply the _shared backup in this PR."
+  fi
   exit 1
 fi
 

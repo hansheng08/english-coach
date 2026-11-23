@@ -81,3 +81,14 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 - 不要在 CI 對已連結的遠端專案跑 `functions deploy`（需要新的 `SUPABASE_ACCESS_TOKEN`，必須先問幕僚長）。
 
 本文件不記載任何 token 或金鑰的值。
+
+
+### 2.4 ADR-009 (1) 在 CLI 3.2.0 的結果（O-003 實測）
+
+2026-11-23 在 PR #15 的 `db` job 實測：即使把 `packages/contracts/src/index.ts` 放到與 `supabase/` 同層的暫存 workdir（主機上檔案存在），`supabase functions serve` 仍回：
+
+```
+worker boot error: failed to create the graph: Module not found "file://…/packages/contracts/src/index.ts"
+```
+
+health 因此一直是 HTTP 503 `BOOT_ERROR`。這表示目前 CLI **沒有**依 `deno.json` 的 `imports` 把 `supabase/functions` 以外的檔案帶進 Edge Runtime。依 ADR-009：停下回報 Architect，修訂後才走備案（把套件搬到 `supabase/functions/_shared/`，套件名稱不變）。SRE **不會**在 O-003 自行搬家。
