@@ -61,16 +61,27 @@ eval "$(supabase --workdir "$WORKDIR" status -o env)"
 : "${ANON_KEY:?ANON_KEY missing from supabase status -o env}"
 echo "API_URL is set (value not printed)."
 echo "ANON_KEY is set (value not printed)."
+if [[ -n "${JWT_SECRET:-}" ]]; then
+  echo "JWT_SECRET is set in status -o env (value not printed)."
+else
+  echo "WARNING: JWT_SECRET missing from status -o env; probe will fall back to Auth /user."
+fi
 
 echo "== dummy function env (ADR-010 names, dummy values, not secrets) =="
-cat > "$ENV_FILE" <<'ENVEOF'
-GEMINI_API_KEY=dummy
-GEMINI_PAID_API_KEY=dummy
-GROQ_API_KEY=dummy
-AZURE_SPEECH_KEY=dummy
-AZURE_SPEECH_REGION=dummy
-APP_ALLOWED_ORIGINS=http://localhost:5173
-ENVEOF
+{
+  echo "GEMINI_API_KEY=dummy"
+  echo "GEMINI_PAID_API_KEY=dummy"
+  echo "GROQ_API_KEY=dummy"
+  echo "AZURE_SPEECH_KEY=dummy"
+  echo "AZURE_SPEECH_REGION=dummy"
+  echo "APP_ALLOWED_ORIGINS=http://localhost:5173"
+  # Probe-only; not a product env name. Used to verify local HS256 user JWTs
+  # inside the Edge Runtime without calling Auth at 127.0.0.1.
+  if [[ -n "${JWT_SECRET:-}" ]]; then
+    printf 'O003_PROBE_JWT_SECRET=%s
+' "$JWT_SECRET"
+  fi
+} > "$ENV_FILE"
 
 echo "== ADR-009 host path check (file must exist on the runner before serve) =="
 CONTRACTS_SRC="${WORKDIR}/packages/contracts/src/index.ts"
@@ -161,6 +172,7 @@ curl_code() {
 
 echo "== health without JWT → 401 =="
 curl_code 401 "$HEALTH_URL"
+sleep 1
 
 echo "== health with ANON_KEY (not a user JWT) → 401 (ADR-010: role must be authenticated) =="
 curl_code 401 -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" "$HEALTH_URL"
