@@ -1,5 +1,5 @@
 # TASKS：english-coach 任務清單
-- 版本：**v1.7（O-002 完成，PR #12）**｜日期：2026-11-23｜擁有者：TechLead｜路線：完整（憲章 v4 §2；交棒模式 C）
+- 版本：**v1.8（T-008 完成，PR #14；T-012 派工中）**｜日期：2026-11-23｜擁有者：TechLead｜路線：完整（憲章 v4 §2；交棒模式 C）
 - 輸入：`docs/PRD.md` **v1.1 定稿**（`354e489`）、`docs/ARCHITECTURE.md` **v1.2.1**（`d1816c9`）＋ADR-001～009（全部已接受；ADR-008 修訂 1、2）＋`CLAUDE.md`（`8c59a70`）、`docs/OPEN_QUESTIONS.md`（Q-14～Q-20 已於 2026-11-22 18:46 G2 決定）
 - G2 已通過，可以開始派單；派單前仍要先完成第 0 節的前置條件。第一張是 O-001（`docs/tasks/O-001.md`）。
 - 本清單只排順序、範圍和驗收方式；每張單的細節在派工時才寫成 `docs/tasks/<編號>.md`（憲章 §0、§13）。
@@ -50,11 +50,11 @@
 | T-005 | migration 2：`news_source`（`category`、`priority`、`fetch_mode`、`include_url_pattern`、`terms_checked_at`）、`news_article`（含 `category`，不存原文全文）、`daily_plan`（含 `planned_category`、`actual_category`、`category_skipped`）、`resume`、`question`＋RLS | T-004 | AC-01、AC-02、AC-11 | Q-16、Q-19 | 同 T-004；`news_article` 沒有原文全文欄位 | library | 待辦 | task/T-005 | |
 | T-006 | migration 3：`shadow_attempt`、`evening_answer`、`slot_checkin`、`provider_call`、`weekly_metric` view＋RLS；錄音欄位 `audio_expires_at` | T-005 | AC-06、AC-14、AC-21、AC-22 | Q-19 | 同 T-004；`weekly_metric` 以測試資料查出預期值 | library | 待辦 | task/T-006 | |
 | T-007 | `_shared/db` repository 基礎（回 `Result`）＋`provider_call` 寫入（不含內容） | T-006 | AC-24（紀錄）、NFR-04 | Q-19 | 本機 DB 整合測試；`pnpm arch` 確認 db 不 import 供應商 | library | 待辦 | task/T-007 | |
-| T-008 | `contracts` 的 `SrsSettingsSchema`（預設 3／7／14、14、1）＋`domain`：台北日期計算（檔案固定為 `packages/domain/src/taipei-date.ts`，是唯一可以 `as PlanDate` 的正式程式檔，ADR-008 修訂 2 第 14 條）＋SRS 間隔（天數由參數傳入，不寫死） | T-051 | AC-09 | Q-17、Q-18 | 單元測試：schema 邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；跨台北午夜邊界；程式內沒有 3／7／14 常數（只在 schema 預設）；見 `docs/tasks/T-008.md`（AC-T8-1～AC-T8-8） | library | 派工中（2026-11-23，模式 C） | task/T-008 |  |
+| T-008 | `contracts` 的 `SrsSettingsSchema`（預設 3／7／14、14、1）＋`domain`：台北日期計算（檔案固定為 `packages/domain/src/taipei-date.ts`，是唯一可以 `as PlanDate` 的正式程式檔，ADR-008 修訂 2 第 14 條）＋SRS 間隔（天數由參數傳入，不寫死） | T-051 | AC-09 | Q-17、Q-18 | 單元測試：schema 邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；跨台北午夜邊界；程式內沒有 3／7／14 常數（只在 schema 預設）；見 `docs/tasks/T-008.md`（AC-T8-1～AC-T8-8） | library | 完成（2026-11-23 23:25 合併） | task/T-008 | [#14](https://github.com/hansheng08/english-coach/pull/14) |
 | T-009 | `domain`：字卡狀態機 Collected→Learning→Reviewing（第 1～3 階、之後 `after_last`）→Mastered；Reviewing 忘記退回 Learning | T-008 | AC-19、AC-20 | Q-17、Q-18 | 狀態轉換表逐列測試（含猶豫留同階）；`switch` 有 `never` 窮舉；見 `docs/tasks/T-009.md`（AC-T9-1～5，暫定） | library | 不確定（任務單 v1.0 已寫、未派工；見 §5 第 28 點） | task/T-009 | |
 | T-010 | `domain/plan`：每日 25 張選卡（15 舊＋10 新、不足補齊、升級語塊優先）、今晚題目、跟讀 5 句選句 | T-009 | AC-05、AC-07、AC-13、AC-16 | — | 單元測試：第一週舊卡不足、新卡不足用種子庫、前晚無作答全用新聞句；見 `docs/tasks/T-010.md`（AC-T10-1～6，暫定） | library | 不確定（任務單 v1.0 已寫、未派工；見 §5 第 28 點） | task/T-010 | |
 | T-011 | `domain/shadowing`：逐字比對正確率、語速比、解鎖判斷（≥ 80%／≥ 70%）、遮住約一半字詞 | T-051 | AC-05、AC-06 | — | 單元測試含門檻邊界（79.9%／80%、69.9%／70%）；發音分數不影響解鎖；見 `docs/tasks/T-011.md`（AC-T11-1～6） | library | 不確定（任務單 v1.0 已寫、未派工；見 §5 第 28 點） | task/T-011 |  |
-| T-012 | `domain/speech-metrics`：停頓（> 2 s）、贅詞、每分鐘字數（依逐字時間戳記） | T-051 | AC-15 | Q-20 | 單元測試用固定時間戳記樣本；見 `docs/tasks/T-012.md`（AC-T12-1～AC-T12-5） | library | 任務單已就緒（排隊中，見 §4 佇列） | task/T-012 |  |
+| T-012 | `domain/speech-metrics`：停頓（> 2 s）、贅詞、每分鐘字數（依逐字時間戳記） | T-051 | AC-15 | Q-20 | 單元測試用固定時間戳記樣本；見 `docs/tasks/T-012.md`（AC-T12-1～AC-T12-5） | library | 派工中（2026-11-23，模式 C） | task/T-012 |  |
 | T-013 | `domain/chunk-hit`：目標 chunk 是否講出與加分 | T-051 | AC-18、AC-20 | — | 單元測試含大小寫、詞形變化、部分命中案例；見 `docs/tasks/T-013.md`（AC-T13-1～6，暫定） | library | 不確定（任務單 v1.0 已寫、未派工；見 §5 第 28 點） | task/T-013 |  |
 | T-049 | **（新增）** `contracts` 的 `NewsSettingsSchema`（類別一律用 T-051 的 `NewsCategory`／`NewsCategorySchema`，不另定義；`rotation_order`、`anchor_date`、`lookback_hours`）＋`domain/news-rotation`：今天輪到的類別、跳類別順序 | T-051、**T-008**（v1.6：用 `daysBetween` 與 `settings.ts`） | AC-01、AC-02 | Q-16 | ARCHITECTURE §11.2 指定的測試：連續 9 天類別序列；三種跳類別；三類全空改用舊文章；`anchor_date` 之前的日期（負數取餘）；schema 擋重複類別、`lookback_hours` 超出 1～168；見 `docs/tasks/T-049.md`（AC-T49-1～5） | library | 不確定（任務單 v1.0 已寫、未派工；見 §5 第 28 點） | task/T-049 |  |
 | T-014 | `providers/registry`＋`config/paid.ts`＋`DEFAULT_SETTINGS`（全部 free）＋ADR-003 指定的 AC-25 測試 | T-003 | AC-24、AC-25、NFR-03 | — | ADR-003「測試」節全部項目：假 adapter 計數、預設 tier、`paid_not_allowed`、`resolvePaid` 型別測試、只有 registry 可 import `paid.ts` | library | 待辦 | task/T-014 | |
@@ -108,6 +108,7 @@
 - 預設仍一次派一張；是否平行由幕僚長依用量預算決定。
 - **（v1.6）domain 純邏輯單的檔案重疊與佇列**：7 張都要改 `packages/domain/src/index.ts`（domain 唯一對外入口，ADR-009 禁止深層引用，所以不能不改）；T-008 與 T-049 另外都改 `packages/contracts/src/settings.ts`、`settings.test.ts`（T-008 新增，T-049 加 `NewsSettingsSchema`）；T-009 可能加 `packages/contracts/src/{card,index}.ts`。**沒有任何兩張完全不重疊，所以一次只派一張，前一張合併後才派下一張**（新分支從最新 main 建立）。
   - 佇列：**T-008（派工中）→ T-049 → T-009 → T-010 → T-012 → T-011 → T-013**。排序理由：T-008 是 T-009／T-010／T-049 的前置（`daysBetween`、`srs.ts`、`settings.ts`）；T-049 接到關鍵路徑上的 T-022；T-009 → T-010 接到 T-025（關鍵路徑）與 T-032；T-011／T-012／T-013 只接到晚期的單。
+  - **（v1.8 更新）** T-008 完成（PR #14，23:25 合併，`bca5272`）。下一張改為 **T-012（派工中）**；T-049、T-009、T-010 等 PR #13（G2 domain 規則補充）的決定寫進任務單 v1.1 後再排（PR #13 已於 23:25 合併為 `4200c68`，TechLead 尚未依其改版）；之後依序 T-049 → T-009 → T-010 → T-011 → T-013。
   - 輪到的單還是「不確定」時跳過，先派下一張「任務單已就緒」的（目前只有 T-012）；不確定解決、任務單改版 v1.1 後回到原位置。
 
 ## 5. 待釐清、衝突與不確定（v1.6 狀態）
@@ -162,3 +163,4 @@
 | v1.5 | 2026-11-23 | T-051 完成（PR #4，19:11 合併）；憲章 v4 交棒模式 C；T-003 檢查後暫緩：run-task 不允許 Supabase CLI／`curl`、要裝 `@supabase/supabase-js`、環境變數名稱／JWT 檢查方式／Deno 型別三處不確定 → 新增 §5 第 27 點（T-900 是模式 C 試跑，不列入本清單） |
 | v1.6 | 2026-11-23 | 依幕僚長交接（Hansheng 核准先做 domain 純邏輯單）：寫好 T-008～T-013、T-049 任務單 v1.0；T-008 派工中；T-012 任務單已就緒；T-009、T-010、T-011、T-013、T-049 標「不確定」未派（§5 第 28 點）；T-049 依賴加 T-008（共用 `daysBetween`、`settings.ts`）；§4 加檔案重疊分析與佇列 |
 | v1.7 | 2026-11-23 | O-002 完成（PR #12，23:17 合併） |
+| v1.8 | 2026-11-23 | T-008 完成（PR #14，23:25 合併）；T-012 派工中；§4 佇列改為 T-012 先派，T-049、T-009、T-010 等 PR #13 的決定改版後再排；T-012 任務單結尾的 CI 說明配合 O-002 更正（分支推送會觸發 CI） |
