@@ -64,21 +64,24 @@ echo $! > "$SERVE_PID_FILE"
 echo "serve pid=$(cat "$SERVE_PID_FILE")"
 
 HEALTH_URL="${API_URL}${HEALTH_PATH}"
-echo "== wait for ${HEALTH_PATH} =="
+echo "== wait for ${HEALTH_PATH} (ignore BOOT_ERROR 503 until the worker boots) =="
 ready=0
-for i in $(seq 1 30); do
+for i in $(seq 1 45); do
   code="$(curl -sS -o /tmp/o003-health-wait.body -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"
-  if [[ -n "$code" && "$code" != "000" ]]; then
-    echo "health endpoint responded with HTTP ${code} on attempt ${i}"
+  body="$(tr '\n' ' ' < /tmp/o003-health-wait.body 2>/dev/null || true)"
+  echo "Attempt ${i}/45: HTTP ${code:-000} body=${body}"
+  if [[ "$code" =~ ^(200|401|404)$ ]]; then
+    echo "health worker is up (HTTP ${code}) on attempt ${i}"
     ready=1
     break
   fi
-  echo "Attempt ${i}/30: not ready yet, waiting 2s..."
   sleep 2
 done
+echo "---- functions serve log ----"
+cat "$SERVE_LOG" || true
+echo "---- end serve log ----"
 if [[ "$ready" -ne 1 ]]; then
-  echo "ERROR: health endpoint did not become reachable."
-  tail -n 80 "$SERVE_LOG" || true
+  echo "ERROR: health worker did not boot (wanted HTTP 200/401/404, last was ${code:-000})."
   exit 1
 fi
 
