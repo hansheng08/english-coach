@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "@english-coach/contracts": "../../../../../packages/contracts/src/index.ts",
+    "@english-coach/domain": "../../../../../packages/domain/src/index.ts",
+    "zod": "npm:zod@^4.6.7",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.119.2"
+  }
+}

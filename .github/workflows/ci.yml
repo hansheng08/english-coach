@@ -42,7 +42,7 @@ jobs:
           flag() { if "$@"; then echo true; else echo false; fi; }
           has_node=$(flag sh -c 'test -f package.json && test -f pnpm-lock.yaml')
           has_web=$(flag test -f apps/web/package.json)
-          has_supabase=$(flag test -f supabase/config.toml)
+          has_supabase=$(flag sh -c 'test -f supabase/config.toml || test -f .github/ci/supabase-probe/supabase/config.toml')
           has_e2e=$(flag sh -c 'test -f playwright.config.ts || test -f playwright.config.js')
           is_pr=$(flag test "$EVENT_NAME" = pull_request)
           {
@@ -172,28 +172,18 @@ jobs:
     needs: detect
     if: needs.detect.outputs.has_supabase == 'true' && needs.detect.outputs.is_pr == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Check Docker
+        run: docker info
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
-      - name: Start local Supabase
-        run: supabase start -x studio,imgproxy,logflare,vector
-      - name: Apply migrations
-        run: supabase db reset
-      - name: RLS tests
-        run: |
-          if [ -d supabase/tests ]; then
-            supabase test db
-          else
-            echo "supabase/tests not found; skipping RLS tests"
-          fi
-      - name: Stop Supabase
-        if: always()
-        run: supabase stop
+      - name: Verify local Supabase, functions health, and ADR-009 (1)(2)
+        run: bash .github/scripts/db-job-verify.sh
 
   e2e:
     needs: detect
