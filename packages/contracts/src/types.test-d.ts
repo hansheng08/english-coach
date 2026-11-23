@@ -78,6 +78,10 @@ expectTypeOf<ProviderErrorKind>().toEqualTypeOf<ProviderError['kind']>();
 expectTypeOf<(typeof CapabilitySchema)['_output']>().toEqualTypeOf<Capability>();
 
 // ── 品牌型別不能混用 ──
+expectTypeOf<CardId>().not.toEqualTypeOf<AnswerId>();
+expectTypeOf<CardId>().not.toEqualTypeOf<string>();
+expectTypeOf<PlanDate>().not.toEqualTypeOf<string>();
+expectTypeOf<Ntd>().not.toEqualTypeOf<number>();
 declare const cardId: CardId;
 declare const plainString: string;
 declare const plainNumber: number;
