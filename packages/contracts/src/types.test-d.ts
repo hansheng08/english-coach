@@ -1,5 +1,4 @@
 import { expectTypeOf } from 'vitest';
-import type { z } from 'zod';
 import type {
   AnswerId,
   AppError,
@@ -75,7 +74,8 @@ expectTypeOf<Entity>().toEqualTypeOf<'card' | 'answer' | 'question' | 'plan' | '
 // ── 互相對應 ──
 expectTypeOf<AppErrorKind>().toEqualTypeOf<AppError['kind']>();
 expectTypeOf<ProviderErrorKind>().toEqualTypeOf<ProviderError['kind']>();
-expectTypeOf<z.infer<typeof CapabilitySchema>>().toEqualTypeOf<Capability>();
+// z.infer<typeof CapabilitySchema> 等於 schema 的 _output（adr008-02t：測試不得 import zod）
+expectTypeOf<(typeof CapabilitySchema)['_output']>().toEqualTypeOf<Capability>();
 
 // ── 品牌型別不能混用 ──
 declare const cardId: CardId;
