@@ -32,3 +32,8 @@
 | 編號 | 狀態 | 提出者 | 問題 | 最終答案 | 決定者／日期 | 影響 |
 |---|---|---|---|---|---|---|
 | Q-21 | 已決定 | PM | 跳過步驟是否算完成／streak？ | 跳過不算完成，當天三個時段都有打開就不中斷 streak。已寫入 PRD v1.1 AC-26。 | Hansheng／2026-11-22 | AC-21、AC-26、M1 |
+
+## TechLead 記錄（2026-11-23；依憲章 §1，不要求擁有者修改）
+| 編號 | 狀態 | 提出者 | 問題 | 建議答案 | 影響 |
+|---|---|---|---|---|---|
+| Q-25 | 待 PRD G1 PR #16 | TechLead | T-009、T-010 v1.1 照 ARCHITECTURE v1.4／ADR-011 寫，其中三點和 PRD G1 PR #16 的 Q-22～Q-24（未合併）綁在一起：①Q-24 Mastered 是終點（T-009 `applyReview` 對 mastered 回 `err`、`markMastered` 設 `dueDate: null`）；②Q-22 新卡與種子都用完時先用第 16 張以後的到期舊卡補、仍不足就少於 25 張（T-010 `selectDailyCards`）；③Q-23 有履歷題時只出履歷題、否則用內建題庫（T-010 `selectTonightQuestion`；題庫**內容**沒有任務單）。 | 照 ARCHITECTURE v1.4 先做，不等 PR #16；PR #16 若採用建議（Merge）則不用改。若 Hansheng 選替代方案（例如 Q-24 替代 A「Mastered 每 60 天複習」），由 Architect 改 ADR-011、TechLead 開修正單（T-009-fix1／T-010-fix1）。PR #16 合併前 TechLead 不寫題庫內容單。 | T-009、T-010、之後的題庫內容單、T-025、T-032 |
