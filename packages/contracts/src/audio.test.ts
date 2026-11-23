@@ -39,8 +39,20 @@ describe('parseWav16kMono (§5.0.5)', () => {
     expect(wav.bytes).toBe(bytes);
   });
 
-  it('accepts exactly 30 s (the default maximum is inclusive)', () => {
+  it('UNDECIDED: accepts exactly 30 s (the default maximum is treated as inclusive)', () => {
     expect(expectOk(parseWav16kMono(makeWav({ seconds: 30 }))).durationMs).toBe(30_000);
+  });
+
+  it('UNDECIDED: a data chunk larger than the file is clamped to the bytes that exist', () => {
+    const bytes = makeWav({ seconds: 1 });
+    const truncated = bytes.slice(0, 44 + 16_000); // 只剩 0.5 s 的資料，但標頭仍寫 1 s
+    expect(expectOk(parseWav16kMono(truncated)).durationMs).toBe(500);
+  });
+
+  it('UNDECIDED: WAVE_FORMAT_EXTENSIBLE (format tag 0xFFFE) is rejected as non-PCM', () => {
+    const bytes = makeWav({});
+    new DataView(bytes.buffer).setUint16(20, 0xfffe, true);
+    expect(expectErr(parseWav16kMono(bytes)).kind).toBe('validation');
   });
 
   it('rejects 8 kHz with a validation error', () => {
