@@ -49,8 +49,11 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          prompt: "/run-task ${{ github.event.client_payload.task }}"
-          claude_args: "--max-turns 80"
+          plugin_marketplaces: "https://github.com/cursor/plugins.git"
+          plugins: "pstack@cursor-plugins"
+          prompt: |
+            /pstack:poteto-mode 執行任務單 docs/tasks/${{ github.event.client_payload.task }}.md（任務編號 ${{ github.event.client_payload.task }}）。你在 GitHub Actions 上無人值守地執行，沒有人能回答問題，不要停下來等回覆。完整遵守 .claude/skills/run-task/SKILL.md 的步驟與限制：依任務單的分支規則工作、驗證方式以任務單為準、結果寫到 docs/reports/<任務編號>.md、commit 並推送分支、不開 PR、不合併、不動 main。
+          claude_args: '--max-turns 120 --allowedTools "Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install *), Bash(pnpm check *), Bash(pnpm typecheck *), Bash(pnpm lint *), Bash(pnpm arch *), Bash(pnpm test *), Bash(pnpm e2e *), Agent, TodoWrite"'
 
       - name: Notify Grok chief of staff
         if: always()
