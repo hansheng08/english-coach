@@ -6,10 +6,28 @@ set -euo pipefail
 ROOT="$(pwd)"
 if [[ -f "${ROOT}/supabase/config.toml" ]]; then
   WORKDIR="${ROOT}"
-  echo "Using project supabase/ (T-003+)."
+  echo "Using project supabase/ at repo root (T-003+)."
 else
-  WORKDIR="${ROOT}/.github/ci/supabase-probe"
-  echo "No supabase/config.toml at repo root; using CI probe at .github/ci/supabase-probe (O-003)."
+  # Assemble a temporary monorepo layout (supabase/ and packages/ as siblings)
+  # so the Edge Runtime mount can follow deno.json imports the same way ADR-009
+  # describes. The checked-in probe lives under .github/ci/ and is not visible
+  # as a sibling of packages/ (run 45205832782: Module not found).
+  WORKDIR="${RUNNER_TEMP:-/tmp}/o003-stack"
+  rm -rf "$WORKDIR"
+  mkdir -p "$WORKDIR/packages"
+  cp -a "${ROOT}/.github/ci/supabase-probe/supabase" "$WORKDIR/supabase"
+  cp -a "${ROOT}/packages/contracts" "$WORKDIR/packages/contracts"
+  cp -a "${ROOT}/packages/domain" "$WORKDIR/packages/domain"
+  cat > "$WORKDIR/supabase/functions/deno.json" <<'DENOEOF'
+{
+  "imports": {
+    "@english-coach/contracts": "../../packages/contracts/src/index.ts",
+    "@english-coach/domain": "../../packages/domain/src/index.ts",
+    "zod": "npm:zod@^4.6.7"
+  }
+}
+DENOEOF
+  echo "No supabase/config.toml at repo root; staged CI probe + packages/* at $WORKDIR"
 fi
 
 EXCLUDES="studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor"
