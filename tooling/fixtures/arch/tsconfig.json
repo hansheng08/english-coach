@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@english-coach/contracts": ["packages/contracts/src/index.ts"],
+      "@english-coach/contracts/testing": ["packages/contracts/test/index.ts"]
+    }
+  }
+}

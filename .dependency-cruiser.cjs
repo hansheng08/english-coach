@@ -1,9 +1,9 @@
-/** ADR-008（含修訂 1）的架構規則。路徑相對 repo 根目錄；測試用同一份規則掃 tooling/fixtures/arch。 */
+/** ADR-008（含修訂 1、2）的架構規則。路徑相對 repo 根目錄；測試用同一份規則掃 tooling/fixtures/arch。 */
 
-// 測試程式（ADR-008 修訂 1；ESLint 共用同一個定義）
-const TEST = '(^|/)test/|\\.test(-d)?\\.ts$';
+// 測試程式（ADR-008 修訂 2 決定 3；ESLint 共用同一個定義，.test.tsx 也是測試）
+const TEST = '(^|/)test/|\\.test\\.tsx?$|\\.test-d\\.ts$';
 // 各套件內的測試程式（regex 沒有「且」，所以逐一寫出；避免巢狀量詞，否則 dependency-cruiser 判定為不安全 regex）
-const testOf = (dir) => `^${dir}/test/|^${dir}/.*/test/|^${dir}/.*\\.test(-d)?\\.ts$`;
+const testOf = (dir) => `^${dir}/test/|^${dir}/.*/test/|^${dir}/.*\\.test\\.tsx?$|^${dir}/.*\\.test-d\\.ts$`;
 // vitest（含 @vitest/*）：解析後在 node_modules 裡，或無法解析時只剩裸名稱
 const VITEST = '^(@?vitest)($|/)|^@vitest/|node_modules/(vitest|@vitest)/';
 const ZOD = '^zod($|/)|node_modules/zod/';

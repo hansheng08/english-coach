@@ -16,7 +16,8 @@ let ruleNames: string[] = [];
 beforeAll(async () => {
   const options = await extractDepcruiseOptions('./.dependency-cruiser.cjs');
   ruleNames = (options.ruleSet?.forbidden ?? []).map((r) => r.name ?? '');
-  const result = await cruise(['.'], { ...options, baseDir: BASE, validate: true });
+  // fixtures 沒有 workspace 連結，用 fixtures 自己的 tsconfig paths 解析 @english-coach/*
+  const result = await cruise(['.'], { ...options, baseDir: BASE, validate: true, tsConfig: { fileName: `${BASE}/tsconfig.json` } });
   const output = result.output;
   if (typeof output === 'string') throw new Error('expected object output');
   violations = output.summary.violations.map((v) => ({ rule: v.rule.name, from: v.from, to: v.to }));
@@ -37,7 +38,7 @@ const CASES: Case[] = [
     rule: 'adr008-01-domain-imports-contracts-only',
     adr: '#1',
     bad: ['packages/domain/src/bad.ts'],
-    good: ['packages/domain/src/good.ts'],
+    good: ['packages/domain/src/good.ts', 'packages/domain/src/uses-contracts.ts'],
   },
   {
     rule: 'adr008-01t-domain-tests-imports',
@@ -95,8 +96,17 @@ const CASES: Case[] = [
   {
     rule: 'adr008-11-no-test-code-in-production',
     adr: '#11 (rev 1)',
-    bad: ['packages/domain/src/bad-uses-test.ts'],
-    good: ['packages/domain/src/x.test.ts', 'packages/domain/test/result.ts'],
+    bad: [
+      'packages/domain/src/bad-uses-test.ts',
+      'apps/web/src/features/noon/bad-uses-test.tsx',
+      'packages/domain/src/bad-uses-testing.ts',
+    ],
+    good: [
+      'packages/domain/src/x.test.ts',
+      'packages/domain/test/result.ts',
+      'apps/web/src/features/noon/x.test.tsx',
+      'packages/domain/src/x-testing.test.ts',
+    ],
   },
 ];
 

@@ -1,7 +1,7 @@
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
-// ADR-008（含修訂 1）。no-restricted-syntax 在重疊路徑會互相覆蓋（後面的設定取代前面的整個選項），
+// ADR-008（含修訂 1、2）。no-restricted-syntax 在重疊路徑會互相覆蓋（後面的設定取代前面的整個選項），
 // 所以下面把檔案分成「互不重疊」的區塊，每個檔案只會落在其中一個區塊。
 const TS = '{ts,tsx}';
 const under = (dir) => `${dir}/**/*.${TS}`;
@@ -37,17 +37,51 @@ const throwSelector = {
   message: 'ADR-008 #9: production code must not throw; return err(AppError) (only test code may throw)',
 };
 
-// 測試程式（與 .dependency-cruiser.cjs 的 TEST 同一個定義：(^|/)test/|\.test(-d)?\.ts$）
-const TEST_GLOBS = ['**/*.test.ts', '**/*.test-d.ts', '**/test/**'];
-const testGlobsUnder = (dir) => [`${dir}/**/*.test.ts`, `${dir}/**/*.test-d.ts`, `${dir}/**/test/**/*.${TS}`];
+// ADR-008 修訂 2 決定 5：品牌型別的 as／<T> 只能出現在建立函式所在檔案與測試程式
+const BRAND_NAMES = 'UserId|CardId|AnswerId|QuestionId|ArticleId|PlanDate|StoragePath|Ntd|Wav16kMono|PaidConsent';
+const brandSelectors = ['TSAsExpression', 'TSTypeAssertion'].map((node) => ({
+  selector: `${node}[typeAnnotation.typeName.name=/^(${BRAND_NAMES})$/]`,
+  message: 'ADR-008 #14: create branded values with a zod schema or the type\'s creator function, not "as"',
+}));
+
+// 測試程式（與 .dependency-cruiser.cjs 的 TEST 同一個定義：(^|/)test/|\.test\.tsx?$|\.test-d\.ts$）
+const TEST_GLOBS = ['**/*.test.{ts,tsx}', '**/*.test-d.ts', `**/test/**/*.${TS}`];
+const testGlobsUnder = (dir) => [`${dir}/**/*.test.${TS}`, `${dir}/**/*.test-d.ts`, `${dir}/**/test/**/*.${TS}`];
 
 const DOMAIN = 'packages/domain';
+const TAIPEI_DATE = `${DOMAIN}/src/taipei-date.ts`; // 唯一可以 as PlanDate 的正式程式檔
+const REGISTRY = 'supabase/functions/_shared/providers/registry.ts'; // 唯一可以 as PaidConsent 的檔案
+const BRAND_CREATORS = ['packages/contracts/src/ids.ts', 'packages/contracts/src/audio.ts']; // as Ntd、as Wav16kMono
 const CONFIG = 'supabase/functions/_shared/config';
 const SHARED_THROW_DIRS = [
   'supabase/functions/_shared/providers',
   'supabase/functions/_shared/db',
   'supabase/functions/_shared/news',
 ];
+
+// no-restricted-imports 的 patterns
+const urlPatterns = [
+  {
+    // ADR-008 #4（修訂 1）：不得用網址或 npm:／jsr: 前綴 import（Deno 端用 deno.json 的 imports 對應成裸名稱）
+    regex: '^(https?|npm|jsr):',
+    message:
+      'ADR-008 #4: do not import with http(s):, npm: or jsr: specifiers; map the package to a bare name in deno.json "imports"',
+  },
+];
+const crossPackagePatterns = [
+  // ADR-008 #12（修訂 2 決定 4 / ADR-009）：只能用套件名稱引用 packages/*
+  { regex: '^\\.{1,2}/(.*/)?packages/', message: 'ADR-009: import packages by name, e.g. @english-coach/contracts' },
+  {
+    regex: '^@english-coach/(contracts|domain)/(?!testing$)',
+    message: 'ADR-009: only @english-coach/contracts, @english-coach/contracts/testing and @english-coach/domain are entry points',
+  },
+  { regex: '^@english-coach/domain/testing$', message: 'ADR-009: @english-coach/domain has no testing entry point' },
+];
+// ADR-008 #13：packages/**、supabase/functions/** 的相對 import 要寫副檔名
+const extensionPattern = {
+  regex: '^\\.{1,2}/(?!.*\\.(ts|tsx|json)$)',
+  message: 'ADR-009: Deno needs the .ts extension in relative imports',
+};
 
 const FETCH_ALLOWED = [
   'supabase/functions/_shared/providers/**',
@@ -93,22 +127,16 @@ export default defineConfig(
     rules: { '@typescript-eslint/ban-ts-comment': 'off' },
   },
   {
-    // ADR-008 #4（修訂 1）：不得用網址或 npm:／jsr: 前綴 import（Deno 端用 deno.json 的 imports 對應成裸名稱）
+    // no-restricted-imports：一個檔案只套用最後一個符合的區塊，所以每個區塊都要寫齊該路徑適用的全部 patterns。
+    // 1. packages/**、supabase/functions/**：網址前綴（#4）＋跨套件（#12）＋副檔名（#13）
+    files: [under('packages'), under('supabase/functions')],
+    rules: { 'no-restricted-imports': ['error', { patterns: [...urlPatterns, ...crossPackagePatterns, extensionPattern] }] },
+  },
+  {
+    // 2. 其他檔案：網址前綴（#4）＋跨套件（#12）
     files: [`**/*.${TS}`],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          patterns: [
-            {
-              regex: '^(https?|npm|jsr):',
-              message:
-                'ADR-008 #4: do not import with http(s):, npm: or jsr: specifiers; map the package to a bare name in deno.json "imports"',
-            },
-          ],
-        },
-      ],
-    },
+    ignores: [under('packages'), under('supabase/functions')],
+    rules: { 'no-restricted-imports': ['error', { patterns: [...urlPatterns, ...crossPackagePatterns] }] },
   },
   {
     // ADR-008 #8：fetch（含 globalThis／window／self 的寫法）只能在 providers／news／web api
@@ -123,38 +151,66 @@ export default defineConfig(
     },
   },
 
-  // ── no-restricted-syntax：互不重疊的區塊 ──────────────────────────────
+  // ── no-restricted-syntax：互不重疊的區塊（每個檔案只落在其中一個）─────────
   {
-    // A. domain 正式程式：#7、#9（時鐘、亂數、throw）
+    // A. domain 正式程式：#7、#9（時鐘、亂數、throw）、#14（品牌 as）
     files: [under(DOMAIN)],
-    ignores: TEST_GLOBS,
+    ignores: [...TEST_GLOBS, TAIPEI_DATE],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors, throwSelector, ...brandSelectors] },
+  },
+  {
+    // A'. taipei-date.ts：可以 as PlanDate，其他同 A
+    files: [TAIPEI_DATE],
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors, throwSelector] },
   },
   {
-    // B. domain 測試程式：時鐘與亂數仍禁止，throw 放行
+    // B. domain 測試程式：時鐘與亂數仍禁止，throw 與品牌 as 放行
     files: testGlobsUnder(DOMAIN),
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors] },
   },
   {
-    // C. _shared/{providers,db,news} 正式程式：#9b（throw）
+    // C. _shared/{providers,db,news} 正式程式：#9b（throw）、#14
     files: SHARED_THROW_DIRS.map(under),
-    ignores: TEST_GLOBS,
+    ignores: [...TEST_GLOBS, REGISTRY],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, throwSelector, ...brandSelectors] },
+  },
+  {
+    // C'. registry.ts：可以 as PaidConsent，其他同 C
+    files: [REGISTRY],
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, throwSelector] },
   },
   {
-    // D. _shared/config：唯一可以讀 Deno.env 的地方
+    // D. _shared/config 正式程式：唯一可以讀 Deno.env 的地方；#14
     files: [under(CONFIG)],
+    ignores: TEST_GLOBS,
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, ...brandSelectors] },
+  },
+  {
+    // D'. _shared/config 測試程式
+    files: testGlobsUnder(CONFIG),
     rules: { 'no-restricted-syntax': ['error', asUnknownAs] },
   },
   {
-    // E. 其餘所有檔案（含 _shared/{providers,db,news} 的測試程式）
+    // E. 其餘正式程式：#7、#14
     files: [`**/*.${TS}`],
-    ignores: [under(DOMAIN), under(CONFIG), ...SHARED_THROW_DIRS.map(under)],
+    ignores: [
+      under(DOMAIN),
+      under(CONFIG),
+      ...SHARED_THROW_DIRS.map(under),
+      ...TEST_GLOBS,
+      ...BRAND_CREATORS,
+    ],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...brandSelectors] },
+  },
+  {
+    // E-sub. ids.ts（as Ntd）、audio.ts（as Wav16kMono）：其他同 E
+    files: BRAND_CREATORS,
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
   },
   {
-    // E'. _shared/{providers,db,news} 的測試程式：可以 throw，其他同 E
-    files: SHARED_THROW_DIRS.flatMap(testGlobsUnder),
+    // E'. 其餘測試程式（含 _shared/{providers,db,news} 的測試程式：可以 throw）
+    files: TEST_GLOBS,
+    ignores: [under(DOMAIN), under(CONFIG)],
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
   },
 );

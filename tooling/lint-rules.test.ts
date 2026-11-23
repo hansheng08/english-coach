@@ -171,3 +171,96 @@ describe('ESLint rules (ADR-008 revision 1)', () => {
     expect(has(await lint('packages/domain/src/x.tsx', THROW), 'ADR-008 #9')).toBe(true);
   });
 });
+
+// ── T-051：ADR-008 修訂 2（第 12、13、14 條；.test.tsx 是測試）──────────────
+type Msg = { ruleId: string | null; message: string };
+const DETECT: Record<string, (m: Msg) => boolean> = {
+  '#4': (m) => m.message.includes('ADR-008 #4'),
+  '#7': (m) => m.message.includes('ADR-008 #7'),
+  '#8': (m) => m.message.includes('ADR-008 #8'),
+  '#9': (m) => m.message.includes('ADR-008 #9'),
+  '#12': (m) =>
+    m.ruleId === 'no-restricted-imports' &&
+    (m.message.includes('ADR-009: import packages by name') ||
+      m.message.includes('ADR-009: only @english-coach') ||
+      m.message.includes('ADR-009: @english-coach/domain has no testing')),
+  '#13': (m) => m.message.includes('Deno needs the .ts extension'),
+  '#14': (m) => m.message.includes('ADR-008 #14'),
+};
+
+const CARD_AS = "type CardId = string; export const id = 'a' as CardId;";
+const THROW_FN = "export function f(): never { throw new Error('x'); }";
+
+// 第 4 節規則表：[列, 假檔名, 程式片段, 預期（規則 → 是否報告）]
+const REV2_ROWS: [number, string, string, Record<string, boolean>][] = [
+  [1, 'apps/web/src/api/x.ts', "import { ok } from '../../../../packages/contracts/src/index.ts';", { '#12': true }],
+  [2, 'apps/web/src/api/x.ts', "import { CardIdSchema } from '@english-coach/contracts/src/ids.ts';", { '#12': true }],
+  [3, 'apps/web/src/api/x.ts', "import { ok } from '@english-coach/contracts';", { '#12': false }],
+  [4, 'packages/domain/src/x.test.ts', "import { expectOk } from '@english-coach/contracts/testing';", { '#12': false }],
+  [5, 'apps/web/src/api/x.ts', "import { x } from '@english-coach/domain/testing';", { '#12': true }],
+  [6, 'packages/domain/src/x.ts', "import { y } from './y';", { '#13': true }],
+  [7, 'packages/domain/src/x.ts', "import { y } from './y.ts';", { '#13': false }],
+  [8, 'supabase/functions/api/x.ts', "import { y } from '../_shared/db/y';", { '#13': true }],
+  [9, 'apps/web/src/features/noon/x.ts', "import { y } from './y';", { '#13': false }],
+  [10, 'packages/domain/src/x.ts', "import { z } from 'npm:zod';", { '#4': true }],
+  [11, 'apps/web/src/api/x.ts', CARD_AS, { '#14': true }],
+  [12, 'apps/web/src/api/x.ts', "type CardId = string; export const id = <CardId>'a';", { '#14': true }],
+  [13, 'packages/contracts/src/ids.ts', 'type Ntd = number; export const n = 1 as Ntd;', { '#14': false }],
+  [14, 'packages/contracts/src/audio.ts', 'type Wav16kMono = string; declare const x: string; export const w = x as Wav16kMono;', { '#14': false }],
+  [15, 'packages/domain/src/taipei-date.ts', "type PlanDate = string; export const d = '2026-01-01' as PlanDate;", { '#14': false }],
+  [16, 'packages/domain/src/other.ts', "type PlanDate = string; export const d = '2026-01-01' as PlanDate;", { '#14': true }],
+  [17, 'supabase/functions/_shared/providers/registry.ts', 'type PaidConsent = string; declare const x: string; export const c = x as PaidConsent;', { '#14': false }],
+  [18, 'packages/domain/src/x.test.ts', CARD_AS, { '#14': false }],
+  [19, 'packages/domain/src/x.test.tsx', THROW_FN, { '#9': false }],
+  [20, 'apps/web/test/render.tsx', "export const p = fetch('https://example.com');", { '#8': true }],
+  [21, 'packages/domain/src/x.ts', `export const a = 1 as unknown as string; export const t = Date.now(); ${CARD_AS}`, { '#9': true, '#14': true }],
+  [22, 'packages/domain/src/taipei-date.ts', "type PlanDate = string; export const d = '2026-01-01' as PlanDate; export const t = Date.now();", { '#14': false, '#9': true }],
+  [23, 'supabase/functions/_shared/providers/registry.ts', `type PaidConsent = string; declare const x: string; export const c = x as PaidConsent; ${THROW_FN}`, { '#14': false, '#9': true }],
+  [24, 'supabase/functions/_shared/db/x.ts', `${CARD_AS} ${THROW_FN}`, { '#14': true, '#9': true }],
+  [25, 'supabase/functions/_shared/db/x.test.ts', CARD_AS, { '#14': false }],
+  [26, 'supabase/functions/_shared/config/x.ts', `${CARD_AS} export const k = Deno.env.get('X');`, { '#14': true, '#7': false }],
+  [27, 'packages/contracts/src/ids.ts', "export const a = 1 as unknown as string; export const k = Deno.env.get('X');", { '#7': true }],
+  [28, 'packages/contracts/src/x.test.ts', CARD_AS, { '#14': false }],
+  [29, 'apps/web/src/features/noon/x.test.tsx', CARD_AS, { '#14': false }],
+  [
+    30,
+    'supabase/functions/_shared/db/x.ts',
+    "import { a } from 'npm:zod'; import { b } from '../../../../packages/contracts/src/index.ts'; import { c } from './c';",
+    { '#4': true, '#12': true, '#13': true },
+  ],
+  [31, 'apps/web/src/api/x.ts', "import { a } from 'jsr:@std/assert'; import { b } from '@english-coach/contracts/src/ids.ts';", { '#4': true, '#12': true }],
+];
+
+describe('ESLint rules (ADR-008 revision 2)', () => {
+  for (const [row, file, code, expected] of REV2_ROWS) {
+    const label = Object.entries(expected)
+      .map(([k, v]) => `${k} ${v ? 'reported' : 'not reported'}`)
+      .join(', ');
+    it(`T-051 row ${String(row)} ${file}: ${label}`, async () => {
+      const msgs = await lint(file, code);
+      for (const [rule, shouldReport] of Object.entries(expected)) {
+        const detect = DETECT[rule];
+        expect(detect, `unknown rule ${rule}`).toBeDefined();
+        expect(msgs.some((m) => detect?.(m)), `${rule} in ${JSON.stringify(msgs)}`).toBe(shouldReport);
+      }
+    });
+  }
+
+  it('T-051 row 27 (extra): ids.ts still reports "as unknown as" next to Deno.env', async () => {
+    const msgs = await lint('packages/contracts/src/ids.ts', "export const a = 1 as unknown as string; export const k = Deno.env.get('X');");
+    expect(has(msgs, 'as unknown as')).toBe(true);
+  });
+
+  it('T-051 extra: audio.ts still reports "as unknown as"', async () => {
+    expect(has(await lint('packages/contracts/src/audio.ts', 'export const a = 1 as unknown as string;'), 'as unknown as')).toBe(true);
+  });
+
+  it('T-051 extra: a legal contracts test (.test.ts) can throw and use brand "as"', async () => {
+    const msgs = await lint('packages/contracts/src/x.test.ts', `${CARD_AS} ${THROW_FN}`);
+    expect(msgs.filter((m) => m.message.startsWith('ADR-008'))).toEqual([]);
+  });
+
+  it('T-051 extra #12: a relative path into packages/ from the repo root is an error', async () => {
+    expect(DETECT['#12']?.((await lint('apps/web/src/api/x.ts', "import { a } from '../../../../packages/domain/src/index.ts';"))[0] ?? { ruleId: null, message: '' })).toBe(true);
+  });
+});
