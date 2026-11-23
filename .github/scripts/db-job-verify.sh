@@ -251,25 +251,9 @@ fi
 echo "== o003-auth function log =="
 grep -E 'o003-auth' "$SERVE_LOG" || true
 
-echo "== ADR-010: injected key names (presence only) =="
-if grep -q 'o003-env has_supabase_url=' "$SERVE_LOG"; then
-  grep 'o003-env has_supabase_url=' "$SERVE_LOG" | tail -n 3
-else
-  echo "WARNING: did not find o003-env lines (expected on the CI probe; product api may log differently)."
-fi
-if grep -q 'o003-env .*only_legacy_keys=true' "$SERVE_LOG"; then
-  echo "ERROR: CLI injected only legacy SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY. Per ADR-010, stop and report to Architect; do not teach product code those names."
-  exit 1
-fi
-if grep -q 'o003-env has_publishable=false' "$SERVE_LOG"; then
-  echo "ERROR: publishable key not present in function env (ADR-010)."
-  exit 1
-fi
-if grep -q 'o003-env has_supabase_url=false' "$SERVE_LOG"; then
-  echo "ERROR: SUPABASE_URL not present in function env (ADR-010)."
-  exit 1
-fi
-echo "Key-name check passed or not applicable (no probe env lines)."
+# shellcheck source=adr010-keycheck.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/adr010-keycheck.sh"
+check_adr010_keys "$SERVE_LOG" "$ROOT" || exit 1
 
 echo "== ADR-009 (2): local pack equivalent — do NOT run functions deploy (remote only, no --dry-run in CLI 3.2.0) =="
 # Runtime evidence from (1): serve loaded the function and imported contracts.

@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.2（2026-11-23）
+- 版本：v0.3（2026-11-24）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -65,7 +65,7 @@ GitHub 的 `ubuntu-latest` runner 已內建 Docker，不必再裝。`ci.yml` 用
    - 帶 `supabase status -o env` 的 `ANON_KEY` → 401（這不是登入使用者的 JWT；`requireUser` 要求 `role === 'authenticated'`）
    - 用本機 Auth 註冊測試使用者取得的 access token → 200 `{ "ok": true }`
 5. ADR-009 (1)：serve 日誌不得出現 `@english-coach/contracts` 解析失敗。
-6. ADR-009 (2)：**不要**跑 `supabase functions deploy`（CLI 3.2.0 為 Remote only，且沒有 `--dry-run`）。本機若找不到 eszip，以 serve 成功載入 contracts 作為等效證據，並在日誌註明「部署用打包含 contracts」仍未直接證實。
+6. ADR-009 (2)：**不要**跑 `supabase functions deploy`（CLI 3.2.0 為 Remote only，且沒有 `--dry-run`）。本機若找不到 eszip，以 serve 成功載入 contracts 作為本機等效，並標 UNCONFIRMED。如何結案見 §2.4；T-018 的前端 Vite／`bundle` job **不算**。
 7. 無論成功失敗，最後會 `supabase stop`（腳本 `trap`）。
 
 timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢查而延長）。
@@ -83,12 +83,17 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 本文件不記載任何 token 或金鑰的值。
 
 
-### 2.4 ADR-009 (1) 在 CLI 3.2.0 的結果（O-003 實測）
+### 2.4 ADR-009 在 CLI 3.2.0 的結果（O-003 實測）
 
-2026-11-23 在 PR #15 的 `db` job 實測：即使把 `packages/contracts/src/index.ts` 放到與 `supabase/` 同層的暫存 workdir（主機上檔案存在），`supabase functions serve` 仍回：
+**ADR-009 (1) 已通過。** CLI 3.2.0 預設不會讀 `supabase/functions/deno.json`，必須在探針 `config.toml` 的 `[functions.api]` 寫 `import_map = "./functions/deno.json"`（路徑相對 `supabase/`）。`functions serve` 啟動時會刪掉 `supabase start` 起的 edge-runtime 再起一個新容器；要等日誌出現 `Serving functions on` 之後，再對**新容器**做 `docker inspect`。修正後的 PR-event run：
 
-```
-worker boot error: failed to create the graph: Module not found "file://…/packages/contracts/src/index.ts"
-```
+- https://github.com/hansheng08/english-coach/actions/runs/45213610756
+- https://github.com/hansheng08/english-coach/actions/runs/45214375918（2026-11-24 00:15–00:17 台北時間）
 
-health 因此一直是 HTTP 503 `BOOT_ERROR`。這表示目前 CLI **沒有**依 `deno.json` 的 `imports` 把 `supabase/functions` 以外的檔案帶進 Edge Runtime。依 ADR-009：停下回報 Architect，修訂後才走備案（把套件搬到 `supabase/functions/_shared/`，套件名稱不變）。SRE **不會**在 O-003 自行搬家。
+都有 `SERVE_READY`、`MOUNT_OK: packages/contracts appears in the container mount list.`、serve 日誌無 contracts 解析錯誤，且 health 有跑到使用 contracts 的探針（無 JWT／ANON_KEY → 401，使用者 JWT → 200）。
+
+修正前（僅作對照）：在尚未設定 `import_map` 時，即使主機上 `packages/contracts` 已與 `supabase/` 同層，`functions serve` 仍會 `Module not found "file://…/packages/contracts/src/index.ts"`，health 為 HTTP 503 `BOOT_ERROR`。那不是目前狀態。備案（搬到 `supabase/functions/_shared/`，套件名稱不變）只在 (1) 再次失敗、或下面的 (2) 被推翻時才啟動。
+
+**ADR-009 (2) 仍為 UNCONFIRMED。** CLI 3.2.0 的 `functions deploy` 是 remote only、沒有 `--dry-run`，CI 不得部署。目前找不到本機 eszip，腳本以 serve 成功 import／掛載 contracts 作為本機等效，並在日誌標明尚未直接證明「部署包」含 contracts。
+
+要關閉 UNCONFIRMED，需等到下列之一：未來 CLI 提供本機打包或 dry-run，且產物能證明含 contracts；或 Hansheng 核准的 staging／G4 部署能直接證明部署包含 contracts。**T-018 的前端 Vite／`apps/web`／`bundle` job 不算**，不能用來結案 (2)。在此之前 T-003 可繼續做 ADR-009 (3) 與產品骨架。
