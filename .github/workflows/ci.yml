@@ -84,8 +84,18 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Test pushguard, settings and ci-ok
-        run: node --test .claude/hooks/pushguard/guard.test.mjs .claude/hooks/pushguard/settings.test.mjs .github/scripts/ci-ok.test.mjs
+      - name: Test pushguard, settings, ci-ok, and O-004 verify scripts
+        run: |
+          node --test \
+            .claude/hooks/pushguard/guard.test.mjs \
+            .claude/hooks/pushguard/settings.test.mjs \
+            .github/scripts/ci-ok.test.mjs \
+            .github/scripts/detect-resplit.test.mjs \
+            .github/scripts/run-task-summary.test.mjs \
+            .github/scripts/fail-open-lint.test.mjs
+          bash .github/scripts/adr010-keycheck-test.sh
+          bash .github/scripts/verify-push-test.sh
+          node .github/scripts/fail-open-lint.mjs .
 
   secrets:
     runs-on: ubuntu-latest

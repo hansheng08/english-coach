@@ -16,7 +16,7 @@ check_adr010_keys() {
     fi
     return 1
   fi
-  grep 'o003-env has_supabase_url=' "$serve_log" | tail -n 3 || true
+  grep 'o003-env has_supabase_url=' "$serve_log" | tail -n 3 || true  # o004-allow: display the matching lines; missing/false fields already fail above or below
 
   if grep -q 'o003-env .*only_legacy_keys=true' "$serve_log"; then
     echo "ERROR: CLI injected only legacy SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY. Per ADR-010, stop and report to Architect; do not teach product code those names."

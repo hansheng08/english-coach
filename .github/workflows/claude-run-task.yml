@@ -16,13 +16,17 @@ jobs:
       # contents: write — Claude Code may commit via the action; official action
       # documents repo write. Push itself uses the Claude GitHub App (OIDC),
       # but we cannot prove the action never uses GITHUB_TOKEN for repo writes.
+      # Also used to post a commit comment when no PR exists yet (C3 fallback).
       contents: write
       # id-token: write — required to exchange OIDC for the Claude GitHub App token (O-002 A').
       id-token: write
       # actions: read — Verify push triggered CI uses gh run list with github.token.
       actions: read
-      # Removed pull-requests: write and issues: write: this workflow does not
-      # open or comment on PRs/issues (mode C: no PR from Claude Code).
+      # pull-requests: write — C3 posts a run-task summary (denial count,
+      # Duration, test excerpt) on an *existing* PR for the task branch.
+      # Mode C still does not open or merge PRs. If no PR exists, we fall
+      # back to a commit comment (contents: write) instead of opening one.
+      pull-requests: write
     steps:
       - name: Validate task id
         env:
@@ -91,39 +95,54 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Detect denied-command resplit and post run-task summary
+        id: run_task_summary
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG: ${{ steps.claude.outputs.execution_file }}
+          TASK: ${{ github.event.client_payload.task }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${LOG:-}" || ! -f "$LOG" ]]; then
+            echo "No execution_file; skip summary and resplit check."
+            exit 0
+          fi
+          set +e
+          RESPLIT_REPORT="$(node .github/scripts/detect-resplit.mjs "$LOG")"
+          RESPLIT_STATUS=$?
+          set -e
+          echo "$RESPLIT_REPORT"
+          export RESPLIT_REPORT
+          node .github/scripts/run-task-summary.mjs "$LOG" | tee "$RUNNER_TEMP/run-task-summary.md"
+          # Post to an existing PR if TechLead/SRE already opened one; otherwise
+          # a commit comment. Never open a PR from this workflow (mode C).
+          # o004-allow: detached HEAD should not fail the summary step; posting then uses SHA.
+          BRANCH="$(git branch --show-current || true)"
+          if [[ ! "${BRANCH:-}" =~ ^(task|fix)/ ]]; then
+            BRANCH="task/${TASK}"
+          fi
+          # o004-allow: no open PR is a normal mode-C state; fall back to a commit comment.
+          PR_NUMBER="$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty' || true)"
+          if [[ -n "${PR_NUMBER:-}" ]]; then
+            gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/run-task-summary.md"
+            echo "Posted summary on PR #${PR_NUMBER}"
+          else
+            SHA="$(git rev-parse HEAD)"
+            jq -n --rawfile body "$RUNNER_TEMP/run-task-summary.md" '{body:$body}' \
+              | gh api --method POST "repos/${GITHUB_REPOSITORY}/commits/${SHA}/comments" --input -
+            echo "No open PR for ${BRANCH}; posted a commit comment on ${SHA}"
+          fi
+          exit "$RESPLIT_STATUS"
+
       - name: Verify push triggered CI
         id: verify_push
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
           TASK: ${{ github.event.client_payload.task }}
-        run: |
-          set -euo pipefail
-          BRANCH=$(git branch --show-current)
-          if [[ ! "$BRANCH" =~ ^(task|fix)/ ]]; then
-            BRANCH="task/${TASK}"
-          fi
-          git fetch origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" || true
-          if ! git rev-parse --verify "origin/${BRANCH}" >/dev/null 2>&1; then
-            echo "No origin/${BRANCH}; skip CI verify (Claude may not have pushed)."
-            exit 0
-          fi
-          SHA=$(git rev-parse "origin/${BRANCH}")
-          echo "Looking for ci.yml run event=push branch=${BRANCH} sha=${SHA}"
-          for i in $(seq 1 12); do
-            RUN_JSON=$(gh run list --workflow ci.yml --branch "${BRANCH}" --event push --limit 20 --json databaseId,headSha,event,status,conclusion,url,createdAt)
-            MATCH=$(jq -c --arg sha "$SHA" '[.[] | select(.headSha==$sha)]' <<<"$RUN_JSON")
-            if [[ $(jq 'length' <<<"$MATCH") -gt 0 ]]; then
-              echo "$MATCH" | jq .
-              echo "Found push-triggered CI run for ${SHA}"
-              exit 0
-            fi
-            echo "Attempt ${i}/12: no matching push CI run yet, waiting 15s..."
-            sleep 15
-          done
-          echo "ERROR: no event=push ci.yml run found for ${BRANCH} @ ${SHA} after ~180s"
-          gh run list --workflow ci.yml --branch "${BRANCH}" --limit 10
-          exit 1
+        run: bash .github/scripts/verify-push.sh
 
       - name: Notify Grok chief of staff
         if: always()

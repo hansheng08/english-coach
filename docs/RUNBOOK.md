@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.3（2026-11-24）
+- 版本：v0.4（2026-11-24）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -97,3 +97,18 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 **ADR-009 (2) 仍為 UNCONFIRMED。** CLI 3.2.0 的 `functions deploy` 是 remote only、沒有 `--dry-run`，CI 不得部署。目前找不到本機 eszip，腳本以 serve 成功 import／掛載 contracts 作為本機等效，並在日誌標明尚未直接證明「部署包」含 contracts。
 
 要關閉 UNCONFIRMED，需等到下列之一：未來 CLI 提供本機打包或 dry-run，且產物能證明含 contracts；或 Hansheng 核准的 staging／G4 部署能直接證明部署包含 contracts。**T-018 的前端 Vite／`apps/web`／`bundle` job 不算**，不能用來結案 (2)。在此之前 T-003 可繼續做 ADR-009 (3) 與產品骨架。
+
+
+## 3. 執行環境能力表（寫任務單前先對照）
+
+本表說明模式 C 各執行環境**現在實際做得到／做不到的事**。標「不確定」的不要寫成任務單前提。
+
+| 環境 | 能做 | 不能做／限制 |
+|---|---|---|
+| **GitHub Actions 上的 Claude Code**（`claude-run-task.yml`，OIDC → Claude GitHub App token 推送） | 在 `task/`、`fix/`、`poc/` 分支上工作；`git add`（不含 `-A`／`.`／`-u`）、`git commit`、`git push -u origin <目前同名分支>`；`pnpm install --frozen-lockfile`、`pnpm check`／`typecheck`／`lint`／`arch`／`test`／`e2e`；檔案用 Read／Write／Edit／Glob／Grep 工具 | 不開 PR、不合併、不推 `main`、不 force push；Bash 不得用 `cat`／`grep`／`head`／`ls`／`sed`（應用 Read／Grep 工具）；不得 `curl`／`wget`／`sudo`／任意 `gh` 寫入；不得 `supabase link`／`login`／`functions deploy`／`secrets`；被權限擋下的指令不得拆開重送（O-004 會在 execution artifact 偵測並讓步驟失敗） |
+| **box 上的 SRE**（共享 Linux，有 Docker 與本機網路） | 跑 Supabase CLI（含 `start`、`functions serve`）、Docker、`curl`、`gh`（受 token 權限限制）、`actionlint`、裝套件、改 CI／探針／文件並開 [G3] PR | 不得合併 PR、不得推 `main`、不得 force push、不得自行新增 GitHub secret、不得派 Claude Code（除非交接單明確核准） |
+| **`ci.yml` 的 `GITHUB_TOKEN`** | checkout（`persist-credentials: false`）、讀 repo、跑測試、彙總 `ci-ok` | 用這個 token 做的 `git push` **不會**觸發新的 workflow（見 §1.1）。`gh pr checks` 可能 403（沒有 `checks:read`） |
+| **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/`，可觸發 `ci.yml` 的 `push` run | 不應用來合併或改 repo secrets。**不確定**：action 是否偶爾仍會用到 `GITHUB_TOKEN` 寫入；故 `contents: write` 仍保留 |
+| **本機／spike workflow（`poc-spike.yml`，手動 `workflow_dispatch`）** | 在 `poc/A-xxx` 分支上跑 `.github/ci/spike.sh` 或環境檢查；**不需要 Docker** | 不部署、不加 secret。不得把 spike 當成 T-018 `bundle` job 或 ADR-009 (2) 的部署證明 |
+
+`db` job 只在 `pull_request` 跑；`push` 事件若略過 `db`，`ci-ok` 會標「未驗證」，該次 push 綠燈不代表 health／ADR-009 已驗過。

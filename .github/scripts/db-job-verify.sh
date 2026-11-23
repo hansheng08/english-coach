@@ -39,9 +39,9 @@ ENV_FILE="${RUNNER_TEMP:-/tmp}/functions.env"
 
 cleanup() {
   if [[ -f "$SERVE_PID_FILE" ]]; then
-    kill "$(cat "$SERVE_PID_FILE")" 2>/dev/null || true
+    kill "$(cat "$SERVE_PID_FILE")" 2>/dev/null || true  # o004-allow: cleanup in trap; job result already decided
   fi
-  supabase --workdir "$WORKDIR" stop || true
+  supabase --workdir "$WORKDIR" stop || true  # o004-allow: cleanup in trap; job result already decided
 }
 trap cleanup EXIT
 
@@ -104,8 +104,8 @@ done
 echo "== wait for ${HEALTH_PATH} (ignore BOOT_ERROR 503 until the worker boots) =="
 ready=0
 for i in $(seq 1 45); do
-  code="$(curl -sS -o /tmp/o003-health-wait.body -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"
-  body="$(tr '\n' ' ' < /tmp/o003-health-wait.body 2>/dev/null || true)"
+  code="$(curl -sS -o /tmp/o003-health-wait.body -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"  # o004-allow: retry loop; success still requires HTTP 200/401/404 later
+  body="$(tr '\n' ' ' < /tmp/o003-health-wait.body 2>/dev/null || true)"  # o004-allow: retry loop body read; missing file is treated as empty, not success
   echo "Attempt ${i}/45: HTTP ${code:-000} body=${body}"
   if [[ "$code" =~ ^(200|401|404)$ ]]; then
     echo "health worker is up (HTTP ${code}) on attempt ${i}"
@@ -115,7 +115,7 @@ for i in $(seq 1 45); do
   sleep 2
 done
 echo "---- functions serve log ----"
-cat "$SERVE_LOG" || true
+cat "$SERVE_LOG" || true  # o004-allow: diagnostic dump; boot/health checks still hard-fail
 echo "---- end serve log ----"
 echo "== container mount list (serve --debug + docker inspect) =="
 if grep -E -i 'mount|bind|import.?map|deno\.json|packages/contracts|volume' "$SERVE_LOG" >/tmp/o003-mount-grep.txt; then
@@ -126,7 +126,7 @@ fi
 cid="$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '/edge.runtime|edge-runtime|supabase_edge/ {print $1; exit}')"
 if [[ -n "${cid:-}" ]]; then
   echo "edge-runtime container: $cid"
-  docker inspect -f '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}' "$cid" || true
+  docker inspect -f '{{range .Mounts}}{{println .Type .Source "->" .Destination}}{{end}}' "$cid" || true  # o004-allow: diagnostic dump; MOUNT_OK/MISSING is the actual check
   if docker inspect -f '{{range .Mounts}}{{println .Source}}{{end}}' "$cid" | grep -q 'packages/contracts'; then
     echo "MOUNT_OK: packages/contracts appears in the container mount list."
   else
@@ -147,7 +147,7 @@ fi
 echo "== ADR-009 (1): contracts import (serve log) =="
 if grep -E 'Module not found|Cannot resolve|Could not find.*@english-coach/contracts' "$SERVE_LOG"; then
   echo "ERROR: serve log shows @english-coach/contracts resolution failure."
-  tail -n 80 "$SERVE_LOG" || true
+  tail -n 80 "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
   exit 1
 fi
 echo "No contracts resolution error in serve log."
@@ -163,7 +163,7 @@ curl_code() {
   echo "body: $(tr '\n' ' ' < "$body")"
   if [[ "$code" != "$expected" ]]; then
     echo "ERROR: expected HTTP ${expected}, got ${code}"
-    tail -n 80 "$SERVE_LOG" || true
+    tail -n 80 "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
     exit 1
   fi
 }
@@ -240,8 +240,8 @@ echo "body: $(tr '\n' ' ' < "$USER_BODY")"
 if [[ "$USER_CODE" != "200" ]]; then
   echo "ERROR: expected HTTP 200 with user JWT, got ${USER_CODE}"
   echo "---- o003-auth diagnostic lines ----"
-  grep -E "o003-auth|o003-handler-error" "$SERVE_LOG" || true
-  tail -n 80 "$SERVE_LOG" || true
+  grep -E "o003-auth|o003-handler-error" "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
+  tail -n 80 "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
   exit 1
 fi
 if ! jq -e '.ok == true' "$USER_BODY" >/dev/null; then
@@ -249,7 +249,7 @@ if ! jq -e '.ok == true' "$USER_BODY" >/dev/null; then
   exit 1
 fi
 echo "== o003-auth function log =="
-grep -E 'o003-auth' "$SERVE_LOG" || true
+grep -E 'o003-auth' "$SERVE_LOG" || true  # o004-allow: display-only after a successful 200
 
 # shellcheck source=adr010-keycheck.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/adr010-keycheck.sh"
@@ -267,14 +267,14 @@ while IFS= read -r -d '' f; do
     exit 1
   fi
   echo "bundle mentions contracts: $f"
-done < <(find "$WORKDIR" "${HOME}/.supabase" /tmp "${RUNNER_TEMP:-/tmp}" -type f \( -name '*.eszip' -o -name '*eszip*' -o -name 'api.zip' \) 2>/dev/null | head -n 20 | tr '\n' '\0' || true)
+done < <(find "$WORKDIR" "${HOME}/.supabase" /tmp "${RUNNER_TEMP:-/tmp}" -type f \( -name '*.eszip' -o -name '*eszip*' -o -name 'api.zip' \) 2>/dev/null | head -n 20 | tr '\n' '\0' || true)  # o004-allow: retry loop body read
 
 # Also peek at edge-runtime container files if present (best effort).
 if command -v docker >/dev/null; then
   cid="$(docker ps --format '{{.ID}} {{.Image}} {{.Names}}' | awk '/edge.runtime|edge-runtime|supabase_edge/ {print $1; exit}')"
   if [[ -n "${cid:-}" ]]; then
     echo "edge-runtime container: $cid"
-    docker exec "$cid" sh -c 'ls -la /home/deno 2>/dev/null; ls -la /root/functions 2>/dev/null; find / -name "*.eszip" 2>/dev/null | head' || true
+    docker exec "$cid" sh -c 'ls -la /home/deno 2>/dev/null; ls -la /root/functions 2>/dev/null; find / -name "*.eszip" 2>/dev/null | head' || true  # o004-allow: eszip search is best-effort; missing artifact is UNCONFIRMED, not a pass of (2) deploy proof
   fi
 fi
 
