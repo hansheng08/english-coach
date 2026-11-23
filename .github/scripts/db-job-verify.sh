@@ -78,10 +78,17 @@ echo "== dummy function env (ADR-010 names, dummy values, not secrets) =="
   # Probe-only; not a product env name. Used to verify local HS256 user JWTs
   # inside the Edge Runtime without calling Auth at 127.0.0.1.
   if [[ -n "${JWT_SECRET:-}" ]]; then
-    printf 'O003_PROBE_JWT_SECRET=%s
-' "$JWT_SECRET"
+    printf 'O003_PROBE_JWT_SECRET=%s\n' "$JWT_SECRET"
   fi
 } > "$ENV_FILE"
+
+# Also write the secret into the staged function dir (bind-mounted into
+# Edge Runtime) in case --env-file does not inject custom names.
+if [[ -n "${JWT_SECRET:-}" ]]; then
+  umask 077
+  printf '%s' "$JWT_SECRET" > "$WORKDIR/supabase/functions/api/.o003-jwt-secret"
+  echo "Wrote probe JWT secret file in staged function dir (value not printed)."
+fi
 
 echo "== ADR-009 host path check (file must exist on the runner before serve) =="
 CONTRACTS_SRC="${WORKDIR}/packages/contracts/src/index.ts"
@@ -189,12 +196,51 @@ SIGNUP_CODE="$(curl -sS -o "$SIGNUP_BODY" -w '%{http_code}' --max-time 15 \
   -d "{\"email\":\"${EMAIL}\",\"password\":\"Ci-O003-passw0rd!\"}")"
 echo "signup HTTP ${SIGNUP_CODE}"
 # Do not print tokens. Extract access_token with jq if present.
-ACCESS_TOKEN="$(jq -r '.access_token // empty' "$SIGNUP_BODY")"
+ACCESS_TOKEN="$(jq -r '.access_token // .session.access_token // empty' "$SIGNUP_BODY")"
 if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
   echo "ERROR: signup did not return access_token. HTTP ${SIGNUP_CODE}. Keys in body: $(jq -r 'keys|join(",")' "$SIGNUP_BODY" 2>/dev/null || echo unknown)"
   exit 1
 fi
 echo "Got user access_token (value not printed)."
+
+echo "== user JWT claims on host (no token or secret values) =="
+ACCESS_TOKEN="$ACCESS_TOKEN" JWT_SECRET="${JWT_SECRET:-}" python3 - <<'JWTPY'
+import os, json, base64, hmac, hashlib, sys
+tok = os.environ.get("ACCESS_TOKEN") or ""
+secret = os.environ.get("JWT_SECRET") or ""
+parts = tok.split(".")
+print(f"jwt parts={len(parts)}")
+if len(parts) < 2:
+    print("access_token is not a JWT-shaped string")
+    sys.exit(0)
+
+def dec(x):
+    pad = "=" * ((4 - len(x) % 4) % 4)
+    return json.loads(base64.urlsafe_b64decode(x + pad))
+
+try:
+    header = dec(parts[0])
+    payload = dec(parts[1])
+except Exception as exc:
+    print(f"jwt decode error type={type(exc).__name__}")
+    sys.exit(0)
+
+print(
+    "alg=" + str(header.get("alg")),
+    "role=" + str(payload.get("role")),
+    "aud=" + str(payload.get("aud")),
+    "has_sub=" + str(bool(payload.get("sub"))),
+    "is_anonymous=" + str(payload.get("is_anonymous")),
+    "claim_keys=" + ",".join(sorted(map(str, payload.keys()))),
+)
+if secret and len(parts) == 3:
+    pad = "=" * ((4 - len(parts[2]) % 4) % 4)
+    sig = base64.urlsafe_b64decode(parts[2] + pad)
+    expected = hmac.new(secret.encode("utf-8"), f"{parts[0]}.{parts[1]}".encode("ascii"), hashlib.sha256).digest()
+    print("host_hs256=" + ("ok" if hmac.compare_digest(sig, expected) else "mismatch"))
+else:
+    print("host_hs256=skipped")
+JWTPY
 
 echo "== health with user JWT → 200 {ok:true} =="
 USER_BODY="$(mktemp)"
@@ -206,6 +252,8 @@ echo "curl HTTP ${USER_CODE} (expected 200)"
 echo "body: $(tr '\n' ' ' < "$USER_BODY")"
 if [[ "$USER_CODE" != "200" ]]; then
   echo "ERROR: expected HTTP 200 with user JWT, got ${USER_CODE}"
+  echo "---- o003-auth diagnostic lines ----"
+  grep -E "o003-auth|o003-handler-error" "$SERVE_LOG" || true
   tail -n 80 "$SERVE_LOG" || true
   exit 1
 fi

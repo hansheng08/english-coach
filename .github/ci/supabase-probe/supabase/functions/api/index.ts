@@ -35,6 +35,35 @@ function base64UrlToBytes(input: string): Uint8Array {
   return out;
 }
 
+function decodeJsonPart(part: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(base64UrlToBytes(part)));
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+async function loadProbeSecret(): Promise<{ secret?: string; source: string }> {
+  const fromEnv = Deno.env.get('O003_PROBE_JWT_SECRET');
+  if (fromEnv && fromEnv.length > 0) return { secret: fromEnv, source: 'env' };
+  try {
+    const text = (await Deno.readTextFile(new URL('./.o003-jwt-secret', import.meta.url))).trim();
+    if (text.length > 0) return { secret: text, source: 'file' };
+  } catch {
+    // file is written only at CI runtime in the staged workdir
+  }
+  return { source: 'none' };
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
 async function verifyHs256(token: string, secret: string): Promise<Record<string, unknown> | null> {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -43,18 +72,13 @@ async function verifyHs256(token: string, secret: string): Promise<Record<string
     new TextEncoder().encode(secret),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
-    ['verify'],
+    ['sign', 'verify'],
   );
-  const ok = await crypto.subtle.verify(
-    'HMAC',
-    key,
-    base64UrlToBytes(parts[2]),
-    new TextEncoder().encode(`${parts[0]}.${parts[1]}`),
-  );
-  if (!ok) return null;
-  const payload = JSON.parse(new TextDecoder().decode(base64UrlToBytes(parts[1])));
-  if (!payload || typeof payload !== 'object') return null;
-  return payload as Record<string, unknown>;
+  const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+  const signature = base64UrlToBytes(parts[2]);
+  const signed = new Uint8Array(await crypto.subtle.sign({ name: 'HMAC', hash: 'SHA-256' }, key, data));
+  if (!timingSafeEqual(signed, signature)) return null;
+  return decodeJsonPart(parts[1]);
 }
 
 function isUserPayload(payload: Record<string, unknown>): boolean {
@@ -62,48 +86,87 @@ function isUserPayload(payload: Record<string, unknown>): boolean {
     payload.sub.length > 0;
 }
 
-async function isAuthenticatedUser(token: string): Promise<boolean> {
-  try {
-    // Probe-only secret from supabase status -o env (not a product env name).
-    // Avoids calling Auth via 127.0.0.1 from inside the Edge Runtime container.
-    const probeSecret = Deno.env.get('O003_PROBE_JWT_SECRET');
-    if (probeSecret) {
-      const payload = await verifyHs256(token, probeSecret);
-      return payload !== null && isUserPayload(payload);
-    }
-
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const publishable = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
-    let apikey: string | undefined;
-    if (publishable) {
-      try {
-        const parsed: unknown = JSON.parse(publishable);
-        if (parsed && typeof parsed === 'object' && parsed !== null && 'default' in parsed) {
-          const def = (parsed as { default?: unknown }).default;
-          if (typeof def === 'string') apikey = def;
-        }
-      } catch {
-        apikey = undefined;
+function publishableApiKey(): string {
+  const publishable = Deno.env.get('SUPABASE_PUBLISHABLE_KEYS');
+  if (publishable) {
+    try {
+      const parsed: unknown = JSON.parse(publishable);
+      if (parsed && typeof parsed === 'object' && parsed !== null && 'default' in parsed) {
+        const def = (parsed as { default?: unknown }).default;
+        if (typeof def === 'string' && def.length > 0) return def;
       }
+    } catch {
+      if (publishable.length > 0 && !publishable.startsWith('{')) return publishable;
     }
-    if (!apikey) apikey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY');
-    if (!apikey) apikey = Deno.env.get('SUPABASE_ANON_KEY');
-    const urls = [supabaseUrl, 'http://kong:8000'].filter((u): u is string => typeof u === 'string' && u.length > 0);
-    for (const url of urls) {
+  }
+  return Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+}
+
+function authBaseUrls(): string[] {
+  const raw = Deno.env.get('SUPABASE_URL');
+  const urls: string[] = [];
+  const add = (u?: string | null) => {
+    if (u && u.length > 0 && !urls.includes(u)) urls.push(u);
+  };
+  add(raw);
+  if (raw) {
+    add(raw.replace(/127\.0\.0\.1|localhost/g, 'kong').replace(/:54321\b/, ':8000'));
+    add(raw.replace(/127\.0\.0\.1|localhost/g, 'host.docker.internal'));
+  }
+  add('http://kong:8000');
+  add('http://auth:9999');
+  add('http://supabase_kong_english-coach-ci-probe:8000');
+  add('http://supabase_auth_english-coach-ci-probe:9999');
+  return urls;
+}
+
+async function authUserPayload(token: string): Promise<Record<string, unknown> | null> {
+  const apikey = publishableApiKey();
+  const pathsFor = (base: string): string[] => {
+    if (base.includes(':9999')) return [`${base}/user`, `${base}/auth/v1/user`];
+    return [`${base}/auth/v1/user`, `${base}/user`];
+  };
+  for (const base of authBaseUrls()) {
+    for (const url of pathsFor(base)) {
       try {
-        const response = await fetch(`${url}/auth/v1/user`, {
-          headers: { Authorization: `Bearer ${token}`, apikey: apikey ?? '' },
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}`, apikey },
         });
+        console.log(`o003-auth-fetch status=${response.status}`);
         if (!response.ok) continue;
         const body: unknown = await response.json();
         if (!body || typeof body !== 'object') continue;
-        return isUserPayload(body as Record<string, unknown>);
-      } catch {
-        continue;
+        return body as Record<string, unknown>;
+      } catch (err) {
+        const name = err instanceof Error ? err.name : 'unknown';
+        console.log(`o003-auth-fetch-error name=${name}`);
       }
     }
-    return false;
-  } catch {
+  }
+  return null;
+}
+
+async function isAuthenticatedUser(token: string): Promise<boolean> {
+  try {
+    const parts = token.split('.');
+    const header = parts.length >= 1 ? decodeJsonPart(parts[0]) : null;
+    const unverified = parts.length >= 2 ? decodeJsonPart(parts[1]) : null;
+    const { secret, source } = await loadProbeSecret();
+    let hs256 = 'skipped';
+    let payload: Record<string, unknown> | null = null;
+    if (secret) {
+      payload = await verifyHs256(token, secret);
+      hs256 = payload ? 'ok' : 'mismatch';
+    }
+    const sourcePayload = payload ?? await authUserPayload(token);
+    const accepted = sourcePayload !== null && isUserPayload(sourcePayload);
+    console.log(
+      `o003-auth has_probe_secret=${secret ? 'true' : 'false'} secret_source=${source} alg=${String(header?.alg ?? 'none')} jwt_parts=${parts.length} hs256=${hs256} role=${String((payload ?? unverified)?.role ?? 'none')} has_sub=${typeof (payload ?? unverified)?.sub === 'string'} is_anonymous=${String((payload ?? unverified)?.is_anonymous)} accepted=${accepted}`,
+    );
+    return accepted;
+  } catch (err) {
+    const name = err instanceof Error ? err.name : 'unknown';
+    console.log(`o003-auth-error name=${name}`);
     return false;
   }
 }
