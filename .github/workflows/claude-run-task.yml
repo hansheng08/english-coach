@@ -13,11 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
+      # contents: write — Claude Code may commit via the action; official action
+      # documents repo write. Push itself uses the Claude GitHub App (OIDC),
+      # but we cannot prove the action never uses GITHUB_TOKEN for repo writes.
       contents: write
-      pull-requests: write
-      issues: write
+      # id-token: write — required to exchange OIDC for the Claude GitHub App token (O-002 A').
       id-token: write
+      # actions: read — Verify push triggered CI uses gh run list with github.token.
       actions: read
+      # Removed pull-requests: write and issues: write: this workflow does not
+      # open or comment on PRs/issues (mode C: no PR from Claude Code).
     steps:
       - name: Validate task id
         env:
@@ -87,6 +92,7 @@ jobs:
           retention-days: 7
 
       - name: Verify push triggered CI
+        id: verify_push
         if: success()
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,10 +131,19 @@ jobs:
           WEBHOOK_URL: ${{ secrets.GROK_CHIEF_WEBHOOK_URL }}
           WEBHOOK_KEY: ${{ secrets.GROK_CHIEF_WEBHOOK_KEY }}
           TASK: ${{ github.event.client_payload.task }}
-          OUTCOME: ${{ steps.claude.outcome }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify_push.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ -z "$WEBHOOK_URL" ]; then echo "Webhook not configured, skip."; exit 0; fi
+          set -euo pipefail
+          if [ -z "${WEBHOOK_URL:-}" ]; then echo "Webhook not configured, skip."; exit 0; fi
+          # Previously OUTCOME was only steps.claude.outcome, so a failed
+          # "Verify push triggered CI" still reported outcome=success to 幕僚長.
+          OUTCOME="$CLAUDE_OUTCOME"
+          if [ "${VERIFY_OUTCOME:-skipped}" = "failure" ]; then
+            OUTCOME="failure"
+          fi
+          echo "notify outcome=${OUTCOME} (claude=${CLAUDE_OUTCOME} verify=${VERIFY_OUTCOME:-skipped})"
           jq -n --arg task "$TASK" --arg outcome "$OUTCOME" --arg run "$RUN_URL" \
             '{event: "claude-task-finished", task: $task, outcome: $outcome, run: $run}' \
           | curl -sS -X POST "$WEBHOOK_URL" \
