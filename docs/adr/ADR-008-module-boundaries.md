@@ -1,6 +1,6 @@
 # ADR-008：模組邊界與架構測試
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（ARCHITECTURE v1.2），皆 2026-11-22，見文末
+- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；見文末
 
 ## 背景
 主要由 Claude Code 寫程式。要讓錯誤（例如在畫面直接呼叫 AI、在 domain 裡讀時間、在 handler 跳過 registry）在 CI 就失敗，而不是靠 Review 抓。
@@ -111,4 +111,10 @@
 ### 後果
 - 這些規則由 TechLead 排進 T-051（或 T-051 之前的工具單）；第 12、13 條在有真實套件時才有意義，第 14 條在 T-051 寫出品牌型別時同時生效。
 - 修訂 1 寫的 regex 由本修訂取代；T-002 照修訂 1 實作不受影響，T-051 再換成新 regex。
+
+## 修訂 3（2026-11-23，Architect；ARCHITECTURE v1.3，隨 ADR-010）
+- 狀態：**已接受**（送 G2 PR `[G2] T-003 Supabase 架構補充`）
+- **第 14 條品牌清單加 `AuthContext`**：允許 `as AuthContext` 的正式程式檔只有 `supabase/functions/_shared/db/auth.ts`（測試程式仍例外）。選擇器的名稱 regex 改為 `^(UserId|CardId|AnswerId|QuestionId|ArticleId|PlanDate|StoragePath|Ntd|Wav16kMono|PaidConsent|AuthContext)$`。
+- **新增第 15 條**：`Deno.serve` 只能出現在 `supabase/functions/<函式>/index.ts`（ESLint `no-restricted-syntax`，`MemberExpression[object.name='Deno'][property.name='serve']`；和同區塊其他選擇器合併，避免覆蓋）。其他 Deno API 由 `supabase/functions/_types/deno.d.ts` 的最小宣告限制（沒宣告就編譯失敗，ADR-010 決定 3）。
+- lint 測試新增範例：`supabase/functions/api/router.ts` 寫 `Deno.serve(h)` → error；`supabase/functions/api/index.ts` → 合法；`supabase/functions/api/router.ts` 寫 `x as AuthContext` → error；`supabase/functions/_shared/db/auth.ts` → 合法。
 
