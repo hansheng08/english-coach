@@ -23,3 +23,4 @@ export type { AudioPayload, Wav16kMono } from './audio.ts';
 export * from './speech.ts';
 export * from './errors.ts';
 export * from './api.ts';
+export * from './settings.ts';
