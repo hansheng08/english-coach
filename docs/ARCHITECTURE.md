@@ -1,7 +1,7 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.2.1**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.3**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010，送 G2 PR）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
-- 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
+- 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
 
 > 名詞（第一次出現時的一句話解釋）
@@ -68,15 +68,15 @@
 ### 3.2 用工具擋住錯誤寫法（「錯的程式寫不出來」）
 1. **dependency-cruiser 規則**（CI 必過）：上表「禁止」欄逐條寫成規則；`packages/domain` 不得 import 任何非 `contracts` 的模組；feature 之間互相 import 直接失敗。
 2. **ESLint `no-restricted-globals`／`no-restricted-imports`**：`fetch` 只允許出現在 `providers/*`、`news/*`、`apps/web/src/api/*`；`Deno.env` 只允許在 `config/*`；`Date.now`／`new Date()` 在 `domain` 禁用。
-3. **型別**：供應商 ID、模型 ID、卡片狀態都是字串字面值聯集（union）＋`switch` 窮舉檢查（`never`），新增狀態沒處理就編譯失敗；金額用 `type Ntd = number & { __brand: 'Ntd' }` 之類的品牌型別，避免單位混用。
-4. **錯誤用 `Result<T, AppError>` 回傳**，跨模組不丟例外（第 6 節）；ESLint 禁止在 `domain` 與 `_shared/{providers,db,news}` 的**正式程式**使用 `throw`；測試程式（`*.test.ts`、`*.test-d.ts`、`test/`）可以 `throw`，但正式程式不得 import 測試程式（dependency-cruiser）。
+3. **型別**：供應商 ID、模型 ID、卡片狀態都是字串字面值聯集（union）＋`switch` 窮舉檢查（`never`），新增狀態沒處理就編譯失敗；金額、ID、台北日期等用品牌型別避免混用（寫法以 §5.0 為準：跨網路的值用 zod `.brand<'Ntd'>()` 等，例如 `NtdSchema`；其他用 §5.0.2 的 `Brand<T, B>`）。
+4. **錯誤用 `Result<T, AppError>` 回傳**，跨模組不丟例外（第 6 節）；ESLint 禁止在 `domain` 與 `_shared/{providers,db,news}` 的**正式程式**使用 `throw`；測試程式（定義見第 6 點）可以 `throw`，但正式程式不得 import 測試程式（dependency-cruiser）。
 5. **`@supabase/*` 只有兩個出入口**：`apps/web/src/api/**` 與 `supabase/functions/_shared/db/**`（dependency-cruiser，regex 涵蓋 `npm:`／`jsr:` 前綴）；全 repo 禁止 `http:`／`https:`／`npm:`／`jsr:` import（ESLint `no-restricted-imports`），Deno 第三方套件經 `deno.json` `imports` 對應成裸名稱。
 6. **測試檔定義**（ESLint 與 dependency-cruiser 共用；ADR-008 修訂 2）：`(^|/)test/|\.test\.tsx?$|\.test-d\.ts$`（前端 `*.test.tsx` 算測試；`test/` 資料夾內的 `.ts`／`.tsx` 都算）。完整規則表見 ADR-008 修訂 1、2。
 7. **套件之間只用套件名稱引用**（ADR-009）：禁止用相對路徑跨進 `packages/*`，禁止深層引用（只允許 `@english-coach/contracts`、`@english-coach/contracts/testing`、`@english-coach/domain`）；品牌型別的 `as` 轉型只能出現在建立函式所在檔案與測試程式（ESLint，ADR-008 修訂 2）。
 8. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
 
 ## 4. 資料模型與儲存 schema
-- 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。只有 Edge Functions 用 service role（後端專用的高權限金鑰）寫入需要伺服器驗證的欄位。
+- 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。只有 Edge Functions 用 secret 金鑰（`SUPABASE_SECRET_KEYS.default`，舊稱 service role；後端專用、會繞過 RLS）寫入需要伺服器驗證的欄位，而且只限 `daily-prep`、`purge-audio`；`api` 一律以使用者身分（publishable 金鑰＋使用者 JWT）查表，受 RLS 限制（§7.1）。
 - 日期欄位 `plan_date date` 一律是**台北日期**；時間戳記一律 `timestamptz`（存 UTC）。
 - 錄音欄位都有 `audio_expires_at = created_at + 90 days`；每日 pg_cron 刪 Storage 物件並把 `audio_path` 設為 null，逐字稿與分數保留（Q-06）。
 
@@ -132,8 +132,6 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
   5. contracts 只 import `zod`；裡面的函式都是純函式（不讀時間、不連網路）。
 
 #### 5.0.1 檔案配置
-| 檔案 | 內容 |
-|---|---|
 | 檔案（依 import 順序，箭頭右邊只能 import 左邊；`adr008-10` 禁止循環） | 內容 |
 |---|---|
 | 1. `src/brand.ts`、`src/result.ts`、`src/validation.ts` | `Brand<T, B>`；`Result`、`Ok`、`Err` 與 helper；`ValidationIssue`、`ValidationError`（三個檔案都不 import 任何東西） |
@@ -416,9 +414,10 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 - 與 v1.1 的差異：`stream()` 的參數有了名字（`LlmStreamRequest`）；STT／發音／TTS 補上 `timeoutMs`（§6 第 6 點本來就要求每次外部呼叫設逾時）；`assess` 回傳改用具名的 `PronunciationResult`；`TtsResult.mime` 收斂成三種；介面各自固定 `capability`，registry 回傳型別因此能依能力縮小。
 - **型別測試（T-051）**：每個聯集用 `expectTypeOf` 比對完整成員；`AppErrorKind` 等於 `AppError['kind']`；`CardId` 不能指定給 `AnswerId`、`string` 不能指定給 `PlanDate`（`@ts-expect-error`）；`httpStatusOf` 對 `APP_ERROR_KINDS` 每一項都有值且符合上表；`Transcript` 用 `timing` 縮小後才能讀 `words`；`parseWav16kMono` 對 8 kHz、雙聲道、> 30 s、非 RIFF 都回 `validation`。
 
-### 5.1 HTTP API（Edge Functions，全部要 Supabase JWT；請求與回應都用 `packages/contracts` 的 zod schema 驗證）
+### 5.1 HTTP API（Edge Functions，全部要 Supabase JWT，由函式內 `requireUser` 驗證、`verify_jwt = false`，見 §7.1；請求與回應都用 `packages/contracts` 的 zod schema 驗證）
 | 端點 | 輸入 → 輸出 | 時間預算 | AC |
 |---|---|---|---|
+| `GET /health` | — → `{ ok: true }`（`HealthResponseSchema`）；沒有或無效 JWT → 401 `unauthenticated` | ≤ 1 s | NFR-05、AC-23（基礎） |
 | `POST /plan/today` | — → `DailyPlan`（冪等；已存在就直接回傳） | ≤ 2 s（已備好時） | AC-01、AC-05、AC-07、AC-13 |
 | `POST /cards` | `{chunk, sourceSentence, sourceType, meaningZh?}` → `Card`（**不呼叫 AI**） | ≤ 1 s p95（未驗證） | AC-03、AC-06、AC-16 |
 | `POST /cards/lookup` | `{selection, sentence}` → `{meaningZh}`（反白任意詞句時才用） | 見 §8 | AC-03 |
@@ -461,8 +460,8 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 7. **AI 輸出不合格**：zod 驗證失敗、字數不在 250～300、chunk 不是 5 個 → 同模型重試 1 次，再失敗記錄 `failed` 並走降級。
 
 ## 7. 安全
-- **金鑰不進 repo、不進前端**（NFR-05）：Gemini、Groq、Azure 金鑰只存在 Supabase Edge Function secrets（用 `supabase secrets set` 由 Hansheng 本人在自己電腦輸入），程式只在 `config/` 讀 `Deno.env`。`.env*` 全部列在 `.gitignore`；repo 只放 `.env.example`（只有變數名稱）。
-- **前端只拿得到公開金鑰**：Supabase 的 publishable/anon key 設計上可以公開，安全靠 RLS；Vite 只會把 `VITE_` 開頭的變數打包進前端，所以規定：任何 `VITE_` 變數名稱不得含 `KEY`、`SECRET`、`TOKEN`（`VITE_SUPABASE_ANON_KEY` 例外，寫死在白名單），由 CI 測試檢查。
+- **金鑰不進 repo、不進前端**（NFR-05）：Gemini、Groq、Azure 金鑰只存在 Supabase Edge Function secrets（用 `supabase secrets set` 由 Hansheng 本人在自己電腦輸入），程式只在 `config/` 讀 `Deno.env`。`.env*` 全部列在 `.gitignore`；repo 只放 `.env.example`（只有變數名稱）。變數名稱見 §7.1。
+- **前端只拿得到公開金鑰**：Supabase 的 publishable/anon key 設計上可以公開，安全靠 RLS；Vite 只會把 `VITE_` 開頭的變數打包進前端，所以規定：任何 `VITE_` 變數名稱不得含 `KEY`、`SECRET`、`TOKEN`（`VITE_SUPABASE_PUBLISHABLE_KEY` 例外，寫死在白名單；舊的 anon 金鑰 Supabase 將於 2026 年底淘汰，不使用），由 CI 測試檢查。
 - **Azure 金鑰不下發**：跟讀錄音由前端上傳到 Edge Function，再由伺服器呼叫 Azure（金鑰不出伺服器）。
 - **CI 秘密掃描**：建置後掃 `dist/` 與 repo，命中已知金鑰格式（例如 `AIza`、`gsk_` 前綴）即失敗。工具選擇（gitleaks 或自寫腳本）由 O-001 決定。
 - **登入**：Supabase Auth email＋密碼（或 magic link），**關閉註冊**；只有 Hansheng 一個帳號（Q-01）。
@@ -472,6 +471,35 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
   - Storage bucket 全部 private，只用短效 signed URL 讀取。傳輸全程 HTTPS。
   - **風險**：Gemini、Azure、Groq 的免費層可能把送出的內容用於改善產品（Gemini 定價頁免費層標示「Used to improve our products: Yes」；Groq、Azure F0 的資料使用條款「未驗證」）。Q-15 已決定：接受（錄音不送 Gemini、履歷先去個資）。
 - **新聞來源白名單**：`news` 模組只抓 `news_source` 裡的網址，避免被當成任意網址的代理。
+
+### 7.1 Edge Functions：環境變數、身分驗證、Deno 型別（ADR-010）
+**環境變數**（只在 `supabase/functions/_shared/config/**` 讀；`SUPABASE_` 開頭的是 Supabase 自動注入、不能自設）
+| 名稱 | 來源 | 用途 |
+|---|---|---|
+| `SUPABASE_URL` | 自動注入 | supabase-js client |
+| `SUPABASE_PUBLISHABLE_KEYS`（JSON，取 `default`；備援 `SUPABASE_PUBLISHABLE_KEY`） | 自動注入 | 驗 JWT、以使用者身分查表（RLS） |
+| `SUPABASE_SECRET_KEYS`（JSON，取 `default`；備援 `SUPABASE_SECRET_KEY`） | 自動注入 | 只給 `daily-prep`、`purge-audio` |
+| `GEMINI_API_KEY` | Hansheng（沒有連結帳單的專案） | Gemini adapter |
+| `GEMINI_PAID_API_KEY` | Hansheng（MVP 不設定） | 只有 `config/paid.ts` |
+| `GROQ_API_KEY` | Hansheng | Groq adapter |
+| `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION` | Hansheng | Azure Speech adapter |
+| `APP_ALLOWED_ORIGINS` | Hansheng（逗號分隔；本機 `http://localhost:5173`） | `api` 的 CORS |
+- 不使用：`SUPABASE_ANON_KEY`、`SUPABASE_SERVICE_ROLE_KEY`（年底淘汰）、`SUPABASE_DB_URL`（不直連 Postgres）、`SUPABASE_JWKS`。
+- 前端（T-018）：`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`。
+- 檔案：`supabase/functions/.env.example`、`apps/web/.env.example`（只有名稱）；本機值放 `supabase/functions/.env`、`apps/web/.env.local`（已被 `.gitignore` 忽略）；正式環境用 `supabase secrets set`。供應商金鑰缺少時該能力回 `not_configured`（503）；Supabase 變數缺少回 `internal`（500）。log 與錯誤訊息只能寫變數名稱，不能寫值。
+
+**身分驗證**
+- `supabase/config.toml` 每個函式都 `verify_jwt = false`；驗證一律在函式內做。理由：`verify_jwt` 也接受公開的 publishable 金鑰，不能證明有登入使用者；官方疑難排解頁建議關閉內建檢查改在程式內驗；這樣 401 一律是 `ApiErrorBody`，CORS 預檢也由我們自己回。
+- `functions/api`：路由器先處理 `OPTIONS`（CORS，204），其他請求一律先過 `_shared/db/auth.ts` 的 `requireUser`（讀 `Authorization: Bearer`、supabase-js `auth.getClaims(token)`、要求 `role = authenticated`、拒絕匿名使用者），成功才得到品牌型別 `AuthContext`（只有 `auth.ts` 能建立）。路由簽名是 `(req, ctx: AuthContext) => Promise<Response>`，沒有公開路由。查表用 `createUserDb(ctx)`（publishable 金鑰＋使用者 token，RLS 生效）。
+- `daily-prep`、`purge-audio`（pg_cron 呼叫）：`requireServiceKey` 比對 `apikey` 標頭與 secret 金鑰（固定時間比較）；pg_cron 從 Vault 取金鑰。
+- 不使用 `@supabase/server`（未核准的新依賴）。
+
+**Deno 型別（Node 端 tsc／ESLint）**
+- `supabase/functions/tsconfig.json`：`lib: ["ES2023", "WebWorker"]`、`types: []`、`composite`、`emitDeclarationOnly`、`allowImportingTsExtensions`，加入根 `tsconfig.json` 的 `references`，所以 `pnpm typecheck`／`pnpm lint` 都會檢查後端程式。
+- `supabase/functions/_types/deno.d.ts`：只宣告 `Deno.env.get` 與 `Deno.serve`；用到其他 Deno API 會編譯失敗，要先改這個檔案（Architect Review）。
+- `Deno.serve` 只能在 `<函式>/index.ts`（ESLint，ADR-008 第 15 條）；`index.ts` 以外的檔案不在 import 時讀 `Deno`，所以 Vitest（Node）可以測路由與 `_shared/**`。
+- 不在 `pnpm check` 跑 `deno check`；Deno 端實際能否載入、執行，由 CI `db` job（SRE）的 `functions serve`＋health 檢查證明。
+- 未驗證：CLI 3.2.0 本機是否注入 `SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`；`WebWorker` lib 是否涵蓋會用到的所有 Web API（例如 `Response.json()`）；`getClaims` 在本機 CLI 的行為。不確定：`verify_jwt` 的移除時程（官方未公布）。
 
 ## 8. 效能預算
 | 項目 | PRD 上限 | 設計目標 | 怎麼做到 | 狀態 |
@@ -568,18 +596,22 @@ english-coach/
 │  │  └─ test/                   # expectOk／expectErr（只給測試）
 │  └─ domain/                    # @english-coach/domain：package.json＋src/（純邏輯＋單元測試）
 ├─ supabase/
-│  ├─ config.toml
+│  ├─ config.toml                # 每個函式 verify_jwt = false（ADR-010）
 │  ├─ migrations/                # schema、RLS、pg_cron、seed_chunk 匯入
 │  └─ functions/
 │     ├─ deno.json               # imports：@english-coach/*、zod、@supabase/supabase-js 對應（ADR-009）
+│     ├─ package.json            # @english-coach/functions（Node 端解析用，ADR-009）
+│     ├─ tsconfig.json           # lib ES2023＋WebWorker（ADR-010）
+│     ├─ .env.example            # 只有變數名稱（§7.1）
+│     ├─ _types/deno.d.ts        # 最小 Deno 宣告（ADR-010）
 │     ├─ _shared/{config,db,providers,news}/
-│     ├─ api/                    # 單一路由函式（減少冷啟動次數）
+│     ├─ api/                    # 單一路由函式（減少冷啟動次數）：index.ts（Deno.serve）＋router.ts（OPTIONS、requireUser、路由表）
 │     ├─ daily-prep/             # 05:00 備料（pg_cron 觸發）
 │     └─ purge-audio/            # 90 天清錄音（pg_cron 觸發）
 ├─ test/e2e/                     # Playwright（假供應商）
 └─ docs/
 ```
-- 引用方式已決定（ADR-009 決定 1）：所有地方都用套件名稱 `@english-coach/contracts`、`@english-coach/domain`；前端與工具經 pnpm workspace，Deno 經 `supabase/functions/deno.json` 的 `imports` 指到 `packages/*/src/index.ts`。Supabase CLI 打包時能否帶上 `supabase/functions` 以外的檔案**未驗證**，由 T-003 驗證；不行就照 ADR-009 的備案把兩個套件搬到 `supabase/functions/_shared/`，套件名稱不變。
+- 引用方式已決定（ADR-009 決定 1）：所有地方都用套件名稱 `@english-coach/contracts`、`@english-coach/domain`；前端與工具經 pnpm workspace，Deno 經 `supabase/functions/deno.json` 的 `imports` 指到 `packages/*/src/index.ts`。Supabase CLI 打包時能否帶上 `supabase/functions` 以外的檔案**未驗證**，由 CI `db` job 驗證（SRE，ADR-009 修訂 1），Node 端解析由 T-003 驗證；不行就照 ADR-009 的備案把兩個套件搬到 `supabase/functions/_shared/`，套件名稱不變。
 
 ## 13. 部署與可觀測性
 - **環境**：本機用 `supabase start`（Docker）跑完整後端；正式環境一個 Supabase Free 專案＋前端靜態檔（Supabase 不提供前端 HTML 託管，前端放 Cloudflare Pages 或 GitHub Pages 免費方案，G4 由 SRE 決定）。
@@ -627,6 +659,7 @@ english-coach/
 - `providers`：契約測試用錄好的回應樣本（不打真 API）；真 API 只在手動的 smoke 測試跑。
 - **AC-25 專用測試**（ADR-003）：registry 遇到每一種 `ProviderErrorKind` 都只呼叫被選中的那一個 adapter 一次（假 adapter 計數）；所有預設值的 `tier` 都是 `free`；沒有 `paid_consent_at` 時選付費會回 `paid_not_allowed`；E2E 用假 STT 回 429，畫面顯示原因且錄音仍在 IndexedDB。
 - **Q-18 測試**：`SrsSettingsSchema` 的邊界（0、366、非遞增、`after_last_days` < `step_days[2]`、`forgot_days` > `step_days[0]` 都被擋）；任意合法設定下「猶豫的間隔 ≤ 秒答的間隔」（性質測試）；改設定後既有 `due_date` 不變。
+- **Edge Functions 驗證（ADR-010）**：Vitest（Node）走訪 `api` 路由表，每條路由在沒有 token、token 無效、`role` 不是 `authenticated` 時都回 401＋`ApiErrorBody`，`OPTIONS` 不經過驗證（假驗證器，不連網路）；真實 Supabase 下 health 無 JWT 401／有 JWT 200 由 CI `db` job 檢查（SRE）。
 - 架構測試：dependency-cruiser＋ESLint 規則在 CI 必過；ADR-008 修訂 1 的每條新規則都要在 `tooling/arch-rules.test.ts`／`lint-rules.test.ts` 各有違規與合法範例。
 - **AC 在哪一張單驗收（G2 核准 TechLead 建議 b）**：本專案沒有 CLI；「第一次能在畫面上走完該 AC」的那張任務單，視同憲章 §5 的 CLI PR，QA 在那張單寫並執行 Q-xxx（Playwright，Android 尺寸、假供應商）。之前只有程式庫或 API 的單視同 library PR，QA 只驗單元層。
 - **PoC 分支**：A-xxx 用 `poc/A-xxx`，不合併到 main（憲章 §5）；O-001 的 pushguard 白名單包含 `task/*`、`fix/*`、`poc/*`（G2 核准 TechLead 建議 a，由 SRE 實作）。
@@ -649,6 +682,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 - Cloudflare Workers 限制：https://developers.cloudflare.com/workers/platform/limits/
 - PWA 安裝條件：https://developer.chrome.com/blog/update-install-criteria 、https://web.dev/articles/install-criteria
 - 新聞來源條款與 feed：見 ADR-006（含每個條款頁網址）
+- Supabase Edge Functions 環境變數、`verify_jwt`、新金鑰與 `getClaims`（2026-11-23 讀取）：見 ADR-010「參考」
 
 ## 18. 變更紀錄
 | 版本 | 日期 | 變更 |
@@ -658,3 +692,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.1 | 2026-11-22 | ADR-008 修訂 1（T-001 審查時 TechLead 提問）：第 4 條改為 `@supabase/*` 只能在 `apps/web/src/api` 與 `supabase/functions/_shared/db` import，並禁止 `http:`／`https:`／`npm:`／`jsr:` import；`throw` 禁令只管正式程式並延伸到 `_shared/{providers,db,news}`，測試程式可以 `throw`、import `vitest`，正式程式不得 import 測試程式（§3.1、§3.2、§6、§15） |
 | v1.2 | 2026-11-22 | ARCH-003：新增 §5.0 contracts 共用型別（`Result`＋helper、`Brand`、品牌 ID、`ProviderId`／`LlmModelId`／`SttModelId`／`VoiceId`、`ProviderError`／`AppError`＋錯誤碼對照表、`Wav16kMono`、`AudioPayload`、`WordTiming`、`Transcript`、`PronunciationResult`、`StreamChunk`、`CardStreamEvent`、供應商介面、`PaidConsent`），§5.2 改指向 §5.0；§6 第 2 點錯誤格式改用 `ApiErrorBodySchema`；新增 ADR-009（套件名稱 `@english-coach/contracts` 與引用方式）與 ADR-008 修訂 2（測試檔含 `.test.tsx`、跨套件引用與品牌轉型規則）；§3.2、§12 同步 |
 | v1.2.1 | 2026-11-22 | T-051 審查（TechLead）：§5.0.4 錯誤碼對照表 `news_unavailable` 補齊為 503／可重試／畫面文字／降級方式，`httpStatusOf`、`isRetryable` 對 18 種 kind 都有值；§11.2 備援規則寫明 `news_unavailable` 只在 `daily-prep` 內部使用，第 4 步對前端回 `plan_not_ready` |
+| v1.3 | 2026-11-23 | T-003 卡住的三點（TASKS §5 第 15、27 點）：新增 ADR-010 與 §7.1——後端環境變數名稱（用自動注入的 `SUPABASE_URL`／`SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`，不用年底淘汰的 anon／service_role；自訂 `GEMINI_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`、`APP_ALLOWED_ORIGINS`）與前端 `VITE_SUPABASE_PUBLISHABLE_KEY`；`verify_jwt = false`，函式內 `requireUser`（supabase-js `getClaims`）＋`AuthContext` 品牌型別；Node 端 Deno 型別用最小 `deno.d.ts`＋`WebWorker` lib；§5.1 加 `GET /health`；§4、§7、§12、§15 同步；ADR-008 修訂 3、ADR-009 修訂 1（CLI 驗證改在 CI `db` job）；修正 TASKS §5 第 23 點的三處小不一致（§3.2 第 3、4 點、§5.0.1 重複表頭） |
