@@ -53,6 +53,12 @@ describe('computeSpeechMetrics: pauses', () => {
   it('single word has no pause', () => {
     expect(expectOk(computeSpeechMetrics(words([['a', 3000, 3500]], 10000), [])).pauseCount).toBe(0);
   });
+
+  it('(AC-T12F1-3) counts a pause between the last two words', () => {
+    // gaps: 100, 2100
+    const t = words([['a', 0, 100], ['b', 200, 300], ['c', 2400, 2500]]);
+    expect(expectOk(computeSpeechMetrics(t, [])).pauseCount).toBe(1);
+  });
 });
 
 describe('computeSpeechMetrics: fillers', () => {
@@ -77,6 +83,22 @@ describe('computeSpeechMetrics: fillers', () => {
     const t = spoken(['you', 'know']);
     expect(expectOk(computeSpeechMetrics(t, ['you', 'you know'])).fillerCount).toBe(1);
     expect(expectOk(computeSpeechMetrics(t, ['you know', 'you'])).fillerCount).toBe(1);
+  });
+
+  it('(AC-T12F1-1) prefers the longest phrase when its parts are also fillers', () => {
+    const t = spoken(['you', 'know']);
+    expect(expectOk(computeSpeechMetrics(t, ['you', 'know', 'you know'])).fillerCount).toBe(1);
+  });
+
+  it('(AC-T12F1-2) does not count overlapping phrases twice', () => {
+    const t = spoken(['you', 'know', 'you']);
+    expect(expectOk(computeSpeechMetrics(t, ['you know', 'know you'])).fillerCount).toBe(1);
+  });
+
+  it("(AC-T12F1-5) keeps a trailing apostrophe when normalizing", () => {
+    const t = spoken(["goin'"]);
+    expect(expectOk(computeSpeechMetrics(t, ['goin'])).fillerCount).toBe(0);
+    expect(expectOk(computeSpeechMetrics(t, ["goin'"])).fillerCount).toBe(1);
   });
 
   it('counts a repeated phrase back to back without overlap', () => {
@@ -110,6 +132,11 @@ describe('computeSpeechMetrics: counts and wpm', () => {
     const m = expectOk(computeSpeechMetrics(repeated(n, durationMs), []));
     expect(m.wordCount).toBe(n);
     expect(m.wpm).toBe(wpm);
+  });
+
+  it('(AC-T12F1-4) rounds wpm to one decimal place', () => {
+    // 60000 / 7000 = 8.571...
+    expect(expectOk(computeSpeechMetrics(repeated(1, 7000), [])).wpm).toBe(8.6);
   });
 
   it('counts fillers in wordCount', () => {
