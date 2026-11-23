@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.3**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010，送 G2 PR）｜日期：2026-11-22｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.4**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011）｜日期：2026-11-23｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -86,7 +86,7 @@
 | `news_source` | `id`、`name`、`feed_url`、`category`（`ai`／`software`／`semiconductor`）、`priority`（1＝主要，2、3＝備用）、`fetch_mode`（`rss_full`：RSS 內有全文／`rss_then_page`：RSS 只有摘要，正文抓原文頁面）、`include_url_pattern`（選填，例如排除某分類）、`enabled`、`terms_checked_at` | AC-01、AC-02、Q-11、Q-16 |
 | `news_article` | `id`、`source_id`、`category`、`original_url`（唯一）、`title`、`published_at`、`rewritten_text`（250～300 字）、`chunks jsonb[5]`（chunk、中文、所在句）、`sentences jsonb`（含「/」斷句）、`read_at`。**不存原文全文**，只存原文的 SHA-256 以便去重 | AC-01、AC-02、AC-05 |
 | `daily_plan` | `user_id`＋`plan_date` 唯一；`planned_category`（當天輪到的類別）、`actual_category`（實際用的類別）、`category_skipped text[]`（沒有新聞而跳過的類別）、`article_id`、`is_fallback_article`（三類都沒新文章、改用最近未讀）、`shadow_items jsonb[5]`、`card_ids uuid[25]`、`tonight_question_id`、`status`（pending／ready／failed）、`error` | AC-01、AC-05、AC-07、AC-13 |
-| `card` | `id`、`chunk`、`meaning_zh`、`example_en`、`synonyms text[]`、`source_sentence`、`source_type`（news／manual／evening／seed／shadowing）、`state`（collected／learning／reviewing／mastered）、`correct_count`、`interval_step`（0＝未進間隔、1／2／3＝第幾階、4＝第 3 階之後）、`due_date`、`priority_new`（晚上勾選）、`tts_path`、`generated_by`（模型名稱） | AC-03、AC-07～10、AC-16、AC-19、AC-20 |
+| `card` | `id`、`chunk`、`meaning_zh`、`example_en`、`synonyms text[]`、`source_sentence`、`source_type`（news／manual／evening／seed／shadowing）、`state`（collected／learning／reviewing／mastered）、`correct_count`（累計答對次數，只增不減，§4.3）、`interval_step`（0＝未進間隔、1／2／3＝第幾階、4＝第 3 階之後）、`due_date`（可為 null：剛收錄還沒出現過、或 Mastered）、`priority_new`（晚上勾選）、`seed_chunk_id`（可為 null；從種子庫轉來的卡指向 `seed_chunk.id`，唯一，用來判斷種子已用過，§4.4）、`tts_path`、`generated_by`（模型名稱） | AC-03、AC-07～10、AC-16、AC-19、AC-20 |
 | `card_review` | `card_id`、`reviewed_at`、`mode`（A／B）、`rating`（fast／hesitant／forgot）、`state_before`、`state_after`、`interval_days_applied`（這次排程實際用的天數，設定改了也查得到當時的值） | AC-09、AC-19、AC-22 |
 | `seed_chunk` | `id`、`chunk`、`meaning_zh`、`example_en`、`tags`、`batch`（1～6）；≥ 600 列。內容由**獨立任務單**產生：分 6 批、每批 100 條；第 1 批完成後由 Hansheng 抽查 20 條，通過才做第 2～6 批；每批以 migration 匯入（匯入程式與內容產生分開） | AC-07、Q-10 |
 | `resume` | `user_id` PK（一次一份）、`storage_path`、`redacted_text`、`uploaded_at` | AC-11、AC-12、Q-09 |
@@ -108,6 +108,7 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 ```
 - 「答對」＝秒答或猶豫（Q-17 已決定）。
 - 天數全部從 `settings.srs` 讀，`domain` 函式以參數接收（不讀資料庫、不讀全域）。
+- 每一條邊的完整規則（`correct_count`、`interval_step`、到期日怎麼算、Mastered 之後）見 §4.3。
 
 ### 4.2 可調整的複習間隔（Q-18 已決定）
 `settings.srs` 預設值與驗證（`packages/contracts` 的 `SrsSettingsSchema`；前端表單與 `/settings` 用同一份 schema）：
@@ -120,6 +121,106 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 - 生效範圍：**只影響之後的排程**；已排定的 `due_date` 不回頭重算（避免一改設定整批卡片同天到期）。每次排程把實際天數寫進 `card_review.interval_days_applied`。
 - 設定頁「複習間隔」區塊：5 個數字欄位＋「還原預設（3／7／14／14／1）」按鈕。
 - PRD AC-09 寫的 3／7／14 與「隔天」是**預設值**；可調整是 G2 的決定（Q-18）。PRD 文字是否要補註由 PM 決定（我不改 PRD）。
+
+### 4.3 字卡狀態機規則（T-009；ADR-011 決定 1～3）
+**contracts（新增 `packages/contracts/src/card.ts`，`index.ts` 加 `export * from './card.ts';`）**
+```ts
+export const CARD_STATES = ['collected', 'learning', 'reviewing', 'mastered'] as const;
+export const CardStateSchema = z.enum(CARD_STATES);
+export type CardState = z.infer<typeof CardStateSchema>;
+
+export const REVIEW_RATINGS = ['fast', 'hesitant', 'forgot'] as const;   // 秒答／猶豫／忘記（值同 card_review.rating）
+export const ReviewRatingSchema = z.enum(REVIEW_RATINGS);
+export type ReviewRating = z.infer<typeof ReviewRatingSchema>;
+
+export const REVIEW_MODES = ['A', 'B'] as const;                         // AC-08 的模式 A／B
+export const ReviewModeSchema = z.enum(REVIEW_MODES);
+export type ReviewMode = z.infer<typeof ReviewModeSchema>;
+
+export const CARD_SOURCE_TYPES = ['news', 'manual', 'evening', 'seed', 'shadowing'] as const;
+export const CardSourceTypeSchema = z.enum(CARD_SOURCE_TYPES);
+export type CardSourceType = z.infer<typeof CardSourceTypeSchema>;
+
+/** 0＝未進間隔；1／2／3＝Reviewing 第幾階；4＝第 3 階之後（同 card.interval_step）。domain 的 SrsStep（T-008）＝Exclude<IntervalStep, 0>。 */
+const ReviewingStepSchema = z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]);
+export const IntervalStepSchema = z.union([z.literal(0), ReviewingStepSchema]);
+export type IntervalStep = z.infer<typeof IntervalStepSchema>;
+
+/** 排程相關欄位；用 state 區分，讓不合法的組合（例如 mastered 卻有到期日）通不過 schema。 */
+export const CardScheduleSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('collected'), correctCount: z.literal(0), intervalStep: z.literal(0), dueDate: PlanDateSchema.nullable() }),
+  z.object({ state: z.literal('learning'), correctCount: z.number().int().min(1), intervalStep: z.literal(0), dueDate: PlanDateSchema }),
+  z.object({ state: z.literal('reviewing'), correctCount: z.number().int().min(2), intervalStep: ReviewingStepSchema, dueDate: PlanDateSchema }),
+  z.object({ state: z.literal('mastered'), correctCount: z.number().int().min(2), intervalStep: ReviewingStepSchema, dueDate: z.null() }),
+]);
+export type CardSchedule = z.infer<typeof CardScheduleSchema>;
+
+/** POST /reviews 的請求（T-032 使用）。 */
+export const ReviewRequestSchema = z.object({ cardId: CardIdSchema, mode: ReviewModeSchema, rating: ReviewRatingSchema });
+export type ReviewRequest = z.infer<typeof ReviewRequestSchema>;
+```
+- `collected` 的 `dueDate`：`null`＝剛收錄、還沒在中午出現過（算「新卡」）；有日期＝出現過但評「忘記」（算「到期舊卡」，§4.4）。
+- 完整的 `Card` 回應 schema（`chunk`、`meaningZh`…）留給第一張回傳 `Card` 的 API 單，不在 T-009。
+
+**domain（`packages/domain/src/card-state.ts`）**
+```ts
+export type ReviewOutcome = { readonly before: CardState; readonly schedule: CardSchedule; readonly intervalDaysApplied: number };
+export function applyReview(card: CardSchedule, rating: ReviewRating, today: PlanDate, srs: SrsSettings): Result<ReviewOutcome, ValidationError>;
+export function markMastered(card: CardSchedule): { readonly schedule: CardSchedule; readonly changed: boolean };
+```
+**轉換表**（`today`＝這次作答的台北日期；`d`＝`intervalDaysApplied`；到期日＝`addDays(today, d)`；`correctCount` 只增不減）
+| 目前 | 評分 | 新狀態 | `correctCount` | `intervalStep` | `d` |
+|---|---|---|---|---|---|
+| collected | fast／hesitant | learning | +1（＝1） | 0 | `forgot_days` |
+| collected | forgot | collected | 不變（0） | 0 | `forgot_days` |
+| learning | fast／hesitant | reviewing | +1 | 1 | `step_days[0]` |
+| learning | forgot | learning | 不變 | 0 | `forgot_days` |
+| reviewing 第 k 階 | fast | reviewing | +1 | `nextSrsStep(k)` | `srsIntervalDays(nextSrsStep(k))` |
+| reviewing 第 k 階 | hesitant | reviewing | +1 | k | `srsIntervalDays(k)` |
+| reviewing | forgot | learning | 不變 | 0 | `forgot_days` |
+| mastered | 任何 | — | — | — | 回 `err`（`kind: 'validation'`，`path: 'state'`；Mastered 不排程，不應出現在中午） |
+- `markMastered`：只有 reviewing → mastered（`intervalStep` 保留最後一階、`dueDate: null`、`changed: true`）；其他狀態原樣回傳、`changed: false`。
+- Learning 下次出現用 `forgot_days`（預設 1＝隔天）：AC-09 的 5 個設定裡唯一的短期間隔，且 `forgot_days ≤ step_days[0]` 已由 schema 保證；不新增設定欄位。
+- 回到 Reviewing 從第 1 階開始（AC-09「**連續**秒答」被忘記打斷）。
+- Mastered 是終點：不再排程、不再出現在中午、狀態不再改變（ADR-011 決定 2，需要 Hansheng 確認）。
+- 同一張卡同一個台北日期只能評一次：由 `POST /reviews`（T-032）檢查，domain 不管。
+- 測試（T-009）：上表逐列；改設定只影響這次以後（同一張卡用兩份設定各算一次）；`addDays` 失敗時回 `err`；`CardScheduleSchema` 擋下 4 種不合法組合（collected 的 `correctCount` 不是 0、learning 的 `intervalStep` 不是 0、reviewing 沒有 `dueDate`、mastered 有 `dueDate`）。
+
+### 4.4 每日 25 張選卡（T-010；AC-07、Q-12；ADR-011 決定 4）
+`selectDailyCards(input, today)`：呼叫端傳入候選，domain 只篩選、排序、取數量。
+- **到期舊卡**：`state ∈ {collected, learning, reviewing}`、`dueDate ≠ null`、`dueDate ≤ today`。Mastered 不算（不排程）。排序：`dueDate` 早的優先 → `intervalStep` 小的優先（越不穩的越先）→ `createdAt` 早的優先 → `cardId`。取前 15 張。
+- **新卡**：`state = collected` 且 `dueDate = null`（還沒在中午出現過）。排序：`priorityNew = true` 優先（AC-07、AC-16）→ `createdAt` 早的優先（先收的先學，不會有卡一直輪不到）→ `cardId`。
+- **種子補位**：新卡不足時，從「還沒轉成字卡」的種子補（`seed_chunk.id` 不在任何 `card.seed_chunk_id` 中）；排序：`batch` 小的優先 → `seed_chunk.id`。選中的種子由 `daily-prep` 轉成 `source_type = 'seed'`、`state = 'collected'` 的卡。
+- **數量**：舊卡 `o = min(15, 到期舊卡數)`；新卡目標 `25 − o`（舊卡不足 15 張時用新卡補滿，Q-12）；新卡＋種子仍不足時，再從到期舊卡第 16 張起往後補；全部候選都用完時回傳少於 25 張，畫面註明「今天只有 N 張」（**需要 Hansheng 確認**）。
+- 沒被選上的到期舊卡不改到期日，明天自然排在前面。
+- 種子消耗粗估（未驗證）：每天新卡＝`25 − 舊卡數 − 自己收錄的卡`。第 1 週舊卡少、新卡接近 25 張；之後舊卡穩定 ≥ 15 時每天約 10 張新卡。若幾乎不自己收錄，600 條約第 7～8 週用完；每天自己收錄 5 張以上則約 12 週後才用完。用完後走上面的「回傳少於 25 張」。
+- 測試（T-010）：舊卡 0／10／15／30 張各一組；同到期日的排序鍵逐一驗證；`priorityNew` 優先；種子「用過」不再選；全部用完時張數 < 25；輸入順序打亂結果不變。
+
+### 4.5 今晚題目與晚上提示 chunk（T-010；AC-13、M5）
+- `selectTonightQuestion(candidates, today)`：候選＝`retired = false` 的題目。有任何 `source = 'resume'` 的題目時只從履歷題選（AC-13），否則從 `source = 'bank'` 選。排序：被問過的次數（`evening_answer` 中 `kind = 'first'` 的筆數）少的優先 → 最後一次被問的日期早的優先（沒問過的最前）→ `category` 依 `intro → behavioral → technical` → `questionId`。理由：M5 要求 ≥ 20 題履歷題各完成至少 1 次，「最少被問」優先能最快涵蓋全部題目（**需要 Hansheng 確認**）。選出後寫進 `daily_plan.tonight_question_id`，中午預覽與晚上讀同一個 id（AC-13）。
+- **面試題庫（`source = 'bank'`）的內容目前沒有任務單**：建議比照種子庫，由獨立任務單用 AI 產生 ≥ 30 題（自我介紹／行為題／技術題各 ≥ 10，技術題涵蓋半導體設備系統軟體與 AI 開發應用），以 migration 匯入，Hansheng 抽查 5 題（**需要 Hansheng 確認**；TechLead 開單）。
+- `selectEveningHintChunks(reviewedToday, reviewingFallback)`（AC-13 的 3 個提示 chunk，晚上開啟時計算，不在 `daily-prep`）：候選＝今天中午評過的卡（評分後的狀態），排序：Reviewing 優先 → `intervalStep` 大的優先 → 評分時間早的優先 → `cardId`，取 3 個。今天中午沒複習或不足 3 個時，用「最近一次評分日期最晚的 Reviewing 卡」補（同樣排序）；仍不足就顯示實際數量。
+
+### 4.6 跟讀 5 句與遮字（T-010、T-011；AC-05、AC-06）
+- `selectShadowSentences(newsSentences, rewriteSentences)`：前一晚有改寫版回答（`evening_answer.kind = 'first'` 的 `rewrite_text`，台北日期為前一天）時 **新聞 3 句＋改寫 2 句**，沒有時新聞 5 句（AC-05）。比例為**需要 Hansheng 確認**的預設：新聞是當天主素材、改寫句是個人化練習，3：2 讓兩者都有且以新聞為主。
+  - 只選 6～25 個字的句子（太短沒有練習價值；太長錄音會超過 30 秒上限，§5.0.5）。
+  - 新聞句排序：含當天 5 個語塊之一的句子優先 → 文章中的順序。改寫句排序：含升級語塊的句子優先 → 回答中的順序。
+  - 一方不足時由另一方補；合計仍不足 5 句就回傳實際句數。順序：先新聞句、後改寫句。
+- **遮字**（`maskWords`）：以空白切字，「字」的定義同 T-011 的正規化（去掉頭尾標點後非空才算字；「/」與單獨標點不算字、永遠顯示）。第 1、3、5…個字顯示，第 2、4、6…個字遮住（從 0 起算的奇數位置），所以 n 個字遮 ⌊n/2⌋ 個，第一個字一定看得到。理由：可重現、不需要詞性判斷或字典、每隔一字留下節奏線索（**需要 Hansheng 確認**；另一個選項是「只遮實詞」，要有停用詞表）。回傳每個 token 的原文與 `masked`，畫面怎麼畫（底線、字長提示）由前端決定。
+- **確認 T-011 的計算定義**（照 ADR-004）：正規化（空白切字、轉小寫、去掉頭尾非字母數字撇號字元）、正確率＝詞級 Levenshtein 對齊中相同的詞數 ÷ 原句詞數（多講的字不扣分，因為 AC-06 比的是「原句講對多少」）、語速比＝原音長度 ÷ 使用者有聲長度（第一個字 `startMs` 到最後一個字 `endMs`）、解鎖＝正確率 ≥ 0.8 且語速比 ≥ 0.7。語速比可以大於 1（講得比原音快），畫面照實顯示百分比。
+- 已知限制（不確定）：辨識結果把數字寫成阿拉伯數字（`3`）而原句是英文（`three`），或反過來時，會被算成錯字；Azure scripted 模式通常會照參考文字輸出，但沒有實測。先不處理，PoC（A-002）或實際使用後再決定。
+
+### 4.7 chunk 命中判斷與計分（T-013；AC-18、AC-20、M4；ADR-011 決定 5）
+`detectChunkHits(transcriptText, targets)` 回每個目標 `{ target, level: 'full' | 'partial' | 'none', matchedText }`；`scoreChunkHits(hits)` 回分數。
+- **正規化**（逐字稿與 chunk 都做）：轉小寫；連字號換成空白（`buy-in` 與 `buy in` 視為相同）；去掉每個字頭尾的標點；以空白切字。比對以「整個字」為單位（`um` 不會命中 `umbrella`）。
+- **佔位詞**（只出現在 chunk 裡）：`sb`、`someone`、`somebody`、`sth`、`something` 比對逐字稿中連續 1～4 個任意字；`one's`、`sb's`、`someone's` 比對 1 個所有格字（`my`、`your`、`his`、`her`、`its`、`our`、`their`，或以 `'s` 結尾的字）。
+- **詞形**：chunk 裡每個非佔位詞 `w`，逐字稿中的字 `t` 符合下列任一就算相同：`t = w`；規則變化（`w+s`、`w+es`、子音＋`y` → `ies`／`ied`、`w+ed`、`w+d`、`w+ing`、去 `e` 加 `ing`、重複字尾子音＋`ed`／`ing`）；或 domain 常數表中的不規則形（約 100 個常見不規則動詞的過去式與過去分詞，含 `be` → `am/is/are/was/were/been/being`）。對所有詞都套用（名詞複數也適用）；誤判風險小，接受。
+- **完整命中（`full`）**：所有非佔位詞依序、連續出現（佔位詞的位置可以夾 1～4 個字或 1 個所有格字）。
+- **部分命中（`partial`）**：不是完整命中，但 chunk 有 ≥ 2 個非佔位詞，而且逐字稿中有一段長度 ≤（非佔位詞數＋2）的範圍，依序出現其中 ≥ ⌈非佔位詞數 ÷ 2⌉ 個。單字 chunk 只有 `full`／`none`。
+- **計分**：`full` 每個 1 分，`partial` 0 分；`scoreChunkHits` ＝完整命中數。講出率＝完整命中數 ÷ 目標數，`weekly_metric` 用同一個定義（M4）。部分命中只在畫面顯示「差一點」（**需要 Hansheng 確認**）。
+- **Mastered（AC-20）**：只有 `full` 才能讓 Reviewing 卡轉 Mastered（呼叫 `markMastered`）；首答時目標＝該使用者所有 Reviewing 卡的 chunk，無稿重答時目標＝勾選的升級語塊加上所有 Reviewing 卡的 chunk（Q-13：兩種作答都算）。
+- **chunk 文字格式**（資料端保證，由 contracts 的 schema 檢查，T-024 種子匯入與 AI 產生字卡都要用）：只含英文字母、撇號、連字號、空白與上述佔位詞；不含括號、斜線、`…`。
+- 測試（T-013）：大小寫與標點；`um`／`umbrella`；`buy-in`／`buy in`；規則變化每一種各一筆；不規則（`take`→`took`／`taken`、`be`→`was`）；佔位詞（`get buy-in from sb` 命中 `get buy-in from the whole team`）；部分命中門檻邊界；計分＝完整命中數。
 
 ## 5. API 與供應商契約
 ### 5.0 共用型別（`@english-coach/contracts`，ARCH-003；決策見 ADR-009）
@@ -137,6 +238,7 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 | 1. `src/brand.ts`、`src/result.ts`、`src/validation.ts` | `Brand<T, B>`；`Result`、`Ok`、`Err` 與 helper；`ValidationIssue`、`ValidationError`（三個檔案都不 import 任何東西） |
 | 2. `src/ids.ts` | 品牌 ID、`PlanDate`、`Ntd`、`NewsCategory`、`ProviderId`、`LlmModelId`、`SttModelId`、`VoiceId` 與 schema |
 | 3. `src/audio.ts`、`src/speech.ts` | `Wav16kMono`、`AudioPayload`、`parseWav16kMono`；`WordTiming`、`Transcript`、`PronunciationResult` 與 schema |
+| 3. `src/settings.ts`、`src/card.ts`（與上一列同層） | `profile.settings` 的 schema：`SrsSettingsSchema`／`SrsSettings`（T-008，預設 3／7／14、14、1 只寫在這裡，§4.2）、`NewsSettingsSchema`（T-049 加在同檔，§11.2）；字卡狀態、評分、排程 schema（T-009，§4.3）。只 import `zod` 與 `ids.ts`（`PlanDate`、`NewsCategory`、`CardId` 的 schema） |
 | 4. `src/providers.ts` | `Tier`、`Capability`、`ProviderErrorKind`（T-002 已建，內容不變）、`CapabilitySchema`、`ProviderError`、`ProviderInfo`、`StreamChunk`、四種供應商介面與參數／結果型別、`PaidConsent` |
 | 5. `src/errors.ts` | `AppError`、`APP_ERROR_KINDS`、`httpStatusOf`、`isRetryable`、`toApiErrorBody`、`ApiErrorBodySchema` |
 | 6. `src/api.ts` | 跨網路的 API schema：`CardStreamEvent`（`/cards/generate` 的 NDJSON）；之後各端點的請求／回應 schema 也放這裡或依功能拆檔 |
@@ -563,7 +665,7 @@ RSS 都在 2026-11-22 18:5x（台北時間）實測回 200；robots.txt 以 Pyth
 - 法律判斷：所有「中」「中高」都是**個人、非公開、非商業使用**下的風險評估，**不確定**是否在條款允許範圍內（這不是法律意見）。降低風險：不存原文、只顯示改寫＋來源名稱＋原文連結、每來源每天最多抓 1 次、遵守 robots.txt。
 
 ### 11.2 每日類別輪替與備援規則（`domain/news-rotation`＋`_shared/news`）
-- 設定（`settings.news`，`NewsSettingsSchema` 驗證）：`rotation_order` 預設 `["ai","software","semiconductor"]`（三類各出現一次、不可重複）；`anchor_date` 預設專案上線日（台北日期）；`lookback_hours` 預設 48（1～168）。
+- 設定（`settings.news`，`NewsSettingsSchema` 驗證）：`rotation_order` 預設 `["ai","software","semiconductor"]`（三類各出現一次、不可重複）；`anchor_date` 預設 `2026-11-22`（G2 通過日；固定寫在 schema 預設值，所以 `NewsSettingsSchema.parse({})` 會成功、「還原預設」有確定的值；這天＝`rotation_order[0]`，即 11-22 AI、11-23 軟體工程、11-24 半導體產業，依此類推；ADR-011 決定 6）；`lookback_hours` 預設 48（1～168）。
 - **今天輪到的類別**：`planned = rotation_order[(plan_date − anchor_date 的天數) mod 3]`。只看日期，不看前一天用了哪類，所以結果可重現、可測試，某天跳類別也不影響之後的輪替。
 - **備援順序**（05:00 `daily-prep`）：
   1. 在 `planned` 類別內，依 `priority` 1→2→3 試每個啟用的來源，找第一篇「`lookback_hours` 內發布、還沒用過（URL 與原文雜湊都沒出現過）、正文 ≥ 250 字、LLM 判定屬於該類別」的文章。來源抓取失敗（HTTP 錯誤、逾時、robots 不允許）視為該來源沒有新聞，換下一個來源。
@@ -626,22 +728,22 @@ english-coach/
 | AC-02 | `news`、`providers/gemini`、`features/morning` | 250～300 字由 zod＋字數驗證；附原文連結；固定來源見 §11.1（Q-16） |
 | AC-03 | `features/morning`、`/cards`、`/cards/lookup`、`/cards/:id/enrich` | 見 §8.1 |
 | AC-04 | `features/morning`、`audio/player`、`audio/vad`、`slot_checkin` | 計次用 VAD，失敗時可手動 +1（未驗證 VAD 準確度） |
-| AC-05 | `domain/plan`（選句）、`features/shadowing`、`/tts` | 「/」斷句由備料時 LLM 產生 |
+| AC-05 | `domain/plan`（選句）、`features/shadowing`、`/tts` | 「/」斷句由備料時 LLM 產生；選句與 3＋2 規則見 §4.6 |
 | AC-06 | `features/shadowing`、`audio/wav-encoder`、`/shadow/attempts`、`providers/azure-speech`、`domain/shadowing` | 解鎖只看正確率 ≥ 80%、語速 ≥ 70% |
-| AC-07 | `domain/plan`（25 張選卡）、`seed_chunk` | 15 舊＋10 新；不足時補齊（Q-12） |
+| AC-07 | `domain/plan`（25 張選卡）、`seed_chunk` | 15 舊＋10 新；不足時補齊（Q-12）；排序與種子用完見 §4.4 |
 | AC-08 | `features/noon` | 不使用麥克風 |
 | AC-09 | `domain/srs`、`/reviews`、`/settings`、`features/settings` | 預設 3／7／14、之後 14、忘記 1 天；全部可在設定調整（§4.2、Q-18） |
 | AC-10 | `features/noon`、`/cards/generate`、`audio/speech-synthesis` | 3 s 出 chunk＋可播放、8 s（p95）完整（Q-14） |
 | AC-11 | `features/resume`（瀏覽器解析＋去個資）、`/resume`、`providers/gemini` | ≥ 15 題、三類各 ≥ 3 |
 | AC-12 | `DELETE /resume`、`db` | 刪原檔與解析文字 |
-| AC-13 | `domain/plan`（今晚題目）、`features/evening`、`features/noon` | 同一題 id |
+| AC-13 | `domain/plan`（今晚題目）、`features/evening`、`features/noon` | 同一題 id；選題與 3 個提示 chunk 見 §4.5 |
 | AC-14 | `features/evening`、`audio/recorder`、`/evening/answers`、`providers/groq` | 3 分鐘自動停 |
 | AC-15 | `/evening/answers/:id/diagnose`、`domain/speech-metrics`、`providers/gemini` | 3 種標記；停頓 > 2 s 由時間戳記算 |
 | AC-16 | `/evening/upgrade`、`domain/plan` | 隔天新卡優先 |
 | AC-17 | `features/evening`、`/tts`、`/evening/answers`（kind=no_script） | 跟讀 3 遍後才可切換 |
-| AC-18 | `/evening/answers/:id/chunks`、`domain/chunk-hit` | 結果進 `weekly_metric` |
-| AC-19 | `domain/card-state` | 狀態機見 §4.1；間隔讀 `settings.srs` |
-| AC-20 | `domain/chunk-hit`、`domain/card-state` | 首答與無稿重答都算（Q-13） |
+| AC-18 | `/evening/answers/:id/chunks`、`domain/chunk-hit` | 結果進 `weekly_metric`；比對與計分見 §4.7 |
+| AC-19 | `domain/card-state` | 狀態機見 §4.1、轉換表見 §4.3；間隔讀 `settings.srs` |
+| AC-20 | `domain/chunk-hit`、`domain/card-state` | 首答與無稿重答都算（Q-13）；只有完整命中算（§4.7） |
 | AC-21 | `features/dashboard`、`slot_checkin`、`card` | Mastered 最大字級 |
 | AC-22 | `features/dashboard`、`weekly_metric`、`evening_answer` | 錄音 90 天後只剩文字 |
 | AC-23 | `api`（直接寫 Postgres） | 無本機延遲同步 |
@@ -693,3 +795,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.2 | 2026-11-22 | ARCH-003：新增 §5.0 contracts 共用型別（`Result`＋helper、`Brand`、品牌 ID、`ProviderId`／`LlmModelId`／`SttModelId`／`VoiceId`、`ProviderError`／`AppError`＋錯誤碼對照表、`Wav16kMono`、`AudioPayload`、`WordTiming`、`Transcript`、`PronunciationResult`、`StreamChunk`、`CardStreamEvent`、供應商介面、`PaidConsent`），§5.2 改指向 §5.0；§6 第 2 點錯誤格式改用 `ApiErrorBodySchema`；新增 ADR-009（套件名稱 `@english-coach/contracts` 與引用方式）與 ADR-008 修訂 2（測試檔含 `.test.tsx`、跨套件引用與品牌轉型規則）；§3.2、§12 同步 |
 | v1.2.1 | 2026-11-22 | T-051 審查（TechLead）：§5.0.4 錯誤碼對照表 `news_unavailable` 補齊為 503／可重試／畫面文字／降級方式，`httpStatusOf`、`isRetryable` 對 18 種 kind 都有值；§11.2 備援規則寫明 `news_unavailable` 只在 `daily-prep` 內部使用，第 4 步對前端回 `plan_not_ready` |
 | v1.3 | 2026-11-23 | T-003 卡住的三點（TASKS §5 第 15、27 點）：新增 ADR-010 與 §7.1——後端環境變數名稱（用自動注入的 `SUPABASE_URL`／`SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`，不用年底淘汰的 anon／service_role；自訂 `GEMINI_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`、`APP_ALLOWED_ORIGINS`）與前端 `VITE_SUPABASE_PUBLISHABLE_KEY`；`verify_jwt = false`，函式內 `requireUser`（supabase-js `getClaims`）＋`AuthContext` 品牌型別；Node 端 Deno 型別用最小 `deno.d.ts`＋`WebWorker` lib；§5.1 加 `GET /health`；§4、§7、§12、§15 同步；ADR-008 修訂 3、ADR-009 修訂 1（CLI 驗證改在 CI `db` job）；修正 TASKS §5 第 23 點的三處小不一致（§3.2 第 3、4 點、§5.0.1 重複表頭） |
+| v1.4 | 2026-11-23 | ARCH-005（TASKS §5 第 28 點）：新增 §4.3 字卡狀態轉換表與 contracts `card.ts`、§4.4 每日 25 張選卡、§4.5 今晚題目與提示 chunk、§4.6 跟讀選句與遮字、§4.7 chunk 命中與計分；§4 `card` 表補 `seed_chunk_id`、`due_date` 可為 null、`correct_count` 定義；§11.2 `anchor_date` 預設 `2026-11-22`；新增 ADR-011；§5.0.1 檔案配置補 `src/settings.ts`（T-008 審查時 TechLead 提出）與 `src/card.ts` |
