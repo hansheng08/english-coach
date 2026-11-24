@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "emitDeclarationOnly": true,
+    "declaration": true,
+    "allowImportingTsExtensions": true,
+    "lib": ["ES2023", "WebWorker"],
+    "types": [],
+    "outDir": "../../dist/functions",
+    "rootDir": "."
+  },
+  "include": ["**/*.ts"],
+  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/domain" }]
+}

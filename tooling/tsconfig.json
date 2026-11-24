@@ -9,6 +9,6 @@
     "resolveJsonModule": true,
     "types": []
   },
-  "include": ["*.test.ts", "../tsconfig.base.json"],
+  "include": ["*.test.ts", "*.d.ts", "../tsconfig.base.json"],
   "exclude": ["fixtures/**"]
 }

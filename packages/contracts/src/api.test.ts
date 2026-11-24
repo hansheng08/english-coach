@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CardStreamEventSchema } from './api.ts';
+import { CardStreamEventSchema, HealthResponseSchema } from './api.ts';
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c1a-0d2e6f7a8b9c';
 
@@ -27,5 +27,16 @@ describe('CardStreamEventSchema', () => {
   it('rejects a done event whose cardId is not a UUID', () => {
     const r = CardStreamEventSchema.safeParse({ type: 'done', cardId: 'x', meta: { llmModel: 'gemini-3.5-flash-lite' } });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('HealthResponseSchema', () => {
+  it('(AC-T3-6) accepts { ok: true }', () => {
+    expect(HealthResponseSchema.safeParse({ ok: true }).success).toBe(true);
+  });
+  it('(AC-T3-6) rejects { ok: false }, {} and { ok: "true" }', () => {
+    expect(HealthResponseSchema.safeParse({ ok: false }).success).toBe(false);
+    expect(HealthResponseSchema.safeParse({}).success).toBe(false);
+    expect(HealthResponseSchema.safeParse({ ok: 'true' }).success).toBe(false);
   });
 });

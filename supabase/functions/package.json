@@ -1,0 +1,11 @@
+{
+  "name": "@english-coach/functions",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@english-coach/contracts": "workspace:*",
+    "@english-coach/domain": "workspace:*",
+    "@supabase/supabase-js": "^2.119.2",
+    "zod": "^4.6.7"
+  }
+}
