@@ -24,3 +24,5 @@ export * from './speech.ts';
 export * from './errors.ts';
 export * from './api.ts';
 export * from './settings.ts';
+export * from './checkin.ts';
+export * from './metrics.ts';
