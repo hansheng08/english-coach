@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.8（2026-11-24，O-007：Verify 改用 `gh api`＋`gh run list`、不再 `git fetch`；Notify 區分 `verify_failed`；`claude-code-action` 釘 SHA。v0.7：O-006 `--max-turns` 200 與 T-003 run 45314135320 實測）
+- 版本：v0.9（2026-11-24，O-008：`taskcheck` job 與 run-task 的 Task lint 接線，見 §4。v0.8：O-007：Verify 改用 `gh api`＋`gh run list`、不再 `git fetch`；Notify 區分 `verify_failed`；`claude-code-action` 釘 SHA。v0.7：O-006 `--max-turns` 200 與 T-003 run 45314135320 實測）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -226,3 +226,19 @@ gh version 2.103.0 (2026-10-21)
 在 `poc/A-xxx` 分支上跑 `.github/ci/spike.sh` 或環境檢查；**不需要 Docker**。不部署、不加 secret。不得把 spike 當成 T-018 `bundle` job 或 ADR-009 (2) 的部署證明。本輪**未**對此 workflow 做一次 `workflow_dispatch` 實測（標未驗證）。
 
 `db` job 只在 `pull_request` 跑；`push` 事件若略過 `db`，`ci-ok` 會標「未驗證」，該次 push 綠燈不代表 health／ADR-009 已驗過。
+
+## 4. 任務單 lint、範圍檢查、AC 覆蓋檢查（O-008，憲章 v6 §13）
+
+腳本在 `tooling/`（Claude Code 依 `docs/tasks/O-008.md` 寫）；接線在 `.github/`（SRE）。三支腳本只用 Node 內建模組，失敗一律 exit 1。
+
+| 檢查 | 何時跑 | 失敗時 |
+|---|---|---|
+| `tooling/task-lint.mjs` | `claude-run-task.yml` 的 `Task lint` 步驟（在 Claude 之前）；`ci.yml` `taskcheck` job：推到 `main` 時只檢查該次新增或修改的 `docs/tasks/*.md` | run-task：Claude 不啟動（0 turn），Notify 送 `outcome=task_lint_failed`、`task_lint_outcome=failure`。main：`ci-ok` 紅叉 |
+| `tooling/scope-check.mjs` | `taskcheck` job：`task/**` 的 push 與 PR；變更清單＝`git diff --name-only <base>...<head>` | `ci-ok` 紅叉 |
+| `tooling/ac-coverage.mjs` | 同上，讀 `pnpm exec vitest run --reporter=json` 的輸出 | `ci-ok` 紅叉 |
+
+- 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `pushguard` job 執行。
+- `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`docs/**`、`fix/**`、`workflow_dispatch` 的 run 會略過它，摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。
+- `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
+- 已知限制：只有 pgTAP 測試的 AC 會被 ac-coverage 判 `CV-MISSING`（等 O-010）；`fix/**` 分支暫不跑 scope-check／ac-coverage。
+- 實測狀態：本機 box 已跑 `taskcheck-test.sh`、`run-task-outcome-test.sh`、`ci-ok.test.mjs`、`actionlint`；Actions 上的 `taskcheck` job 與 `Task lint` 步驟**待 O-008 PR 的 CI 與下一次真實 `run-task` 實測驗證**。

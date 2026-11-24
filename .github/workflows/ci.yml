@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Test pushguard, settings, ci-ok, and O-004/O-005 verify scripts
+      - name: Test pushguard, settings, ci-ok, and O-004/O-005/O-008 verify scripts
         run: |
           node --test \
             .claude/hooks/pushguard/guard.test.mjs \
@@ -100,6 +100,7 @@ jobs:
           bash .github/scripts/verify-push-test.sh
           bash .github/scripts/run-task-outcome-test.sh
           bash .github/scripts/run-task-summary-step-test.sh
+          bash .github/scripts/taskcheck-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
 
@@ -153,6 +154,41 @@ jobs:
         run: pnpm arch
       - name: test
         run: pnpm test
+
+  # O-008: charter v6 §13 task-file lint, scope check and AC coverage.
+  # main push: task-lint the docs/tasks/*.md added or modified by the push.
+  # task/** push and PR: scope-check (diff must stay inside the task file's
+  # 檔案範圍) and ac-coverage (every AC / TC id has a passed Vitest test).
+  # Other refs skip this job; ci-ok lists it as "Skipped (not verified)".
+  taskcheck:
+    needs: detect
+    if: >-
+      needs.detect.outputs.has_node == 'true' &&
+      ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/'))) ||
+       (github.event_name == 'pull_request' && startsWith(github.head_ref, 'task/')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Task lint / scope check / AC coverage
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/taskcheck.sh
 
   bundle:
     needs: detect
@@ -237,7 +273,7 @@ jobs:
         run: supabase stop
 
   ci-ok:
-    needs: [detect, actionlint, pushguard, secrets, check, bundle, db, e2e]
+    needs: [detect, actionlint, pushguard, secrets, check, bundle, db, e2e, taskcheck]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
