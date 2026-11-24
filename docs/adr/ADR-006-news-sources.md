@@ -1,6 +1,6 @@
 # ADR-006：每日新聞來源、類別輪替與取得方式（Q-11、Q-16）
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准；來源依 Q-16 的新決定重新提名）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：AC-01、AC-02、Q-11、Q-16；ARCHITECTURE §11
+- 相關：AC-01、AC-02、Q-11、Q-16、Q-31～Q-33；ARCHITECTURE §11｜修訂：修訂 1（2026-11-24，ARCHITECTURE v1.6；見文末）
 - v0.1 提名的 IEEE Spectrum、NIST News（以及 GitHub Blog）已依 Q-16 撤下（G2 決定不用學術／機構來源）。
 
 ## 背景
@@ -58,3 +58,34 @@
   - 三個主要來源都是「中」：條款只授權個人、非商業使用，把全文交給 AI 改寫是否在允許範圍內**不確定**（這不是法律意見）。降低風險的做法：單一使用者、不公開、不存原文、附原文連結。
   - 「未驗證」的 3 個備用來源（MarkTechPost、InfoQ、eeNews Europe），啟用前建議 Hansheng 自己看過條款，或先關掉。
   - Gemini 免費層會把輸入用於改善 Google 產品（Q-15 已接受），對「禁止用於改善 AI」的來源有衝突，所以這類來源已全部排除；條款日後若改版加入 AI 禁止，需要停用該來源（`terms_checked_at` 記錄最後檢查日，建議每季重查一次）。
+## 修訂 1（2026-11-24，Architect；ARCHITECTURE v1.6 §11.1.1，Q-31～Q-33）
+- 狀態：**已接受**（送 G2 PR `[G2] T-022 新聞擷取（Q-31～Q-33）`，Hansheng Merge 即核准）
+- 起因：TechLead 在 T-022 寫單前核對時提出三題。實測依據是 2026-11-24 20:2x（台北時間）Architect 用 `curl` 做的一次性檢查（不是 A-xxx PoC），數字見 ARCHITECTURE §11.1.1。
+- **「決定」表，軟體工程備用 2**：改成「The New Stack 全站（`include_url_pattern = null`，類別由 LLM 判定）」。
+  - 原本寫的「排除 AI 分類」做不到：網址不含分類；全站 26 則中有 25 則帶 `AI*` 分類標籤，用標籤排除幾乎什麼都不剩（Q-31 方案 B 不採用）。
+  - 不重複由既有的 URL＋SHA-256 去重保證。
+  - 這個來源當軟體工程備援的價值有限，Hansheng 可以改採 Q-31 方案 C（`enabled = false`），不需要改程式。
+- **「取得與處理流程」第 1 點**：改成「每個來源每次 `daily-prep` 執行最多抓 1 次 RSS（由 T-025 的冪等保證），**不使用條件式請求**（`If-Modified-Since`／`ETag`）」。
+  - 原因一：流量小（實測 24～629 KB／feed）。
+  - 原因二：The New Stack 兩個內容不同的 feed 回傳相同的弱 `ETag`／`Last-Modified`，validator 不可靠。
+  - 不新增 `news_source` 欄位（Q-33）。
+- **第 2 點加一句**：`rss_then_page` 的正文只從該主機指定的正文容器取出（ARCHITECTURE §11.1.1 第 4 點），找不到就略過該篇，不退回整頁。
+- **第 3 點**：
+  - 「符合 `include_url_pattern`」改成「`include_url_pattern` 不是 null 時才檢查」。
+  - 新增「`<category>` 為 `sponsored`／`sponsor*` 的贊助文排除」。
+  - 新增「每個來源最多 3 篇送 LLM；`category_match = false` 不重試、換下一篇」。
+- **解析方式**（Q-32）：**不新增依賴**，自己寫 RSS 2.0、HTML 轉文字、robots.txt 的最小解析器，範圍和防護見 ARCHITECTURE §11.1.1。
+  - 不採用套件的理由：每加一個依賴，`supabase/functions/deno.json`、`supabase/functions/package.json`、`pnpm-lock.yaml` 都要改，要 Hansheng 核准；部署打包是否包含 npm 依賴仍是**未驗證**（ADR-009 (2)）；需要解析的格式範圍很小（9 個來源都是 RSS 2.0、UTF-8、沒有 DOCTYPE）。
+  - 替代方案比較（npm／JSR registry，2026-11-24 查詢；Deno／Supabase Edge 相容性全部**未驗證**）：
+
+  | 方案 | 最新版（發布日） | 解壓縮大小 | 直接依賴 | 適用範圍 | 評語 |
+  |---|---|---|---|---|---|
+  | 自己寫（採用） | — | — | 0 | 只支援 RSS 2.0、`<p>` 文字、robots.txt | 範圍固定、測試好寫；網站改版時要改 `page-rules.ts` |
+  | `htmlparser2` | 12.0.0（2026-07-17） | 235 KB | 4（`domhandler`、`domutils`、`entities`、`domelementtype`） | HTML 和 XML（`xmlMode`），一個套件就涵蓋 RSS 和頁面 | **最佳替代**；仍要自己寫 robots.txt 與容器規則 |
+  | `fast-xml-parser` | 5.12.1（2026-11-13） | 1.34 MB | 6 | 只處理 XML | 頁面還要另一個套件 |
+  | `linkedom` | 0.18.15（2026-11-01） | 1.19 MB | 5（含 `htmlparser2`、`css-select`） | DOM＋`querySelector` | 最好寫，但最重 |
+  | `@b-fuze/deno-dom`（JSR） | 0.1.56 | — | WASM／原生後端 | DOM | Edge 是否支援它的 WASM：未驗證；JSR 套件在 Node 端（pnpm、Vitest）要另外對應，和 ADR-009「同一個名稱兩端都能解析」衝突 |
+  | `@mozilla/readability` | 0.6.0（2025-03-03） | 155 KB | 0（但需要 DOM，要搭配 `linkedom` 或 `deno-dom`） | 自動找正文 | 一年多沒發新版，至少要 2 個依賴 |
+
+  - 如果 Hansheng 選擇用套件：建議 `htmlparser2`。照 ADR-001 的「依賴清單」補理由，加進 `deno.json`（`npm:htmlparser2@^12.0.0`）和 `supabase/functions/package.json`，lockfile 跟著改。這需要 **Hansheng 核准**。
+- 不變：來源、優先順序、條款風險、User-Agent、robots.txt 必查、不存原文。

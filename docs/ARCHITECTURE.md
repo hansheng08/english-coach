@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.5**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1）｜日期：2026-11-24｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.6**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1）｜日期：2026-11-24｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -83,7 +83,7 @@
 | 表 | 主要欄位 | 對應 |
 |---|---|---|
 | `profile` | `user_id` PK、`timezone`（固定 `Asia/Taipei`）、`slot_start`（早中晚開始時間，Q-08）、`settings jsonb`（選用的 LLM 模型、STT、發音、TTS 供應商；`paid_consent_at`；`monthly_paid_cap_ntd`；`srs`（複習間隔，§4.2）；`news`（輪替設定，§11.2））。`settings` 經 `POST /settings` 寫入，伺服器用 `SettingsSchema`（zod）驗證；其中 `paid_consent_at`、`monthly_paid_cap_ntd` 只能由 `set_paid_consent()`（secret 金鑰）改，其他身分改這兩個鍵會被 trigger 擋下（§4.9） | AC-09、AC-19、AC-24、AC-25、NFR-03、Q-18 |
-| `news_source` | `id`、`name`、`feed_url`、`category`（`ai`／`software`／`semiconductor`）、`priority`（1＝主要，2、3＝備用）、`fetch_mode`（`rss_full`：RSS 內有全文／`rss_then_page`：RSS 只有摘要，正文抓原文頁面）、`include_url_pattern`（選填，例如排除某分類）、`enabled`、`terms_checked_at` | AC-01、AC-02、Q-11、Q-16 |
+| `news_source` | `id`、`name`、`feed_url`、`category`（`ai`／`software`／`semiconductor`）、`priority`（1＝主要，2、3＝備用）、`fetch_mode`（`rss_full`：RSS 內有全文／`rss_then_page`：RSS 只有摘要，正文抓原文頁面）、`include_url_pattern`（選填；目前 9 個來源都是 `null`，The New Stack 全站的類別改由 LLM `category_match` 判定，§11.1.1）、`enabled`、`terms_checked_at` | AC-01、AC-02、Q-11、Q-16 |
 | `news_article` | `id`、`source_id`、`category`、`original_url`（唯一）、`title`、`published_at`、`rewritten_text`（250～300 字）、`chunks jsonb[5]`（chunk、中文、所在句）、`sentences jsonb`（含「/」斷句）、`read_at`。**不存原文全文**，只存原文的 SHA-256 以便去重 | AC-01、AC-02、AC-05 |
 | `daily_plan` | `user_id`＋`plan_date` 唯一；`planned_category`（當天輪到的類別）、`actual_category`（實際用的類別）、`category_skipped text[]`（沒有新聞而跳過的類別）、`article_id`、`is_fallback_article`（三類都沒新文章、改用最近未讀）、`shadow_items jsonb[5]`、`card_ids uuid[25]`（只能是該使用者的卡，由 T-025 保證，§4.9）、`tonight_question_id`、`status`（pending／ready／failed）、`error` | AC-01、AC-05、AC-07、AC-13 |
 | `card` | `id`、`chunk`、`meaning_zh`、`example_en`、`synonyms text[]`、`source_sentence`、`source_type`（news／manual／evening／seed／shadowing）、`state`（collected／learning／reviewing／mastered）、`correct_count`（累計答對次數，只增不減，§4.3）、`interval_step`（0＝未進間隔、1／2／3＝第幾階、4＝第 3 階之後）、`due_date`（可為 null：剛收錄還沒出現過、或 Mastered）、`priority_new`（晚上勾選）、`seed_chunk_id`（可為 null；從種子庫轉來的卡指向 `seed_chunk.id`，唯一，用來判斷種子已用過，§4.4）、`tts_path`、`generated_by`（模型名稱）、`mastered_at`（`state = 'mastered'` 若且唯若不是 null；只在 reviewing → mastered 時由 trigger 寫 `now()`，不能重設，§4.8.1） | AC-03、AC-07～10、AC-16、AC-19、AC-20、AC-22、M2 |
@@ -886,13 +886,89 @@ RSS 都在 2026-11-22 18:5x（台北時間）實測回 200；robots.txt 以 Pyth
 | AI | 備 1 | SiliconANGLE（AI 分類） | `https://siliconangle.com/category/ai/feed/`（30 則、摘要約 75 字） | `rss_then_page` | 中高：條款允許個人瀏覽／列印，禁止重製、複製；沒有 AI 條款；要抓原文頁面 |
 | AI | 備 2 | MarkTechPost | `https://www.marktechpost.com/feed/`（10 則、全文） | `rss_full` | **未驗證**：條款頁是範本佔位文字；同公司其他網站條款禁止未經授權重製 |
 | 軟體工程 | 主 | SD Times | `https://sdtimes.com/feed/`（10 則、全文約 340～1,100 字） | `rss_full` | 中：條款寫「禁止未經授權重製任何內容」；沒找到 AI 條款 |
-| 軟體工程 | 備 1 | InfoQ | `https://feed.infoq.com/`（15 則、摘要約 30～65 字） | `rss_then_page` | **未驗證**：條款頁內容讀不到（頁面由程式載入）；robots.txt 對腳本回 406，**不確定**是否允許 |
-| 軟體工程 | 備 2 | The New Stack（全站） | `https://thenewstack.io/feed/`（26 則、全文；`include_url_pattern` 排除 AI 分類，避免和 AI 主來源重複） | `rss_full` | 同 AI 主來源 |
+| 軟體工程 | 備 1 | InfoQ | `https://feed.infoq.com/`（15 則、摘要約 30～65 字） | `rss_then_page` | **未驗證**：條款頁內容讀不到（頁面由程式載入）；robots.txt 在 2026-11-22 對腳本回 406，**不確定**是否允許；2026-11-24 對本專案 UA 回 200、文章路徑允許（§11.1.1） |
+| 軟體工程 | 備 2 | The New Stack（全站） | `https://thenewstack.io/feed/`（26 則、全文；`include_url_pattern = null`：網址不含分類、排除不了 AI 文章；不重複靠去重，類別靠 LLM `category_match`，§11.1.1） | `rss_full` | 同 AI 主來源 |
 | 半導體產業 | 主 | Semiconductor Engineering | `https://semiengineering.com/feed/`（10 則、全文約 740～2,900 字） | `rss_full` | 中：只授權個人、非商業瀏覽，「不得複製網站任何部分」；沒有 AI 條款 |
 | 半導體產業 | 備 1 | eeNews Europe | `https://www.eenewseurope.com/en/feed/`（10 則、約 420～470 字） | `rss_full` | **未驗證**：沒找到條款頁 |
 | 半導體產業 | 備 2 | Semiconductor Digest | `https://www.semiconductor-digest.com/feed/`（100 則、約 330～850 字） | `rss_full` | 中高：只限個人使用，明文禁止製作衍生作品；沒有 AI 條款 |
 - **已排除**（理由見 ADR-006）：Ars Technica、Wired（Condé Nast 條款禁止用於生成式 AI，含 RAG）；Tom's Hardware（Future 條款禁止用於 AI，含摘要）；The Verge（網站連到的 PMC 條款禁止用 AI 工具存取或 grounding；適用哪份條款**不確定**，保守排除）；MIT Technology Review（禁止用於 AI）；The Register（robots.txt 預設拒絕所有未列名的程式）；GeekWire（禁止任何形式的 data mining）；EE Times／EE Times Asia（AspenCore 條款禁止自動抓取）；TechCrunch（RSS 只有約 20 字）；IEEE Spectrum、NIST（G2 決定不用學術／機構來源）。
 - 法律判斷：所有「中」「中高」都是**個人、非公開、非商業使用**下的風險評估，**不確定**是否在條款允許範圍內（這不是法律意見）。降低風險：不存原文、只顯示改寫＋來源名稱＋原文連結、每來源每天最多抓 1 次、遵守 robots.txt。
+
+
+#### 11.1.1 T-022 擷取規格（Q-31～Q-33；ARCHITECTURE v1.6、ADR-006 修訂 1）
+**實測依據**：2026-11-24 20:2x（台北時間），Architect 在 box 上用 `curl`（User-Agent `english-coach personal reader`）把 9 個 feed 和 2 篇 `rss_then_page` 原文頁面各抓一次，再用 Python 分析。這是一次性的人工檢查，**不是 A-xxx PoC**。下面寫「實測」的數字都來自這一次。Deno／Supabase Edge Runtime 的行為（例如沒有 `DOMParser`）都是**未驗證**，本規格的設計刻意不依賴它們。
+
+| feed | HTTP／大小／耗時 | 格式 | 正文欄位 |
+|---|---|---|---|
+| The New Stack AI／全站 | 200／341 KB、341 KB／< 0.1 s | RSS 2.0、UTF-8、無 DOCTYPE | 每則有 **2 個** `content:encoded`：第一個是全文，第二個是約 150 字元的導言 |
+| SiliconANGLE AI | 200／90 KB／2.1 s | 同上 | 沒有 `content:encoded`；`description` 是 CDATA 摘要 |
+| MarkTechPost、SD Times、Semiconductor Engineering、eeNews Europe | 200／336、83、149、57 KB | 同上 | `content:encoded`（CDATA） |
+| InfoQ | 200／24 KB／1.8 s | 同上 | 沒有 CDATA；`description` 是實體跳脫（entity-escaped）的 HTML；文章連結帶 `utm_*` 參數、主機是 `www.infoq.com`（feed 在 `feed.infoq.com`） |
+| Semiconductor Digest | 200／629 KB／1.6 s | 同上 | `content:encoded`（100 則） |
+
+1. **The New Stack 全站的篩選（Q-31，採方案 A）**：這個來源的 `include_url_pattern` 設成 `null`（不用網址篩選）。不重複靠既有的「URL＋原文 SHA-256 去重」；類別對不對，靠 T-023 的 `category_match`。
+   - 實測：全站 26 則中有 7 則同時在 AI feed；AI feed 的 26 則都帶 `<category>AI</category>`；全站 26 則中有 25 則的 `<category>` 以 `AI` 開頭（`AI`、`AI Agents`、`AI Models`…）。
+   - `<category>` 對這個網站自己的分類是可靠的，但如果改用方案 B（用 `<category>` 排除 AI），今天只會剩 1 則，而且標籤會一直增加（`AI Operations`、`AI Strategy`…），名單要一直維護。所以不採用 B，也不改 schema。
+   - **LLM 判定的成本上限**：
+     - 每個來源最多把 **3 篇**候選文章送去 LLM。順序是發布時間新的優先，而且要先通過時間、去重、字數、贊助文這些不花錢的篩選。
+     - `category_match = false` 不算格式錯誤，**不重試**，直接換下一篇。T-023 的「不合格重試 1 次」只適用字數和 chunk 格式。
+     - 所以一個類別最多 9 次改寫呼叫（另加格式重試）。
+2. **贊助內容**（新規則，對所有來源生效，不用改 schema）：`<category>` 不分大小寫等於 `sponsored`，或以 `sponsor` 開頭的文章，在送 LLM 之前就排除。
+   - 實測：The New Stack AI feed 26 則中 6 則、全站 26 則中 12 則帶 `Sponsored`／`sponsor-*`；其他 7 個 feed 都是 0。
+   - 這是廣告，不是新聞，改寫後當教材會誤導。是否採用列在 PR「需要 Hansheng 確認」。
+3. **網址正規化與白名單**：
+   - 去重用的網址和存進 `news_article.original_url` 的網址，都先正規化：只接受 `https:`；主機轉小寫；去掉 `#…`；去掉 `utm_*` 查詢參數；其他參數順序不變。
+   - 原文頁面（只有 `rss_then_page` 會抓）的主機，必須等於 feed 主機，或和 feed 主機屬於同一網域。判定方式：去掉 feed 主機開頭的 `www.`／`feed.` 得到基底，頁面主機要等於基底或以 `.<基底>` 結尾。例如 `feed.infoq.com` 的基底是 `infoq.com`，所以 `www.infoq.com` 可以抓。
+   - 轉址用 `redirect: 'manual'`，最多跟 3 次，每次都要重新檢查上面的規則。這是 §7「只抓 `news_source` 的網址」的具體做法。
+4. **解析器（Q-32，採 TechLead 建議：自己寫，不新增依賴）**：放在 `supabase/functions/_shared/news/`，是純函式（輸入字串，回傳 `Result`），不 import Deno 或 DOM API。
+   - **RSS**：
+     - 只支援 RSS 2.0（9 個來源都是）。Atom、RDF 或不是 UTF-8 的 feed，都當作「該來源失敗」。
+     - 每個 `item` 取 `title`、`link`、`pubDate`、所有的 `category`、正文。`pubDate` 照 RFC 822 解析，解析失敗就略過該則。
+     - 正文：有多個 `content:encoded` 時取**最長**的那個，沒有就用 `description`。
+     - CDATA 裡的內容原樣保留；CDATA 外面要先解碼 XML 實體（`&amp;`、`&lt;`、`&gt;`、`&quot;`、`&apos;`、`&#n;`、`&#xh;`）。
+     - `<!DOCTYPE>`／`<!ENTITY>` 一律忽略、不展開，所以不會有 XXE 或 billion laughs 攻擊。
+   - **HTML 轉文字**：用來處理 RSS 正文和原文頁面。
+     - 簡單的 tokenizer 要記錄巢狀深度，並認得 void 元素。
+     - `<script>`／`<style>`／`<noscript>` 的內容要丟掉，只取 `<p>` 的文字。
+     - 解碼數字實體，以及固定的具名實體清單：`nbsp amp lt gt quot apos hellip mdash ndash lsquo rsquo ldquo rdquo copy reg trade`。不認得的實體保留原樣。
+     - 正文＝各段 trim 後以 `\n\n` 接起來，空白壓成一個，做 NFC 正規化。字數＝用空白切開後的數量（門檻 ≥ 250）。SHA-256 對這段文字的 UTF-8 計算。
+   - **原文頁面的正文容器**：按主機寫成常數表 `_shared/news/page-rules.ts`：`siliconangle.com` 對應 class 含 `single-post-content` 的元素；`www.infoq.com` 對應 class 含 `article__content` 的元素。取該元素裡的 `<p>`。
+     - **找不到容器時，這篇就當作不能用（`extract_failed`），不退回抓「全頁 `<p>`」**。
+     - 這裡改了 Q-32 的建議做法，原因如下（實測）：
+       - SiliconANGLE 頁面沒有 `<article>`，全頁 `<p>` 會混進登入表單、cookie 提示和版權文字。
+       - InfoQ 的 `<article>` 含麵包屑和電子報廣告。
+       - 用容器規則：SiliconANGLE 取到 14 段、585 字（最後一段是網站自我介紹，可以接受）；InfoQ 取到 20 段、603 字。
+     - 網站改版會讓規則失效，症狀是該來源一直 `extract_failed`。log 要記次數（不記內容）。
+   - **robots.txt**（RFC 9309）：
+     - 先找 `User-agent` 符合 `english-coach` 的群組，沒有就用 `*`。`Allow`／`Disallow` 取最長的符合規則；長度相同時 `Allow` 優先。支援 `*` 和 `$`。
+     - 抓 robots.txt 得到 4xx：視為全部允許。5xx 或逾時：視為全部不允許（該來源失敗）。
+     - 每次執行時，每個主機只抓一次，存在記憶體裡。
+     - 實測：InfoQ 的 robots.txt 現在對本專案的 UA 回 200，文章路徑允許（§11.1 表的「對腳本回 406」是 2026-11-22 的結果）。條款仍是未驗證。
+   - **防護**：
+     - 每個請求都設逾時 10 s（實測最慢 2.1 s）。
+     - 回應用串流讀，超過上限就中止，當作該來源失敗。上限：feed 2 MiB（實測最大 629 KB）、頁面 1 MiB（實測約 200 KB）、robots.txt 256 KiB。
+     - 每個 feed 最多處理 100 則。
+     - `content-type` 只做寬鬆檢查：feed 要含 `xml` 或 `rss`，頁面要含 `html`。
+     - User-Agent 固定是 `english-coach personal reader`。
+   - **測試樣本**（照 TechLead 的建議）：
+     - 9 個 feed 和 2 個頁面的**結構樣本**：保留真實的標籤結構，正文換成自己寫的文字（不把原文放進 repo）。
+     - 另外合成以下案例：
+       - CDATA 裡有 `]]`
+       - InfoQ 那種實體跳脫的 `description`
+       - The New Stack 那種 2 個 `content:encoded`
+       - 不認得的實體
+       - 多層 `div` 巢狀
+       - 找不到容器
+       - 回應超過上限（串流）
+       - 逾時（注入 `fetch`）
+       - robots 的最長符合、`Allow` 同長優先、`*`／`$`、4xx 允許、5xx 不允許
+       - 轉址到別的網域被拒
+       - `utm_*` 正規化
+       - 贊助文排除
+5. **條件式請求（Q-33，採 TechLead 建議：不用）**：不送 `If-Modified-Since`／`ETag`，不加欄位。
+   - 理由一：每個來源每次 `daily-prep` 執行最多抓 1 次，由 T-025 的冪等保證。實測 feed 大小 24～629 KB，平常一天只抓 1～3 個 feed（< 1.1 MB），省下的流量可以忽略（YAGNI）。
+   - 理由二：實測 The New Stack 的 AI feed 和全站 feed 內容不同（大小 341,138 vs 340,896 bytes），卻回傳**相同**的弱 `ETag` 和 `Last-Modified`。這個 validator 不能代表內容，用條件式請求可能拿到錯的 304，漏掉新文章。
+   - 只觀察到一次，其他來源沒有驗證。
 
 ### 11.2 每日類別輪替與備援規則（`domain/news-rotation`＋`_shared/news`）
 - 設定（`settings.news`，`NewsSettingsSchema` 驗證）：`rotation_order` 預設 `["ai","software","semiconductor"]`（三類各出現一次、不可重複）；`anchor_date` 預設 `2026-11-22`（G2 通過日；固定寫在 schema 預設值，所以 `NewsSettingsSchema.parse({})` 會成功、「還原預設」有確定的值；這天＝`rotation_order[0]`，即 11-22 AI、11-23 軟體工程、11-24 半導體產業，依此類推；ADR-011 決定 6）；`lookback_hours` 預設 48（1～168）。
@@ -1027,3 +1103,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.3 | 2026-11-23 | T-003 卡住的三點（TASKS §5 第 15、27 點）：新增 ADR-010 與 §7.1——後端環境變數名稱（用自動注入的 `SUPABASE_URL`／`SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`，不用年底淘汰的 anon／service_role；自訂 `GEMINI_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`、`APP_ALLOWED_ORIGINS`）與前端 `VITE_SUPABASE_PUBLISHABLE_KEY`；`verify_jwt = false`，函式內 `requireUser`（supabase-js `getClaims`）＋`AuthContext` 品牌型別；Node 端 Deno 型別用最小 `deno.d.ts`＋`WebWorker` lib；§5.1 加 `GET /health`；§4、§7、§12、§15 同步；ADR-008 修訂 3、ADR-009 修訂 1（CLI 驗證改在 CI `db` job）；修正 TASKS §5 第 23 點的三處小不一致（§3.2 第 3、4 點、§5.0.1 重複表頭） |
 | v1.4 | 2026-11-23 | ARCH-005（TASKS §5 第 28 點）：新增 §4.3 字卡狀態轉換表與 contracts `card.ts`、§4.4 每日 25 張選卡、§4.5 今晚題目與提示 chunk、§4.6 跟讀選句與遮字、§4.7 chunk 命中與計分；§4 `card` 表補 `seed_chunk_id`、`due_date` 可為 null、`correct_count` 定義；§11.2 `anchor_date` 預設 `2026-11-22`；新增 ADR-011；§5.0.1 檔案配置補 `src/settings.ts`（T-008 審查時 TechLead 提出）與 `src/card.ts` |
 | v1.5 | 2026-11-24 | T-006 寫單前的 Q-28～Q-30（TechLead），三題都採方案 A：§4.8.1 `card.mastered_at`＋trigger（只在 reviewing → mastered 時寫、不能重設）、§4.8.2 `evening_answer.speech_duration_ms`（另加無稿重答的 chunk 計數）、§4.8.3 `slot_checkin` 改成事件列（opened／completed／skipped、`recorded_at`；步驟清單在 contracts `checkin.ts`）、§4.8.4 `weekly_metric`（`security_invoker`、台北週一、各欄算法、contracts `metrics.ts`）；§4.9 寫入權限：`profile.settings` 付費同意用 trigger＋`set_paid_consent()`（ADR-010 修訂 1）、題庫 RLS、`card_ids` 由 T-025 防護、刪履歷先 retire；§3.1 `_shared/config` 的依賴對齊程式（ADR-008 修訂 4）；§5.0.1 加 `checkin.ts`、`metrics.ts`；§5.1 加 `POST /checkins`；§7.1、§12 更新 ADR-009 (1) 與 ADR-010 的實測證據（run 45348491671），ADR-009 (2) 仍未驗證（ADR-009 修訂 2） |
+| v1.6 | 2026-11-24 | T-022 寫單前的 Q-31～Q-33（TechLead）：新增 §11.1.1 擷取規格——Q-31 採方案 A（The New Stack 全站 `include_url_pattern = null`，不重複靠去重、類別靠 `category_match`；每個來源最多 3 篇送 LLM、類別不符不重試）；新增贊助內容排除（`<category>` 為 `sponsored`／`sponsor*`）、網址正規化（去 `utm_*`）與原文頁面主機規則；Q-32 採自己寫的解析器、不新增依賴（RSS 2.0、HTML 轉文字、robots.txt RFC 9309；原文頁面按主機指定正文容器，找不到就不用，不退回全頁 `<p>`；逾時、大小上限、測試樣本）；Q-33 不使用條件式請求、不加欄位。§4 `news_source` 列、§11.1 表 The New Stack 全站與 InfoQ 兩格更新；ADR-006 修訂 1。實測依據是 2026-11-24 20:2x 的一次性 curl 檢查（不是 A-xxx PoC） |
