@@ -51,7 +51,7 @@ export function collectTestSummary(events) {
     for (const b of content) {
       if (b?.type !== 'tool_result') continue;
       const text = typeof b.content === 'string' ? b.content : '';
-      if (TEST_HINT.test(text) && /exit \d+/.test(text)) {
+      if (TEST_HINT.test(text)) {
         chunks.push(text);
       }
     }
@@ -65,13 +65,18 @@ export function collectTestSummary(events) {
   return excerpt.trim() || 'not found';
 }
 
-export function renderSummary({ task, runUrl, duration, denials, testSummary, resplitReport }) {
+export function hasResultEvent(events) {
+  return Array.isArray(events) && events.some((ev) => ev?.type === 'result');
+}
+
+export function renderSummary({ task, runUrl, duration, denials, testSummary, resplitReport, resultPresent }) {
+  const denialCount = resultPresent ? String(denials.length) : 'unknown';
   const lines = [
     `## run-task summary${task ? ` (${task})` : ''}`,
     '',
     `- Duration: ${formatDuration(duration?.durationMs)}` +
       (duration?.durationApiMs != null ? ` (API ${formatDuration(duration.durationApiMs)})` : ''),
-    `- Permission denials: ${denials.length}`,
+    `- Permission denials: ${denialCount}`,
   ];
   for (const d of denials) {
     lines.push(`  - \`${d.tool}\`: \`${String(d.command).replace(/`/g, '\\`').slice(0, 300)}\``);
@@ -94,6 +99,7 @@ export function summarizeFile(path, { task, runUrl, resplitReport } = {}) {
     denials: collectPermissionDenials(events),
     testSummary: collectTestSummary(events),
     resplitReport,
+    resultPresent: hasResultEvent(events),
   });
 }
 

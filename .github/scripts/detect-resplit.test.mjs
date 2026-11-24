@@ -31,8 +31,35 @@ test('compound denial vs later fragment is a resplit', () => {
   const denied =
     'git add docs/reports/T-012.md && git commit -q -m "msg" && git status --short; echo "[status done]"; git push -u origin task/T-012 2>&1';
   assert.equal(isResplitFragment(denied, 'git push -u origin task/T-012'), true);
-  assert.equal(isResplitFragment(denied, 'git status --short'), true);
+  assert.equal(isResplitFragment(denied, 'git status --short'), false);
+  assert.equal(isResplitFragment(denied, 'git add docs/reports/T-012.md'), false);
   assert.equal(isResplitFragment(denied, 'pnpm test'), false);
+});
+
+test('later git status after a compound denial is not a resplit; later git push is', () => {
+  const denied =
+    'git add a && git commit -q -m "msg" && git status --short; git push -u origin task/T-012 2>&1';
+  const events = [
+    {
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Bash', id: 'd1', input: { command: denied } }] },
+    },
+    {
+      type: 'result',
+      permission_denials: [{ tool_use_id: 'd1', tool_name: 'Bash', tool_input: { command: denied } }],
+    },
+    {
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Bash', id: 's', input: { command: 'git status --short' } }] },
+    },
+    {
+      type: 'assistant',
+      message: { content: [{ type: 'tool_use', name: 'Bash', id: 'p', input: { command: 'git push -u origin task/T-012' } }] },
+    },
+  ];
+  const hits = findResplits(events);
+  assert.equal(hits.some((h) => /git status/.test(h.later)), false);
+  assert.equal(hits.some((h) => /git push -u origin task\/T-012/.test(h.later)), true);
 });
 
 test('single denied command only matches the same command, not a later unrelated one', () => {

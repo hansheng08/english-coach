@@ -91,7 +91,7 @@ const EXTRA = [
   ['gh auth token', 'deny'],
   ['gh workflow run ci.yml', 'deny'],
   ['pwsh -Command "git push origin main"', 'deny'],
-  ['git log --oneline | head', 'deny'],  // task rule #15: use Read, not head
+  ['git log --oneline | head', 'deny'],  // settings deny list: use Read, not head
 ];
 for (const [command, expected] of EXTRA) {
   test(`extra: ${JSON.stringify(command)} → ${expected ?? 'no opinion'}`, () => {
@@ -138,7 +138,7 @@ test('index: command not a string → deny; output is a single JSON object', () 
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
 });
 
-test('task rule #15: cat/grep/head/ls/sed are denied, including compounds', () => {
+test('settings deny list: cat/grep/head/ls/sed are denied, including compounds', () => {
   for (const command of [
     'cat contracts/src/validation.ts',
     'grep -n export contracts/src/index.ts',
@@ -149,11 +149,12 @@ test('task rule #15: cat/grep/head/ls/sed are denied, including compounds', () =
   ]) {
     const r = evaluate({ command, getBranch: () => T });
     assert.equal(r?.decision, 'deny', command);
-    assert.match(r.reason, /task rule #15/);
+    assert.match(r.reason, /settings\.json deny list/);
+    assert.match(r.reason, /charter v5 §13 rule #12/);
   }
 });
 
-test('task rule #15: git ls-files and Read-equivalent git commands stay unblocked by this rule', () => {
+test('git ls-files and Read-equivalent git commands stay unblocked by the file-tool deny', () => {
   const r = evaluate({ command: 'git ls-files packages/domain', getBranch: () => T });
   assert.equal(r?.decision ?? null, null);
 });

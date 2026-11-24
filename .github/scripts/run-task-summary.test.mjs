@@ -8,6 +8,8 @@ import {
   collectDuration,
   collectTestSummary,
   summarizeFile,
+  renderSummary,
+  hasResultEvent,
 } from './run-task-summary.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./run-task-summary.mjs', import.meta.url));
@@ -43,4 +45,30 @@ test('missing denials and tests are reported as zero / not found', () => {
   assert.equal(collectPermissionDenials(events).length, 0);
   assert.equal(collectTestSummary(events), 'not found');
   assert.equal(collectDuration(events).durationMs, 10);
+});
+
+test('missing result event prints Duration unknown and Permission denials unknown', () => {
+  const events = [{ type: 'assistant', message: { content: [] } }];
+  assert.equal(hasResultEvent(events), false);
+  assert.equal(collectDuration(events), null);
+  const md = renderSummary({
+    task: 'T-000',
+    duration: collectDuration(events),
+    denials: collectPermissionDenials(events),
+    testSummary: collectTestSummary(events),
+    resultPresent: hasResultEvent(events),
+  });
+  assert.match(md, /Duration: unknown/);
+  assert.match(md, /Permission denials: unknown/);
+  assert.doesNotMatch(md, /Permission denials: 0/);
+});
+
+test('collectTestSummary accepts vitest output without an exit N line', () => {
+  const events = [{
+    type: 'user',
+    message: { content: [{ type: 'tool_result', content: 'Test Files  2 passed (2)\nTests  10 passed (10)\nDuration  1.2s\n' }] },
+  }];
+  const text = collectTestSummary(events);
+  assert.match(text, /Test Files\s+2 passed/);
+  assert.notEqual(text, 'not found');
 });

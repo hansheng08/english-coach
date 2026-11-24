@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.4（2026-11-24）
+- 版本：v0.5（2026-11-24）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -101,14 +101,62 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 
 ## 3. 執行環境能力表（寫任務單前先對照）
 
-本表說明模式 C 各執行環境**現在實際做得到／做不到的事**。標「不確定」的不要寫成任務單前提。
+本表說明模式 C 各執行環境**現在實際做得到／做不到的事**。表上沒列、或標「未驗證」的，不得寫成任務單前提（憲章 v5 §4）。下列「已驗證」格子都附觀察證據；未實測的能力不寫成「能做」。
 
-| 環境 | 能做 | 不能做／限制 |
+### 3.1 Actions 上的 Claude Code（`claude-run-task.yml`）
+
+| 項目 | 狀態 | 依據 |
 |---|---|---|
-| **GitHub Actions 上的 Claude Code**（`claude-run-task.yml`，OIDC → Claude GitHub App token 推送） | 在 `task/`、`fix/`、`poc/` 分支上工作；`git add`（不含 `-A`／`.`／`-u`）、`git commit`、`git push -u origin <目前同名分支>`；`pnpm install --frozen-lockfile`、`pnpm check`／`typecheck`／`lint`／`arch`／`test`／`e2e`；檔案用 Read／Write／Edit／Glob／Grep 工具 | 不開 PR、不合併、不推 `main`、不 force push；Bash 不得用 `cat`／`grep`／`head`／`ls`／`sed`（應用 Read／Grep 工具）；不得 `curl`／`wget`／`sudo`／任意 `gh` 寫入；不得 `supabase link`／`login`／`functions deploy`／`secrets`；被權限擋下的指令不得拆開重送（O-004 會在 execution artifact 偵測並讓步驟失敗） |
-| **box 上的 SRE**（共享 Linux，有 Docker 與本機網路） | 跑 Supabase CLI（含 `start`、`functions serve`）、Docker、`curl`、`gh`（受 token 權限限制）、`actionlint`、裝套件、改 CI／探針／文件並開 [G3] PR | 不得合併 PR、不得推 `main`、不得 force push、不得自行新增 GitHub secret、不得派 Claude Code（除非交接單明確核准） |
-| **`ci.yml` 的 `GITHUB_TOKEN`** | checkout（`persist-credentials: false`）、讀 repo、跑測試、彙總 `ci-ok` | 用這個 token 做的 `git push` **不會**觸發新的 workflow（見 §1.1）。`gh pr checks` 可能 403（沒有 `checks:read`） |
-| **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/`，可觸發 `ci.yml` 的 `push` run | 不應用來合併或改 repo secrets。**不確定**：action 是否偶爾仍會用到 `GITHUB_TOKEN` 寫入；故 `contents: write` 仍保留 |
-| **本機／spike workflow（`poc-spike.yml`，手動 `workflow_dispatch`）** | 在 `poc/A-xxx` 分支上跑 `.github/ci/spike.sh` 或環境檢查；**不需要 Docker** | 不部署、不加 secret。不得把 spike 當成 T-018 `bundle` job 或 ADR-009 (2) 的部署證明 |
+| 在 `task/`、`fix/`、`poc/` 分支工作；`git add`／`commit`；單獨的 `git push -u origin <目前同名分支>` | 能做（已驗證） | T-012 等任務把分支推上 GitHub 並觸發 `ci.yml` `push` run（例如 run 45205560119 的後續乾淨 `git push` 曾成功；複合 `git push … 2>&1` 則被 pushguard 擋下） |
+| `pnpm install --frozen-lockfile`、`pnpm check`／`typecheck`／`lint`／`arch`／`test`／`e2e` | 能做（設定已列） | `claude_args --allowedTools` 白名單（見 workflow）。個別指令是否每次成功視任務而定 |
+| 檔案用 Read／Write／Edit／Glob／Grep | 能做（設定已列） | 同上 `--allowedTools` |
+| 改／推 `.github/workflows/` | 不能做（政策）；**一次被拒的推送未在本環境實測，標未驗證** | 憲章 v5 §5：Claude Code 的權杖改不了 workflow，改由 SRE 在 box 以 O-xxx 開 [G3] PR |
+| Bash `cat`／`grep`／`head`／`ls`／`sed`（含複合指令裡的同名命令） | 不能做 | `.claude/settings.json` deny 與 pushguard；T-012 曾用 `cd …; cat …; grep … \| head; ls; sed`（當時尚未 deny） |
+| `gh`（含唯讀）、`curl`／`wget`／`sudo`、任意 `supabase` CLI、`docker` | 不能做（設定已列） | `--allowedTools` 未開放；不得當作任務單裡的驗證手段 |
+| 開 PR、合併 PR、推 `main`、force push | 不能做 | pushguard + 任務單強制工作規則；本表不把這些寫成可做之事 |
+| 新增套件（改 lockfile） | 須先核准；**一次被拒的實測未做，標未驗證** | 任務單／`--frozen-lockfile` 限制 |
+| 指令被擋後拆開重送（例如複合 `git push` 被拒後再送單獨 `git push`） | 不能做；被偵測到則 `run_task_summary` 失敗 | `detect-resplit.mjs`；憲章 v5 §13 第 12 條。`git status` 等附帶允許指令不當作拆送 |
+
+### 3.2 box 上的 SRE（共享 Linux；2026-11-24 08:09 Asia/Taipei 實測）
+
+**沒有 Docker、沒有本機 Supabase CLI。** 本機實測原始輸出：
+
+```
+MISSING docker (command not found)
+docker info: docker: command not found（/var/run/docker.sock 亦不存在）
+MISSING supabase (command not found)
+FOUND node     /usr/local/bin/node        v24.22.1
+FOUND npm      /usr/local/bin/npm         11.21.1
+FOUND npx      /usr/local/bin/npx         11.21.1
+FOUND gh       /usr/local/bin/gh          2.103.0
+FOUND git      /usr/bin/git               2.47.3
+FOUND actionlint /usr/local/bin/actionlint 1.7.12
+FOUND python3  /usr/bin/python3           Python 3.13.5
+FOUND jq       /usr/bin/jq                jq-1.7
+FOUND curl     /usr/bin/curl              8.14.1
+MISSING deno (command not found)
+FOUND pnpm     /usr/local/bin/pnpm        12.21.0（需自設 COREPACK_HOME；預設路徑 /usr/local/share/corepack/v1 無寫入權）
+MISSING gitleaks (command not found)（CI 的 secrets job 另有安裝，不代表 box 預裝）
+```
+
+| 項目 | 狀態 | 依據 |
+|---|---|---|
+| `curl`、`gh`、`git`、`actionlint` 1.7.12、`node`／`npm`／`jq`／`python3` | 能做（已驗證） | 上表 `command -v` 與 `--version`（2026-11-24 08:09 Asia/Taipei） |
+| 改 CI／探針／`.github/workflows/` 並推 `task/O-xxx`、開 [G3] PR | 能做（已驗證） | 本機成功 `git push` 含 workflow 的 `task/O-004`，並 `gh pr create`／`gh pr edit`（PR #18） |
+| Docker、`supabase start`／`functions serve` | **不能做** | `docker`／`supabase` 指令不存在；db job 的 CLI 驗證只能在 GitHub Actions 的 `db` job 跑 |
+| 合併 PR、推 `main`、force push、自設 GitHub secret、未核准就派 Claude Code | 不做（政策） | 交接單與憲章；本輪未嘗試這些動作 |
+
+### 3.3 各權杖
+
+| 權杖 | 已驗證能做 | 限制／不能做 | 未驗證 |
+|---|---|---|---|
+| **`ci.yml` 的 `GITHUB_TOKEN`** | 讀 repo、checkout（workflow 設 `persist-credentials: false`）、跑測試、彙總 `ci-ok` | workflow 宣告 `permissions: contents: read`。用這個 token 做的 `git push` **不會**觸發新的 workflow（見 §1.1）。本環境觀察：`gh pr checks`／`statusCheckRollup` 曾 403（沒有 checks 讀取權） | 是否另有未寫在 workflow 的隱藏權限 |
+| **`claude-run-task.yml` 的 `GITHUB_TOKEN`** | 依 workflow 宣告：`contents: write`、`id-token: write`、`actions: read`、`pull-requests: write`（後者供既有 PR 留言） | 不應用來開新 PR 或合併。C3 在 `gh pr comment` 403 時改留 commit comment | 尚未在真實 run-task 上觀察 C3 留言／403 fallback（本單禁止派 Claude Code） |
+| **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/` 且可觸發 `ci.yml` 的 `push` run（O-002 修正後的既有 run） | 不應用來合併或改 repo secrets；依憲章不能改 `.github/workflows/` | action 是否偶爾仍用 `GITHUB_TOKEN` 寫入（故仍保留 `contents: write`）；workflow 推送被拒的一次實測 |
+| **box 上 SRE 使用的 GitHub 權杖** | 細項 PAT（`gh auth status` 顯示 `github_pat_`，API 無 `X-OAuth-Scopes` 標頭；到期 2026-12-21 23:30 Asia/Taipei）。已驗證：推送含 `.github/workflows/` 的分支（等同需要 workflow 寫入）、開／編輯 PR、讀 Actions log 與 issue comment | 本輪未用它合併、未設 secret、未推 `main`、未 force push | 細項 PAT 的完整權限矩陣無法從 API 標頭列完，除上述已觀察項外皆標未驗證 |
+
+### 3.4 `poc-spike.yml`（手動 `workflow_dispatch`）
+
+在 `poc/A-xxx` 分支上跑 `.github/ci/spike.sh` 或環境檢查；**不需要 Docker**。不部署、不加 secret。不得把 spike 當成 T-018 `bundle` job 或 ADR-009 (2) 的部署證明。本輪**未**對此 workflow 做一次 `workflow_dispatch` 實測（標未驗證）。
 
 `db` job 只在 `pull_request` 跑；`push` 事件若略過 `db`，`ci-ok` 會標「未驗證」，該次 push 綠燈不代表 health／ADR-009 已驗過。

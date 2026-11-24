@@ -16,7 +16,7 @@ const CHAIN_CHARS = /[;&|\n]/;
 const SUBSHELL_GIT = /(\$\(|`)[^)`]*\b(git\s+(-\S+\s+)*(push|merge|pull)|gh)\b/;
 
 const deny = (reason) => ({ decision: 'deny', reason: `pushguard: ${reason}` });
-const GOOD_PUSH = 'only "git push [-u] origin <current task/, fix/ or poc/ branch>" is allowed';
+const GOOD_PUSH = 'only a standalone "git push [-u] origin <current task/, fix/ or poc/ branch>" is allowed (do not put git push in a compound command; if denied, stop and record it — charter v5 §13 rule #12 — do not split and resend)';
 
 /** 取目前分支；取不到（detached HEAD、不在 git repo、逾時）回傳 null。 */
 export function getCurrentBranch(cwd) {
@@ -214,7 +214,7 @@ export function evaluate({ command, getBranch }) {
     if (SHELLS.has(name) && /push|merge|gh /.test(raw)) {
       result = deny(`wrapping git/gh in "${words[0]}" cannot be checked safely; run the command directly`);
     } else if (DENIED_FILE_TOOLS.has(name)) {
-      result = deny(`Bash(${name}) is denied; use the Read / Glob / Grep tools (task rule #15)`);
+      result = deny(`Bash(${name}) is denied; use the Read / Glob / Grep tools (settings.json deny list). If denied, stop and record it (charter v5 §13 rule #12); do not split and resend`);
     } else if (name === 'git') {
       result = evalGit(raw, segments, words, prefixed || words[0] !== 'git', getBranch);
     } else if (name === 'gh') {

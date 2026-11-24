@@ -73,23 +73,37 @@ export function statementsOf(command) {
   return splitStatements(command).map(normalizeStatement).filter(Boolean);
 }
 
+const WATCHED_FILE_TOOLS = new Set(['cat', 'grep', 'head', 'ls', 'sed']);
+
+/** Fragments that count as a bypass if retried after a compound denial.
+ *  Incidental allowed statements (git status, git add, echo) are not flagged
+ *  so Claude is not pushed into a catch-22 with pushguard (TechLead O-004 B / suggestion).
+ *  An exact retry of the whole denied command is always a resplit.
+ */
+export function isWatchedResplitStatement(statement) {
+  const words = normalizeStatement(statement).split(' ').filter(Boolean);
+  if (words.length === 0) return false;
+  if (words[0] === 'git' && words[1] === 'push') return true;
+  if (WATCHED_FILE_TOOLS.has(words[0])) return true;
+  return false;
+}
+
 /**
- * A later command is a resplit if its normalized form equals one statement
- * of a previously denied command, or is that statement without a trailing
- * redirect already stripped by normalizeStatement.
+ * A later command is a resplit if it is an exact (normalized) retry of a
+ * denied command, or a watched statement fragment of a denied compound
+ * (git push, or cat/grep/head/ls/sed).
  */
 export function isResplitFragment(deniedCommand, laterCommand) {
   const later = normalizeStatement(laterCommand);
   if (!later) return false;
   const deniedWhole = normalizeStatement(deniedCommand);
-  if (later === deniedWhole) return true; // exact retry
+  if (later === deniedWhole) return true; // exact retry of the whole command
   const stmts = statementsOf(deniedCommand);
   if (stmts.length <= 1) {
-    // Single-statement denial: only flag an exact (normalized) retry, not a
-    // shorter unrelated command that happens to be a prefix.
+    // Single-statement denial: only flag an exact (normalized) retry.
     return later === stmts[0];
   }
-  return stmts.includes(later);
+  return stmts.includes(later) && isWatchedResplitStatement(later);
 }
 
 export function extractDeniedCommands(events) {
@@ -148,7 +162,7 @@ export function formatReport(hits) {
   if (hits.length === 0) return 'detect-resplit: no bypass found\n';
   const lines = [
     'ERROR: detect-resplit: a later Bash call retried a fragment of a denied command.',
-    'Denied commands must not be split and resent (task rule #13: do not work around a permission denial).',
+    'Denied commands must not be split and resent (charter v5 §13 rule #12: do not work around a permission denial).',
   ];
   for (const h of hits) {
     lines.push(`- denied: ${h.denied}`);

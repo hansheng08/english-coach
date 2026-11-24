@@ -21,6 +21,17 @@ test('flags || true and continue-on-error without allow comment', () => {
   assert.equal(hits[1].kind, 'continue-on-error');
 });
 
+test('flags || : and || exit 0, and rejects a blank o004-allow reason', () => {
+  const src = [
+    'git fetch origin "$BR" || :',
+    'git fetch origin "$BR" || exit 0',
+    '# o004-allow:',
+    'git fetch origin "$BR" || true',
+  ].join('\n');
+  const hits = lintText(src, 'x.yml');
+  assert.deepEqual(hits.map((h) => h.kind).sort(), ['|| :', '|| exit 0', '|| true']);
+});
+
 test('o004-allow on same or previous line is accepted', () => {
   const src = [
     'kill "$pid" || true  # o004-allow: cleanup, final check still hard-fails',

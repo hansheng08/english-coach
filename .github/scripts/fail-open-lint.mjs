@@ -1,4 +1,4 @@
-// C2: reject fail-open `|| true` and `continue-on-error` in verification
+// C2: reject fail-open `|| true`, `|| :`, `|| exit 0`, and `continue-on-error` in verification
 // paths, unless a same-line or immediately previous line comment contains
 // `o004-allow:` plus a justification.
 //
@@ -13,8 +13,11 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ALLOW = /o004-allow:/;
+// Allow comments must include a non-empty reason after the colon.
+const ALLOW = /o004-allow:\s*\S/;
 const OR_TRUE = /\|\|\s*true\b/;
+const OR_COLON = /\|\|\s*:(?:\s|$)/;
+const OR_EXIT0 = /\|\|\s*exit\s+0\b/;
 const CONTINUE = /^\s*continue-on-error\s*:/;
 
 export function lintText(text, filename) {
@@ -28,6 +31,12 @@ export function lintText(text, filename) {
     if (commentOnly) continue;
     if (OR_TRUE.test(line) && !allowed) {
       hits.push({ file: filename, line: i + 1, text: line.trim(), kind: '|| true' });
+    }
+    if (OR_COLON.test(line) && !allowed) {
+      hits.push({ file: filename, line: i + 1, text: line.trim(), kind: '|| :' });
+    }
+    if (OR_EXIT0.test(line) && !allowed) {
+      hits.push({ file: filename, line: i + 1, text: line.trim(), kind: '|| exit 0' });
     }
     if (CONTINUE.test(line) && !allowed) {
       hits.push({ file: filename, line: i + 1, text: line.trim(), kind: 'continue-on-error' });
@@ -74,9 +83,9 @@ export function lintRepo(repoRoot) {
 }
 
 export function formatHits(hits) {
-  if (hits.length === 0) return 'fail-open-lint: no unallowlisted || true or continue-on-error\n';
+  if (hits.length === 0) return 'fail-open-lint: no unallowlisted || true, || :, || exit 0, or continue-on-error\n';
   const lines = [
-    'ERROR: fail-open-lint: unallowlisted || true or continue-on-error in a verification path.',
+    'ERROR: fail-open-lint: unallowlisted || true, || :, || exit 0, or continue-on-error in a verification path.',
     'Add `# o004-allow: <reason>` on the same or previous line, or remove the fail-open.',
     '',
   ];

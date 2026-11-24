@@ -92,9 +92,12 @@ jobs:
             .github/scripts/ci-ok.test.mjs \
             .github/scripts/detect-resplit.test.mjs \
             .github/scripts/run-task-summary.test.mjs \
-            .github/scripts/fail-open-lint.test.mjs
+            .github/scripts/fail-open-lint.test.mjs \
+            .github/scripts/post-run-task-comment.test.mjs
           bash .github/scripts/adr010-keycheck-test.sh
           bash .github/scripts/verify-push-test.sh
+          bash .github/scripts/run-task-outcome-test.sh
+          bash .github/scripts/run-task-summary-step-test.sh
           node .github/scripts/fail-open-lint.mjs .
 
   secrets:
