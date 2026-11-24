@@ -19,6 +19,14 @@ export function acPrefix(id) {
   return `${(m[1] ?? '').toUpperCase()}${String(Number(m[2]))}`;
 }
 
+// "task/T-023"→"T-023"、"fix/Q-012"→"Q-012"、其他→null
+export function branchId(branch) {
+  if (typeof branch !== 'string') return null;
+  const m = /^(?:task\/([TQOAP]-\d{3})|fix\/(Q-\d{3}))$/.exec(branch);
+  if (m === null) return null;
+  return m[1] ?? m[2] ?? null;
+}
+
 // `**` 可跨 `/`（含零層）；`*`、`?` 不跨 `/`；其餘逐字比對。
 export function matchGlob(pattern, path) {
   let re = '';

@@ -1,0 +1,11 @@
+[
+  { "type": "system", "subtype": "init" },
+  {
+    "type": "result",
+    "subtype": "success",
+    "permission_denials": [
+      { "tool_name": "Bash", "tool_input": { "command": "cat a.txt" } },
+      { "tool_name": "Bash", "tool_input": { "command": "git status --short | head" } }
+    ]
+  }
+]
