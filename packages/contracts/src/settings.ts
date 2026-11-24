@@ -1,5 +1,6 @@
-// Schemas for the `settings.*` JSON columns; T-049 adds NewsSettingsSchema to this file.
+// Schemas for the `settings.*` JSON columns: SrsSettingsSchema (T-008) and NewsSettingsSchema (T-049).
 import { z } from 'zod';
+import { NEWS_CATEGORIES, NewsCategorySchema, PlanDateSchema, type NewsCategory } from './ids.ts';
 
 const DaysSchema = z.number().int().min(1).max(365);
 
@@ -31,3 +32,27 @@ export const SrsSettingsSchema = z
   });
 
 export type SrsSettings = z.infer<typeof SrsSettingsSchema>;
+
+/** 每次 parse 都回新的陣列（預設順序＝NEWS_CATEGORIES，不另寫字串）。 */
+const defaultRotationOrder = (): [NewsCategory, NewsCategory, NewsCategory] => [
+  NEWS_CATEGORIES[0],
+  NEWS_CATEGORIES[1],
+  NEWS_CATEGORIES[2],
+];
+
+/** 每日新聞類別輪替設定（ARCHITECTURE §11.2、ADR-011 決定 6）；預設值只寫在這裡，其他程式一律從設定讀。 */
+export const NewsSettingsSchema = z
+  .object({
+    rotation_order: z
+      .tuple([NewsCategorySchema, NewsCategorySchema, NewsCategorySchema])
+      .default(defaultRotationOrder),
+    anchor_date: PlanDateSchema.prefault('2026-11-22'),
+    lookback_hours: z.number().int().min(1).max(168).default(48),
+  })
+  .superRefine((s, ctx) => {
+    if (new Set(s.rotation_order).size !== s.rotation_order.length) {
+      ctx.addIssue({ code: 'custom', path: ['rotation_order'], message: 'rotation_order must list each category once' });
+    }
+  });
+
+export type NewsSettings = z.infer<typeof NewsSettingsSchema>;
