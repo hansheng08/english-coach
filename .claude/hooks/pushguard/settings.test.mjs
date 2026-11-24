@@ -108,10 +108,41 @@ const REQUIRED_DENY = [
   "Bash(supabase orgs *)",
   "Bash(npm publish*)",
   "Bash(pnpm publish*)",
+  // O-005 / Q-27: explicit real env files (root and nested); .env.example stays readable.
   "Read(./.env)",
-  "Read(./.env.*)",
   "Read(**/.env)",
-  "Read(**/.env.*)",
+  "Read(./.env.local)",
+  "Read(**/.env.local)",
+  "Read(./.env.*.local)",
+  "Read(**/.env.*.local)",
+  "Read(./.env.dev*)",
+  "Read(**/.env.dev*)",
+  "Read(./.env.prod*)",
+  "Read(**/.env.prod*)",
+  "Read(./.env.stag*)",
+  "Read(**/.env.stag*)",
+  "Read(./.env.test*)",
+  "Read(**/.env.test*)",
+  "Read(./.env.preview*)",
+  "Read(**/.env.preview*)",
+  "Read(./.env.secret*)",
+  "Read(**/.env.secret*)",
+  "Read(./.env.keys)",
+  "Read(**/.env.keys)",
+  "Read(./.env.ci*)",
+  "Read(**/.env.ci*)",
+  "Read(./.env.bak*)",
+  "Read(**/.env.bak*)",
+  "Read(./.env.backup*)",
+  "Read(**/.env.backup*)",
+  "Read(./.env.old*)",
+  "Read(**/.env.old*)",
+  "Read(./.env.orig*)",
+  "Read(**/.env.orig*)",
+  "Read(./.env.save*)",
+  "Read(**/.env.save*)",
+  "Read(./.env.copy*)",
+  "Read(**/.env.copy*)",
   "Read(**/*.pem)",
   "Read(**/*.key)",
   "Read(**/secrets/**)",
@@ -138,6 +169,21 @@ test('permissions.deny contains every required rule', () => {
   const { permissions } = JSON.parse(raw);
   const missing = REQUIRED_DENY.filter((r) => !permissions.deny.includes(r));
   assert.deepEqual(missing, []);
+});
+
+test('O-005: no broad Read(.env.*) deny that would also block .env.example', () => {
+  const { permissions } = JSON.parse(raw);
+  for (const rule of ['Read(./.env.*)', 'Read(**/.env.*)', 'Read(.env.*)', 'Read(**/.env*)']) {
+    assert.ok(!permissions.deny.includes(rule), rule);
+  }
+});
+
+test('O-005: approved lockfile update is allowed; pnpm add/remove stay in ask', () => {
+  const { permissions } = JSON.parse(raw);
+  assert.ok(permissions.allow.includes('Bash(pnpm install --no-frozen-lockfile)'));
+  assert.ok(!permissions.allow.includes('Bash(pnpm install *)'));
+  assert.ok(permissions.ask.includes('Bash(pnpm add *)'));
+  assert.ok(permissions.ask.includes('Bash(pnpm remove *)'));
 });
 
 test('no rule in allow/ask/deny ends with ":*)"', () => {

@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Test pushguard, settings, ci-ok, and O-004 verify scripts
+      - name: Test pushguard, settings, ci-ok, and O-004/O-005 verify scripts
         run: |
           node --test \
             .claude/hooks/pushguard/guard.test.mjs \
@@ -93,11 +93,14 @@ jobs:
             .github/scripts/detect-resplit.test.mjs \
             .github/scripts/run-task-summary.test.mjs \
             .github/scripts/fail-open-lint.test.mjs \
-            .github/scripts/post-run-task-comment.test.mjs
+            .github/scripts/post-run-task-comment.test.mjs \
+            .github/scripts/claude-permission-check.test.mjs
           bash .github/scripts/adr010-keycheck-test.sh
+          bash .github/scripts/db-auth-check-test.sh
           bash .github/scripts/verify-push-test.sh
           bash .github/scripts/run-task-outcome-test.sh
           bash .github/scripts/run-task-summary-step-test.sh
+          node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
 
   secrets:
@@ -195,7 +198,7 @@ jobs:
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
-      - name: Verify local Supabase, functions health, and ADR-009 (1)(2)
+      - name: Verify local Supabase, Auth (signup off), functions health, ADR-009 (1)(2), ADR-010 keys
         run: bash .github/scripts/db-job-verify.sh
 
   e2e:

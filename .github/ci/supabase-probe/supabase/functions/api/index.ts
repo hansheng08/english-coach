@@ -1,4 +1,4 @@
-// CI probe for O-003 only. Not product code (product api lands in T-003).
+// CI probe (O-003, log prefixes productized in O-005). Not product code (product api lands in T-003).
 // ADR-009 (1): import @english-coach/contracts and actually use it.
 // ADR-010: verify_jwt = false; GET /health requires a user JWT (role=authenticated).
 import { httpStatusOf, toApiErrorBody, type AppError } from '@english-coach/contracts';
@@ -77,10 +77,10 @@ async function isAuthenticatedUser(token: string): Promise<boolean> {
     const alg = typeof header?.alg === 'string' ? header.alg : 'none';
     const hasKid = typeof header?.kid === 'string';
     const path = !alg.startsWith('HS') && hasKid ? 'jwks' : 'auth_user_fallback';
-    console.log(`o003-auth via=getClaims alg=${alg} has_kid=${hasKid} path=${path} error=${error ? error.name : 'none'} role=${String(claims?.role ?? 'none')} accepted=${accepted}`);
+    console.log(`adr010-auth via=getClaims alg=${alg} has_kid=${hasKid} path=${path} error=${error ? error.name : 'none'} role=${String(claims?.role ?? 'none')} accepted=${accepted}`);
     return accepted;
   } catch (err) {
-    console.log(`o003-auth-error name=${err instanceof Error ? err.name : 'unknown'}`);
+    console.log(`adr010-auth-error name=${err instanceof Error ? err.name : 'unknown'}`);
     return false;
   }
 }
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
   try {
     const status = injectedKeyStatus();
     console.log(
-      `o003-env has_supabase_url=${status.hasUrl} has_publishable=${status.hasPublishable} has_secret=${status.hasSecret} only_legacy_keys=${status.onlyLegacyKeys}`,
+      `adr010-env has_supabase_url=${status.hasUrl} has_publishable=${status.hasPublishable} has_secret=${status.hasSecret} only_legacy_keys=${status.onlyLegacyKeys}`,
     );
 
     const url = new URL(req.url);
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     return Response.json({ ok: true }, { status: 200 });
   } catch (err) {
     const message = err instanceof Error ? err.name : 'unknown';
-    console.log(`o003-handler-error name=${message}`);
+    console.log(`adr010-handler-error name=${message}`);
     return jsonError({ kind: 'unauthenticated', message: 'missing or invalid jwt' });
   }
 });
