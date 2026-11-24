@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.4**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011）｜日期：2026-11-23｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.5**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1）｜日期：2026-11-24｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -57,7 +57,7 @@
 | `supabase/functions/_shared/providers/registry.ts` | 依使用者設定**只回傳被選中的那一個**供應商；檢查付費同意與月上限（ADR-003） | `contracts`、各 adapter | 任何「備援清單」或自動改選 |
 | `supabase/functions/_shared/news` | RSS 抓取、主題篩選、來源白名單 | `contracts`、`config` | 抓白名單以外的網址 |
 | `supabase/functions/_shared/db` | 唯一可以讀寫 Postgres/Storage 的程式（repository），也負責 JWT → `user_id` | `contracts`、`@supabase/supabase-js`（後端唯一可用處，ADR-008 修訂 1） | 供應商；回傳 `SupabaseClient` 或 `{ data, error }`（只回 `Result<T, AppError>`） |
-| `supabase/functions/_shared/config` | 唯一可以讀 `Deno.env` 的地方（金鑰、模型名稱） | 無 | — |
+| `supabase/functions/_shared/config` | 唯一可以讀 `Deno.env` 的地方（金鑰、模型名稱）；用 zod 驗證、回 `Result`（ADR-010 決定 1） | `contracts`、`zod`（ADR-008 修訂 4 第 16 條） | `domain`、`db`、`providers`、`news`、`@supabase/*` |
 | `supabase/functions/<endpoint>` | 薄的 HTTP handler：驗證 → 呼叫 domain/db/registry → 回應 | 以上全部 | 直接 import 某個 adapter（必須經過 registry）；import `@supabase/*`（資料庫與登入者都經過 `_shared/db`） |
 | `apps/web/src/features/<feature>` | 畫面與互動（morning、shadowing、noon、evening、resume、dashboard、settings） | `contracts`、`apps/web/src/{api,audio,ui,storage}` | 其他 feature（共用的東西放 `ui`）；`@supabase/supabase-js`（只有 `api` 可以） |
 | `apps/web/src/api` | 前端唯一的網路層（呼叫 Edge Functions、Supabase 讀表） | `contracts`、`@supabase/supabase-js` | 外部 AI 網址 |
@@ -76,26 +76,26 @@
 8. **秘密掃描**：CI 跑「建置後的前端 bundle 不得出現任何金鑰變數名稱或已知金鑰前綴」的測試（第 7 節）。
 
 ## 4. 資料模型與儲存 schema
-- 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。只有 Edge Functions 用 secret 金鑰（`SUPABASE_SECRET_KEYS.default`，舊稱 service role；後端專用、會繞過 RLS）寫入需要伺服器驗證的欄位，而且只限 `daily-prep`、`purge-audio`；`api` 一律以使用者身分（publishable 金鑰＋使用者 JWT）查表，受 RLS 限制（§7.1）。
+- 所有表都有 `user_id uuid not null references auth.users`，RLS：`user_id = auth.uid()`。例外：共用的參考資料沒有擁有者（`seed_chunk`、`news_source` 沒有 `user_id`；題庫題 `question.source = 'bank'` 的 `user_id` 是 null），登入者只能讀，只能由 migration 或 secret 金鑰寫入（§4.9）。只有 Edge Functions 用 secret 金鑰（`SUPABASE_SECRET_KEYS.default`，舊稱 service role；後端專用、會繞過 RLS）寫入需要伺服器驗證的欄位，而且只限 `daily-prep`、`purge-audio`，以及 `api` 裡唯一一處付費同意寫入 `_shared/db/paid-consent.ts`（§4.9、ADR-010 修訂 1）；`api` 一律以使用者身分（publishable 金鑰＋使用者 JWT）查表，受 RLS 限制（§7.1）。
 - 日期欄位 `plan_date date` 一律是**台北日期**；時間戳記一律 `timestamptz`（存 UTC）。
 - 錄音欄位都有 `audio_expires_at = created_at + 90 days`；每日 pg_cron 刪 Storage 物件並把 `audio_path` 設為 null，逐字稿與分數保留（Q-06）。
 
 | 表 | 主要欄位 | 對應 |
 |---|---|---|
-| `profile` | `user_id` PK、`timezone`（固定 `Asia/Taipei`）、`slot_start`（早中晚開始時間，Q-08）、`settings jsonb`（選用的 LLM 模型、STT、發音、TTS 供應商；`paid_consent_at`；`monthly_paid_cap_ntd`；`srs`（複習間隔，§4.2）；`news`（輪替設定，§11.2））。`settings` 只能經 `POST /settings` 寫入，伺服器用 `SettingsSchema`（zod）驗證 | AC-09、AC-19、AC-24、AC-25、NFR-03、Q-18 |
+| `profile` | `user_id` PK、`timezone`（固定 `Asia/Taipei`）、`slot_start`（早中晚開始時間，Q-08）、`settings jsonb`（選用的 LLM 模型、STT、發音、TTS 供應商；`paid_consent_at`；`monthly_paid_cap_ntd`；`srs`（複習間隔，§4.2）；`news`（輪替設定，§11.2））。`settings` 經 `POST /settings` 寫入，伺服器用 `SettingsSchema`（zod）驗證；其中 `paid_consent_at`、`monthly_paid_cap_ntd` 只能由 `set_paid_consent()`（secret 金鑰）改，其他身分改這兩個鍵會被 trigger 擋下（§4.9） | AC-09、AC-19、AC-24、AC-25、NFR-03、Q-18 |
 | `news_source` | `id`、`name`、`feed_url`、`category`（`ai`／`software`／`semiconductor`）、`priority`（1＝主要，2、3＝備用）、`fetch_mode`（`rss_full`：RSS 內有全文／`rss_then_page`：RSS 只有摘要，正文抓原文頁面）、`include_url_pattern`（選填，例如排除某分類）、`enabled`、`terms_checked_at` | AC-01、AC-02、Q-11、Q-16 |
 | `news_article` | `id`、`source_id`、`category`、`original_url`（唯一）、`title`、`published_at`、`rewritten_text`（250～300 字）、`chunks jsonb[5]`（chunk、中文、所在句）、`sentences jsonb`（含「/」斷句）、`read_at`。**不存原文全文**，只存原文的 SHA-256 以便去重 | AC-01、AC-02、AC-05 |
-| `daily_plan` | `user_id`＋`plan_date` 唯一；`planned_category`（當天輪到的類別）、`actual_category`（實際用的類別）、`category_skipped text[]`（沒有新聞而跳過的類別）、`article_id`、`is_fallback_article`（三類都沒新文章、改用最近未讀）、`shadow_items jsonb[5]`、`card_ids uuid[25]`、`tonight_question_id`、`status`（pending／ready／failed）、`error` | AC-01、AC-05、AC-07、AC-13 |
-| `card` | `id`、`chunk`、`meaning_zh`、`example_en`、`synonyms text[]`、`source_sentence`、`source_type`（news／manual／evening／seed／shadowing）、`state`（collected／learning／reviewing／mastered）、`correct_count`（累計答對次數，只增不減，§4.3）、`interval_step`（0＝未進間隔、1／2／3＝第幾階、4＝第 3 階之後）、`due_date`（可為 null：剛收錄還沒出現過、或 Mastered）、`priority_new`（晚上勾選）、`seed_chunk_id`（可為 null；從種子庫轉來的卡指向 `seed_chunk.id`，唯一，用來判斷種子已用過，§4.4）、`tts_path`、`generated_by`（模型名稱） | AC-03、AC-07～10、AC-16、AC-19、AC-20 |
+| `daily_plan` | `user_id`＋`plan_date` 唯一；`planned_category`（當天輪到的類別）、`actual_category`（實際用的類別）、`category_skipped text[]`（沒有新聞而跳過的類別）、`article_id`、`is_fallback_article`（三類都沒新文章、改用最近未讀）、`shadow_items jsonb[5]`、`card_ids uuid[25]`（只能是該使用者的卡，由 T-025 保證，§4.9）、`tonight_question_id`、`status`（pending／ready／failed）、`error` | AC-01、AC-05、AC-07、AC-13 |
+| `card` | `id`、`chunk`、`meaning_zh`、`example_en`、`synonyms text[]`、`source_sentence`、`source_type`（news／manual／evening／seed／shadowing）、`state`（collected／learning／reviewing／mastered）、`correct_count`（累計答對次數，只增不減，§4.3）、`interval_step`（0＝未進間隔、1／2／3＝第幾階、4＝第 3 階之後）、`due_date`（可為 null：剛收錄還沒出現過、或 Mastered）、`priority_new`（晚上勾選）、`seed_chunk_id`（可為 null；從種子庫轉來的卡指向 `seed_chunk.id`，唯一，用來判斷種子已用過，§4.4）、`tts_path`、`generated_by`（模型名稱）、`mastered_at`（`state = 'mastered'` 若且唯若不是 null；只在 reviewing → mastered 時由 trigger 寫 `now()`，不能重設，§4.8.1） | AC-03、AC-07～10、AC-16、AC-19、AC-20、AC-22、M2 |
 | `card_review` | `card_id`、`reviewed_at`、`mode`（A／B）、`rating`（fast／hesitant／forgot）、`state_before`、`state_after`、`interval_days_applied`（這次排程實際用的天數，設定改了也查得到當時的值） | AC-09、AC-19、AC-22 |
 | `seed_chunk` | `id`、`chunk`、`meaning_zh`、`example_en`、`tags`、`batch`（1～6）；≥ 600 列。內容由**獨立任務單**產生：分 6 批、每批 100 條；第 1 批完成後由 Hansheng 抽查 20 條，通過才做第 2～6 批；每批以 migration 匯入（匯入程式與內容產生分開） | AC-07、Q-10 |
 | `resume` | `user_id` PK（一次一份）、`storage_path`、`redacted_text`、`uploaded_at` | AC-11、AC-12、Q-09 |
-| `question` | `id`、`resume_id`（可為 null，刪履歷時設 null 並標 `retired=true`）、`category`（intro／behavioral／technical）、`text`、`cited_experience`、`source`（resume／bank） | AC-11～13 |
+| `question` | `id`、`user_id`（題庫題為 null）、`resume_id`（可為 null；刪履歷前要先把該使用者的履歷題標 `retired=true`，再刪 `resume`，§4.9）、`category`（intro／behavioral／technical）、`text`、`cited_experience`、`source`（resume／bank）、`retired`。題庫題（B-004）登入者可讀、只能由 migration 或 secret 金鑰寫入 | AC-11～13 |
 | `shadow_attempt` | `plan_date`、`item_index`、`audio_path`、`audio_expires_at`、`recognized_text`、`accuracy`、`speed_ratio`、`pron_score`（可為 null）、`stt_provider`、`pron_provider`、`passed` | AC-06、AC-22 |
-| `evening_answer` | `question_id`、`kind`（first／no_script）、`status`（uploaded／transcribed／diagnosed／failed）、`failure jsonb`、`audio_path`、`audio_expires_at`、`transcript`、`word_timings jsonb`、`pause_count`、`filler_count`、`wpm`、`diagnosis jsonb`、`rewrite_text`、`upgrade_chunks jsonb`、`chunk_hits jsonb`、`llm_model`、`stt_provider` | AC-14～18、AC-20、AC-22、AC-25 |
-| `slot_checkin` | `plan_date`、`slot`（morning／noon／evening）、`step`、`completed_at` | AC-04、AC-21、M1 |
+| `evening_answer` | `question_id`、`kind`（first／no_script）、`status`（uploaded／transcribed／diagnosed／failed）、`failure jsonb`、`audio_path`、`audio_expires_at`、`transcript`、`word_timings jsonb`、`pause_count`、`filler_count`、`wpm`、`diagnosis jsonb`、`rewrite_text`、`upgrade_chunks jsonb`、`chunk_hits jsonb`、`speech_duration_ms`（第一個字開始到最後一個字結束；`transcribed`／`diagnosed` 時必填）、`chunk_target_count`、`chunk_full_hit_count`（無稿重答的講出率用）、`llm_model`、`stt_provider`、`created_at`（§4.8.2） | AC-14～18、AC-20、AC-22、AC-25、M3、M4 |
+| `slot_checkin` | 一列一個事件，只能新增：`plan_date`、`slot`（morning／noon／evening）、`step`（清單在 contracts 的 `SLOT_STEPS`；時段打開用保留值 `slot`）、`status`（opened／completed／skipped）、`recorded_at`；`(user_id, plan_date, slot, step, status)` 唯一（§4.8.3） | AC-04、AC-21、AC-26、M1、Q-21 |
 | `provider_call` | `capability`、`provider`、`model`、`tier`、`status`、`error_kind`、`latency_ms`、`created_at`（不存內容） | 可觀測性、AC-24、AC-25 |
-| `weekly_metric`（view） | 由上面各表彙總：每週 Mastered 數、首答停頓＋贅詞、目標 chunk 講出率 | AC-22、M2～M4 |
+| `weekly_metric`（view，`security_invoker = true`） | 每個使用者每個台北週（週一 00:00 起）一列：Mastered 當週新增與累積、首答停頓＋贅詞（每分鐘與次數平均）、`wpm` 加權平均、無稿重答講出率（§4.8.4） | AC-22、M2～M4 |
 
 ### 4.1 字卡狀態機（`packages/domain/card-state`，AC-09、AC-19、Q-13、Q-17、Q-18）
 ```
@@ -222,6 +222,234 @@ export function markMastered(card: CardSchedule): { readonly schedule: CardSched
 - **chunk 文字格式**（資料端保證，由 contracts 的 schema 檢查，T-024 種子匯入與 AI 產生字卡都要用）：只含英文字母、撇號、連字號、空白與上述佔位詞；不含括號、斜線、`…`。
 - 測試（T-013）：大小寫與標點；`um`／`umbrella`；`buy-in`／`buy in`；規則變化每一種各一筆；不規則（`take`→`took`／`taken`、`be`→`was`）；佔位詞（`get buy-in from sb` 命中 `get buy-in from the whole team`）；部分命中門檻邊界；計分＝完整命中數。
 
+### 4.8 T-006 資料模型補充（Q-28～Q-30；ARCHITECTURE v1.5）
+三題都採 TechLead 的方案 A。Q-29 另外加了兩個無稿重答的 chunk 計數欄位：`weekly_metric` 要算 M4 講出率，不想讓 view 去解析 `chunk_hits` JSON（理由和 Q-29 方案 A 一樣）。以下 SQL 是規格，實際寫法由 T-006 決定，但欄位、限制、權限、policy 名稱的意義要一致。沿用 T-004、T-005 的寫法：限制都要命名；trigger 函式要寫 `set search_path = ''`，並 `revoke all … from public, anon, authenticated`；RLS policy 一律寫 `(select auth.uid())`。
+
+#### 4.8.1 `card.mastered_at`（Q-28；跟 ADR-011 決定 2、Q-24 一致）
+```sql
+alter table public.card add column mastered_at timestamptz;
+alter table public.card add constraint card_mastered_at_check
+  check ((state = 'mastered') = (mastered_at is not null));
+-- 既有的 card_schedule_check 已經保證 mastered 的 due_date 是 null、interval_step 是 1～4
+
+create function public.card_mastered_guard() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.state = 'mastered' then
+      raise exception 'card must not be inserted as mastered' using errcode = 'check_violation';
+    end if;
+    new.mastered_at := null;
+    return new;
+  end if;
+  if old.state = 'mastered' then                       -- 終點：不能離開、時間不能改
+    if new.state <> 'mastered' or new.mastered_at is distinct from old.mastered_at then
+      raise exception 'mastered card is terminal' using errcode = 'check_violation';
+    end if;
+  elsif new.state = 'mastered' then                    -- 只能從 reviewing 轉入（§4.3 markMastered）
+    if old.state <> 'reviewing' then
+      raise exception 'only reviewing cards can become mastered' using errcode = 'check_violation';
+    end if;
+    new.mastered_at := now();
+  else
+    new.mastered_at := null;
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.card_mastered_guard() from public, anon, authenticated;
+create trigger card_mastered_guard before insert or update on public.card
+  for each row execute function public.card_mastered_guard();
+
+create index card_user_id_mastered_at_idx on public.card (user_id, mastered_at) where mastered_at is not null;
+```
+- **什麼時候寫入**：只在 `state` 從 `reviewing` 變成 `mastered` 的那一次 UPDATE，由 trigger 設成 `now()`。`now()` 是交易開始時間，時區是 UTC。應用程式不寫這個欄位：程式傳來的值，在轉入 mastered 時會被蓋掉，其他非 mastered 的情況會被清成 null。
+- **能不能重設**：不能。Mastered 是終點（Q-24、ADR-011 決定 2）。已經 mastered 的卡，改 `state` 或改 `mastered_at` 都會被 trigger 擋下。這條對 secret 金鑰（`service_role`）也一樣，因為 trigger 不看身分。真的要修正資料，只能另寫 migration 暫時停用 trigger，走 G3 經 Hansheng 核准。也不能直接新增一張 mastered 卡（種子或匯入都不行）。
+- **跟 T-009 的關係**：`CardScheduleSchema`／`markMastered` 不用改，因為時間由資料庫加上。`POST /evening/answers/:id/chunks`（AC-20）照 §4.3 把 `state` 改成 `mastered`、`due_date` 改成 null 就好。
+- **RLS**：沿用 `card` 現有的 owner-only policy，不改權限（`authenticated` 已經有表層級的 `update` 權限，由 trigger 保護這個欄位）。
+- **contracts**：`CardScheduleSchema` 不變。回傳 `Card` 的 API schema 之後加 `masteredAt: z.iso.datetime({ offset: true }).nullable()`，在回傳 `Card` 的第一張 API 單加。
+- **週的算法**：週一 00:00（台北）起算，也就是 `date_trunc('week', mastered_at at time zone 'Asia/Taipei')::date`。Postgres 的 `date_trunc('week', …)` 以 ISO 週一為一週開始；台灣沒有日光節約時間。
+
+#### 4.8.2 `evening_answer` 的作答長度與 chunk 計數（Q-29）
+T-006 建立 `evening_answer` 時一起加入下面的欄位與限制：
+```sql
+  speech_duration_ms integer constraint evening_answer_speech_duration_ms_check check (speech_duration_ms >= 0),
+  chunk_target_count smallint constraint evening_answer_chunk_target_count_check check (chunk_target_count >= 0),
+  chunk_full_hit_count smallint constraint evening_answer_chunk_full_hit_count_check check (chunk_full_hit_count >= 0),
+  created_at timestamptz not null default now(),
+  constraint evening_answer_speech_duration_status_check
+    check (status not in ('transcribed', 'diagnosed') or speech_duration_ms is not null),
+  constraint evening_answer_chunk_counts_check
+    check ((chunk_target_count is null) = (chunk_full_hit_count is null)
+           and (chunk_full_hit_count is null or chunk_full_hit_count <= chunk_target_count))
+-- 索引
+create index evening_answer_user_id_kind_created_at_idx on public.evening_answer (user_id, kind, created_at);
+```
+- **`speech_duration_ms` 的定義**：第一個字的 `startMs` 到最後一個字的 `endMs`，和 §4.6 語速比的分母相同；沒有字時是 0。由寫逐字稿的那一步（`POST /evening/answers`，AC-14）用 domain 函式算出並寫入。T-012 的 `speech-metrics` 已有同一個定義的話直接用，沒有就由該單補上。
+- **`chunk_target_count`／`chunk_full_hit_count`**：由 `POST /evening/answers/:id/chunks`（AC-18）寫入，值是目標數與完整命中數（§4.7：只有完整命中算講出）。`chunk_hits jsonb` 照樣保留給畫面用；`weekly_metric` 只讀這兩個整數欄位。
+- **RLS**：owner-only（select、insert、update 都要 `user_id = (select auth.uid())`），沒有 delete（錄音由 `purge-audio` 用 secret 金鑰清，Q-06）。
+- **contracts**（新增 `src/metrics.ts`）：`EveningSpeechStatsSchema = z.object({ pauseCount: z.number().int().min(0), fillerCount: z.number().int().min(0), wpm: z.number().min(0), speechDurationMs: z.number().int().min(0) })`。逐字稿與診斷的回應 schema 之後引用它。
+
+#### 4.8.3 `slot_checkin` 事件列（Q-30）
+```sql
+create table public.slot_checkin (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users (id) on delete cascade,
+  plan_date date not null,
+  slot text not null constraint slot_checkin_slot_check check (slot in ('morning', 'noon', 'evening')),
+  step text not null constraint slot_checkin_step_check check (step ~ '^[a-z][a-z_]{0,31}$'),
+  status text not null constraint slot_checkin_status_check check (status in ('opened', 'completed', 'skipped')),
+  recorded_at timestamptz not null default now(),
+  constraint slot_checkin_open_step_check check ((status = 'opened') = (step = 'slot')),
+  constraint slot_checkin_event_key unique (user_id, plan_date, slot, step, status)
+);
+alter table public.slot_checkin enable row level security;
+revoke all on table public.slot_checkin from anon, authenticated;
+grant select on table public.slot_checkin to authenticated;
+grant insert (user_id, plan_date, slot, step, status) on table public.slot_checkin to authenticated;  -- recorded_at 一律用預設 now()
+grant all on table public.slot_checkin to service_role;
+create policy slot_checkin_select_own on public.slot_checkin for select to authenticated using (user_id = (select auth.uid()));
+create policy slot_checkin_insert_own on public.slot_checkin for insert to authenticated with check (user_id = (select auth.uid()));
+```
+- **一列一個事件，只能新增**：不給 update 和 delete，紀錄不會被改寫。同一個事件重送時會撞唯一鍵（23505），`POST /checkins` 視為成功（冪等），`recorded_at` 保留第一次的時間。唯一鍵的欄位順序也就是查詢索引，可以用 `user_id`＋`plan_date` 範圍查日曆，不需要另外建索引。
+- **時段被打開**：`step = 'slot'` 且 `status = 'opened'`，由 `slot_checkin_open_step_check` 保證只有這個組合。
+- **步驟清單只放 contracts，SQL 只檢查格式**：清單由 TS 擁有，改清單不用 migration。
+- **寫入路徑**：新增端點 `POST /checkins`（§5.1）。伺服器用 `CheckinEventSchema` 驗證步驟屬於該時段，並檢查 `planDate` 是今天或昨天（台北日期，用 `toTaipeiPlanDate`，允許跨午夜收尾）。前端照 §5.1 只能直接讀表，不直接寫。
+- **怎麼判定**（domain 純函式，T-044 寫，步驟清單從 contracts 讀）：
+  - 某天某時段「完成」＝該時段每個步驟都有 `completed` 事件。跳過不算完成（Q-21、AC-26），同一步驟先跳過、後來又完成，算完成。
+  - 打卡日曆每格有三種狀態：完成、有打開但沒完成、沒打開。
+  - streak：一天裡三個時段都有 `opened` 事件就不中斷（Q-21）。
+  - M1：每個時段每週「完成」的天數。
+- **contracts**（新增 `src/checkin.ts`）：
+```ts
+export const SLOTS = ['morning', 'noon', 'evening'] as const;
+export const SlotSchema = z.enum(SLOTS);
+export type Slot = z.infer<typeof SlotSchema>;
+export const CHECKIN_STATUSES = ['opened', 'completed', 'skipped'] as const;
+export const CheckinStatusSchema = z.enum(CHECKIN_STATUSES);
+export type CheckinStatus = z.infer<typeof CheckinStatusSchema>;
+/** 時段被打開時用的保留步驟值（只能配 status = 'opened'）。 */
+export const SLOT_OPEN_STEP = 'slot' as const;
+/** 各時段的步驟（初版，對應 AC-04～06、AC-07～08、AC-14～18；T-026／T-047 要改就改這裡，不用 migration）。 */
+export const SLOT_STEPS = {
+  morning: ['reading', 'shadowing'],
+  noon: ['cards'],
+  evening: ['first_answer', 'rewrite_shadow', 'no_script'],
+} as const satisfies Record<Slot, readonly string[]>;
+export type SlotStep = (typeof SLOT_STEPS)[Slot][number];
+/** POST /checkins 的請求。 */
+export const CheckinEventSchema = z
+  .object({ planDate: PlanDateSchema, slot: SlotSchema, step: z.string(), status: CheckinStatusSchema })
+  .superRefine((v, ctx) => {
+    const steps: readonly string[] = SLOT_STEPS[v.slot];
+    const valid = v.status === 'opened' ? v.step === SLOT_OPEN_STEP : steps.includes(v.step);
+    if (!valid) ctx.addIssue({ code: 'custom', path: ['step'], message: 'step does not match slot/status' });
+  });
+export type CheckinEvent = z.infer<typeof CheckinEventSchema>;
+/** 從表讀出的一列（camelCase）。 */
+export const CheckinRecordSchema = z.object({
+  planDate: PlanDateSchema, slot: SlotSchema, step: z.string(), status: CheckinStatusSchema,
+  recordedAt: z.iso.datetime({ offset: true }),
+});
+```
+  每個步驟值都要符合 SQL 的 `^[a-z][a-z_]{0,31}$`，而且不得用 `slot`。T-006 要加一個 contracts 單元測試，逐一檢查 `SLOT_STEPS`。
+
+#### 4.8.4 `weekly_metric` view（AC-22、M2～M4）
+- 用 `create view public.weekly_metric with (security_invoker = true) as …`。**一定要加 `security_invoker`**：預設的 view 用擁有者權限執行，會繞過底下各表的 RLS。權限是 `grant select … to authenticated`，並從 `anon` 收回。
+- 一列代表「一個使用者、一個台北週」（`week_start date`，台北週一）。範圍從 `profile.created_at` 所在週到本週，沒有資料的週也要出現，數字填 0 或 null。畫面取最後 12 列。
+- 欄位與算法：
+  | 欄位 | 算法 |
+  |---|---|
+  | `mastered_new` | 該週內 `mastered_at` 的卡片數 |
+  | `mastered_cumulative` | `mastered_at` < 該週週一＋7 天的卡片數（M2） |
+  | `first_answer_count` | 該週 `kind = 'first'`、且 `pause_count`／`filler_count`／`wpm`／`speech_duration_ms` 都不是 null、`speech_duration_ms > 0` 的作答數（依 `created_at` 的台北週） |
+  | `pause_filler_per_minute` | 上述作答的 Σ(`pause_count`＋`filler_count`) ÷ (Σ`speech_duration_ms` ÷ 60000)，沒有作答時是 null（M3） |
+  | `pause_filler_count_avg` | 上述作答的 (`pause_count`＋`filler_count`) 平均（AC-22 字面的「次數」） |
+  | `wpm_avg` | 上述作答的 Σ(`wpm` × `speech_duration_ms`) ÷ Σ`speech_duration_ms`，也就是依作答長度加權（M3） |
+  | `no_script_chunk_targets`／`no_script_chunk_spoken` | 該週 `kind = 'no_script'` 作答的 Σ`chunk_target_count`／Σ`chunk_full_hit_count` |
+  | `no_script_chunk_spoken_rate` | spoken ÷ targets，targets 為 0 時是 null（M4；和 §4.7、ADR-011 決定 5 定義一致） |
+- 每分鐘的數字用「總和相除」，不用「每次比率的平均」，避免很短的作答拉高數字。
+- **contracts**（`src/metrics.ts`）：
+```ts
+export const WeeklyMetricSchema = z.object({
+  weekStart: PlanDateSchema,                          // 台北週一
+  masteredNew: z.number().int().min(0),
+  masteredCumulative: z.number().int().min(0),
+  firstAnswerCount: z.number().int().min(0),
+  pauseFillerPerMinute: z.number().min(0).nullable(),
+  pauseFillerCountAvg: z.number().min(0).nullable(),
+  wpmAvg: z.number().min(0).nullable(),
+  noScriptChunkTargets: z.number().int().min(0),
+  noScriptChunkSpoken: z.number().int().min(0),
+  noScriptChunkSpokenRate: z.number().min(0).max(1).nullable(),
+});
+export type WeeklyMetric = z.infer<typeof WeeklyMetricSchema>;
+```
+  前端照 §5.1 用 supabase-js 直接讀 view，在 `apps/web/src/api` 轉成 camelCase 後用 `WeeklyMetricSchema` 解析。成長曲線畫哪一欄（每週新增或累積、次數或每分鐘），PR 已列為「需要 Hansheng 確認」。
+- T-006 的 pgTAP 測試資料要涵蓋：
+  - 跨台北午夜：UTC 週日 16:00 是台北週一 00:00。
+  - 空白週。
+  - 每分鐘數字和次數平均各一筆期望值。
+  - `security_invoker` 下 B 讀不到 A 的列。
+
+### 4.9 寫入權限與 RLS 補充（架構備忘）
+1. **`profile.settings` 的付費同意**（AC-24、AC-25、ADR-003；ADR-010 修訂 1）：
+   - 本人可以直接 UPDATE `profile`（T-004 已給權限，`srs`、`news`、供應商選擇照 §5.1 仍經 `POST /settings`）。但 `settings` 裡的 `paid_consent_at`、`monthly_paid_cap_ntd` 兩個鍵，只能由伺服器透過下面的函式改。
+   - **為什麼要用 trigger＋secret 金鑰**：`POST /settings` 在 `api` 裡用的是使用者身分（publishable 金鑰＋使用者 JWT），和瀏覽器直接呼叫 PostgREST 的身分完全一樣，RLS 或欄位權限都分不出是哪一個。所以「只能經 `POST /settings`」只能靠一個瀏覽器拿不到的身分來落實。`jsonb` 也不能做欄位權限，只能用 trigger 看鍵值有沒有變。
+   - 這樣做的實際效果：同意時間一律由伺服器 `now()` 寫入；上限一定通過 zod 驗證；前端程式的 bug 不會意外打開付費。
+   - 它擋不了 XSS 拿使用者 JWT 去呼叫 `POST /settings`，本 PR 不處理這點，前提是單一使用者、關閉註冊（§7）。
+```sql
+create function public.profile_paid_consent_guard() returns trigger
+language plpgsql set search_path = '' as $$             -- 不可設 security definer，否則 current_user 會變成擁有者
+begin
+  if current_user in ('service_role', 'postgres') then return new; end if;
+  if (new.settings -> 'paid_consent_at') is distinct from (case when tg_op = 'UPDATE' then old.settings -> 'paid_consent_at' end)
+     or (new.settings -> 'monthly_paid_cap_ntd') is distinct from (case when tg_op = 'UPDATE' then old.settings -> 'monthly_paid_cap_ntd' end) then
+    raise exception 'paid consent can only be changed by POST /settings' using errcode = 'insufficient_privilege';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.profile_paid_consent_guard() from public, anon, authenticated;
+create trigger profile_paid_consent_guard before insert or update of settings on public.profile
+  for each row execute function public.profile_paid_consent_guard();
+
+create function public.set_paid_consent(p_user_id uuid, p_granted boolean, p_monthly_cap_ntd integer)
+returns jsonb language sql security invoker set search_path = '' as $$
+  update public.profile
+     set settings = case when p_granted
+       then settings || jsonb_build_object('paid_consent_at', to_jsonb(now()), 'monthly_paid_cap_ntd', p_monthly_cap_ntd)
+       else settings - 'paid_consent_at' - 'monthly_paid_cap_ntd' end
+   where user_id = p_user_id
+  returning settings;
+$$;
+revoke all on function public.set_paid_consent(uuid, boolean, integer) from public, anon, authenticated;
+grant execute on function public.set_paid_consent(uuid, boolean, integer) to service_role;
+```
+   - 呼叫端：`supabase/functions/_shared/db/paid-consent.ts`，是唯一用 secret 金鑰的 `api` 程式。它在 `requireUser` 之後，以 `ctx` 的 `user_id` 呼叫 `set_paid_consent`；上限由 `SettingsSchema` 先驗證。只有 `supabase/functions/api/**` 可以 import 它（ADR-008 修訂 4，第 17 條）。由 T-006 放進 migration，T-020 實作呼叫端。
+   - pgTAP 要驗：
+     - `authenticated` 直接改這兩個鍵 → `42501`。
+     - 改其他鍵 → 成功。
+     - `authenticated` 不能執行 `set_paid_consent`。
+     - `service_role` 呼叫後 `paid_consent_at` 有值。
+   - Supabase 跑 migration 的角色是 `postgres`：**未驗證**，pgTAP 會證明或推翻。
+2. **面試題庫（B-004，`question.source = 'bank'`、`user_id = null`）**：
+   - T-005 已照下面的規則實作（`20261124150000_t005_…sql`），本 PR 只是把規則寫進文件。
+   - 讀：`question_select_own_or_bank`（`user_id = auth.uid() or user_id is null`），登入者都讀得到題庫。
+   - 寫：`question_insert_own` 的 `with check (user_id = auth.uid())` 擋掉 `user_id = null`；`update (retired)` 只對自己的題目有效。所以 `authenticated` 不能新增、修改或退休題庫題。
+   - 匯入：B-004 用 migration 匯入（以 `postgres` 執行），或用 secret 金鑰。`question_source_owner_check` 保證題庫列的 `user_id`、`resume_id` 都是 null。
+3. **`daily_plan.card_ids` 的跨使用者防護**：由 T-025 負責。
+   - `daily-prep` 用 secret 金鑰（會繞過 RLS），選卡查詢必須帶 `user_id = <該計畫的使用者>`。T-025 的整合測試要放一張別人的到期卡，確認不會被選進 `card_ids`。
+   - 讀取端以使用者身分查 `card`，別人的卡本來就讀不到，這是第二道防線。
+   - Postgres 不支援陣列元素的外鍵，MVP 不加 trigger（單一使用者，B-022 同一個前提）。
+4. **刪除履歷（T-036，AC-12）與換新履歷（AC-11）**：要依序做三步。
+   1. 以使用者身分 `update question set retired = true where user_id = <本人> and source = 'resume' and not retired`。
+   2. 刪 `resume` 列。
+   3. 刪 Storage 原檔。
+   - 順序不能反：`question.resume_id` 是 `on delete set null`，但 `question_retired_check` 要求「沒有 `resume_id` 的履歷題一定已經 retired」，沒有先 retire 時刪除會失敗（23514）。
+   - 第 1 步成功、第 2 步失敗時，題目已退休但履歷還在。今晚會改用題庫題，重試一次就能完成，是安全的中間狀態。
+   - 第 3 步失敗時回錯誤讓使用者重試。`daily_plan.tonight_question_id` 是 `on delete restrict`，題目只退休不刪除，所以不受影響。
+
 ## 5. API 與供應商契約
 ### 5.0 共用型別（`@english-coach/contracts`，ARCH-003；決策見 ADR-009）
 - **擁有者**：本節所有型別、zod schema 與純函式都在 `packages/contracts`（套件名稱 `@english-coach/contracts`，引用方式見 ADR-009 決定 1）。例外會在註解寫明（例如 `PaidConsent` 的建立函式在 registry，錯誤訊息文字在前端）。
@@ -239,6 +467,7 @@ export function markMastered(card: CardSchedule): { readonly schedule: CardSched
 | 2. `src/ids.ts` | 品牌 ID、`PlanDate`、`Ntd`、`NewsCategory`、`ProviderId`、`LlmModelId`、`SttModelId`、`VoiceId` 與 schema |
 | 3. `src/audio.ts`、`src/speech.ts` | `Wav16kMono`、`AudioPayload`、`parseWav16kMono`；`WordTiming`、`Transcript`、`PronunciationResult` 與 schema |
 | 3. `src/settings.ts`、`src/card.ts`（與上一列同層） | `profile.settings` 的 schema：`SrsSettingsSchema`／`SrsSettings`（T-008，預設 3／7／14、14、1 只寫在這裡，§4.2）、`NewsSettingsSchema`（T-049 加在同檔，§11.2）；字卡狀態、評分、排程 schema（T-009，§4.3）。只 import `zod` 與 `ids.ts`（`PlanDate`、`NewsCategory`、`CardId` 的 schema） |
+| 3. `src/checkin.ts`、`src/metrics.ts`（與上一列同層） | 打卡事件：`SLOTS`、`SlotSchema`、`CHECKIN_STATUSES`、`SLOT_OPEN_STEP`、`SLOT_STEPS`（步驟清單只在這裡）、`CheckinEventSchema`、`CheckinRecordSchema`；`EveningSpeechStatsSchema`、`WeeklyMetricSchema`（§4.8）。只 import `zod` 與 `ids.ts`（`PlanDateSchema`） |
 | 4. `src/providers.ts` | `Tier`、`Capability`、`ProviderErrorKind`（T-002 已建，內容不變）、`CapabilitySchema`、`ProviderError`、`ProviderInfo`、`StreamChunk`、四種供應商介面與參數／結果型別、`PaidConsent` |
 | 5. `src/errors.ts` | `AppError`、`APP_ERROR_KINDS`、`httpStatusOf`、`isRetryable`、`toApiErrorBody`、`ApiErrorBodySchema` |
 | 6. `src/api.ts` | 跨網路的 API schema：`CardStreamEvent`（`/cards/generate` 的 NDJSON）；之後各端點的請求／回應 schema 也放這裡或依功能拆檔 |
@@ -534,7 +763,8 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | `POST /resume` | `{storagePath, redactedText}` → `Question[≥15]` | ≤ 60 s | AC-11 |
 | `DELETE /resume` | — → `{deleted: true}`（刪 Storage 原檔、`redacted_text`；舊題標 retired） | ≤ 5 s | AC-12 |
 | `POST /tts` | `{text, voice}` → `{audioUrl}`（有快取就直接回） | ≤ 3 s | AC-04、AC-05、AC-10、AC-17 |
-| `POST /settings` | `SettingsPatch` → `Settings`（伺服器用 `SettingsSchema` 驗證：付費同意（ADR-003）、`srs` 間隔規則（§4.2）、`news` 輪替（§11.2）） | ≤ 1 s | AC-09、AC-24、AC-25 |
+| `POST /settings` | `SettingsPatch` → `Settings`（伺服器用 `SettingsSchema` 驗證：付費同意（ADR-003）、`srs` 間隔規則（§4.2）、`news` 輪替（§11.2））；付費同意與月上限經 `_shared/db/paid-consent.ts` 呼叫 `set_paid_consent()`（§4.9） | ≤ 1 s | AC-09、AC-24、AC-25 |
+| `POST /checkins` | `CheckinEvent`（`{planDate, slot, step, status}`）→ 204；冪等（重送同一事件視為成功）；`planDate` 只能是台北今天或昨天 | ≤ 1 s | AC-04、AC-21、AC-26、M1 |
 | `POST /retry/:answerId` | 重送失敗的錄音處理 | 同原端點 | AC-25 |
 - 讀取類（儀表板、成長曲線、紀錄、字卡列表）直接用 supabase-js 讀表（受 RLS 保護），不另寫 API（AC-21～23）。
 - 所有 AI 結果回應都帶 `meta: { llmModel?, sttProvider?, pronProvider?, ttsProvider? }`，結果頁顯示（AC-24）。
@@ -580,7 +810,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 |---|---|---|
 | `SUPABASE_URL` | 自動注入 | supabase-js client |
 | `SUPABASE_PUBLISHABLE_KEYS`（JSON，取 `default`；備援 `SUPABASE_PUBLISHABLE_KEY`） | 自動注入 | 驗 JWT、以使用者身分查表（RLS） |
-| `SUPABASE_SECRET_KEYS`（JSON，取 `default`；備援 `SUPABASE_SECRET_KEY`） | 自動注入 | 只給 `daily-prep`、`purge-audio` |
+| `SUPABASE_SECRET_KEYS`（JSON，取 `default`；備援 `SUPABASE_SECRET_KEY`） | 自動注入 | 只給 `daily-prep`、`purge-audio`，以及 `api` 的 `_shared/db/paid-consent.ts`（§4.9、ADR-010 修訂 1） |
 | `GEMINI_API_KEY` | Hansheng（沒有連結帳單的專案） | Gemini adapter |
 | `GEMINI_PAID_API_KEY` | Hansheng（MVP 不設定） | 只有 `config/paid.ts` |
 | `GROQ_API_KEY` | Hansheng | Groq adapter |
@@ -601,7 +831,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 - `supabase/functions/_types/deno.d.ts`：只宣告 `Deno.env.get` 與 `Deno.serve`；用到其他 Deno API 會編譯失敗，要先改這個檔案（Architect Review）。
 - `Deno.serve` 只能在 `<函式>/index.ts`（ESLint，ADR-008 第 15 條）；`index.ts` 以外的檔案不在 import 時讀 `Deno`，所以 Vitest（Node）可以測路由與 `_shared/**`。
 - 不在 `pnpm check` 跑 `deno check`；Deno 端實際能否載入、執行，由 CI `db` job（SRE）的 `functions serve`＋health 檢查證明。
-- 未驗證：CLI 3.2.0 本機是否注入 `SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`；`WebWorker` lib 是否涵蓋會用到的所有 Web API（例如 `Response.json()`）；`getClaims` 在本機 CLI 的行為。不確定：`verify_jwt` 的移除時程（官方未公布）。
+- 已實測（CI `db` job，不是 A-xxx PoC）：CLI 3.2.0 本機注入新金鑰名稱（`Key-name check passed`）、本機使用者 JWT 是 ES256（`JWKS algs=ES256`）、`getClaims` 驗證後 health 回 200，見 PR #25 的 run [45348491671](https://github.com/hansheng08/english-coach/actions/runs/45348491671)。未驗證：`WebWorker` lib 是否涵蓋會用到的所有 Web API（例如 `Response.json()`）。不確定：`verify_jwt` 的移除時程（官方未公布）。
 
 ## 8. 效能預算
 | 項目 | PRD 上限 | 設計目標 | 怎麼做到 | 狀態 |
@@ -698,7 +928,7 @@ english-coach/
 │  │  └─ test/                   # expectOk／expectErr（只給測試）
 │  └─ domain/                    # @english-coach/domain：package.json＋src/（純邏輯＋單元測試）
 ├─ supabase/
-│  ├─ config.toml                # 每個函式 verify_jwt = false（ADR-010）
+│  ├─ config.toml                # 每個 [functions.<slug>]：verify_jwt = false（ADR-010）、import_map = "./functions/deno.json"（ADR-009 修訂 2）
 │  ├─ migrations/                # schema、RLS、pg_cron、seed_chunk 匯入
 │  └─ functions/
 │     ├─ deno.json               # imports：@english-coach/*、zod、@supabase/supabase-js 對應（ADR-009）
@@ -713,7 +943,7 @@ english-coach/
 ├─ test/e2e/                     # Playwright（假供應商）
 └─ docs/
 ```
-- 引用方式已決定（ADR-009 決定 1）：所有地方都用套件名稱 `@english-coach/contracts`、`@english-coach/domain`；前端與工具經 pnpm workspace，Deno 經 `supabase/functions/deno.json` 的 `imports` 指到 `packages/*/src/index.ts`。Supabase CLI 打包時能否帶上 `supabase/functions` 以外的檔案**未驗證**，由 CI `db` job 驗證（SRE，ADR-009 修訂 1），Node 端解析由 T-003 驗證；不行就照 ADR-009 的備案把兩個套件搬到 `supabase/functions/_shared/`，套件名稱不變。
+- 引用方式已決定（ADR-009 決定 1）：所有地方都用套件名稱 `@english-coach/contracts`、`@english-coach/domain`；前端與工具經 pnpm workspace，Deno 經 `supabase/functions/deno.json` 的 `imports` 指到 `packages/*/src/index.ts`。`functions serve` 能載入 `packages/*`（ADR-009 (1)）已由 CI `db` job 實測通過，前提是 config.toml 每個函式都設 `import_map`（ADR-009 修訂 2）。正式部署的打包有沒有包含 contracts（ADR-009 (2)）仍是**未驗證**，依 Hansheng 2026-11-24 08:22 的決定不擋開發，等建立正式免費 Supabase 專案時再實測；失敗就照 ADR-009 的備案把兩個套件搬到 `supabase/functions/_shared/`，套件名稱不變。
 
 ## 13. 部署與可觀測性
 - **環境**：本機用 `supabase start`（Docker）跑完整後端；正式環境一個 Supabase Free 專案＋前端靜態檔（Supabase 不提供前端 HTML 託管，前端放 Cloudflare Pages 或 GitHub Pages 免費方案，G4 由 SRE 決定）。
@@ -744,8 +974,8 @@ english-coach/
 | AC-18 | `/evening/answers/:id/chunks`、`domain/chunk-hit` | 結果進 `weekly_metric`；比對與計分見 §4.7 |
 | AC-19 | `domain/card-state` | 狀態機見 §4.1、轉換表見 §4.3；間隔讀 `settings.srs` |
 | AC-20 | `domain/chunk-hit`、`domain/card-state` | 首答與無稿重答都算（Q-13）；只有完整命中算（§4.7） |
-| AC-21 | `features/dashboard`、`slot_checkin`、`card` | Mastered 最大字級 |
-| AC-22 | `features/dashboard`、`weekly_metric`、`evening_answer` | 錄音 90 天後只剩文字 |
+| AC-21 | `features/dashboard`、`slot_checkin`、`card` | Mastered 最大字級；完成與 streak 的判定見 §4.8.3 |
+| AC-22 | `features/dashboard`、`weekly_metric`、`evening_answer` | 錄音 90 天後只剩文字；各欄算法見 §4.8.4 |
 | AC-23 | `api`（直接寫 Postgres） | 無本機延遲同步 |
 | AC-24 | `features/settings`、`/settings`、`providers/registry`、結果頁 `meta` | 下一次請求即生效；同一設定頁另含複習間隔（Q-18）與新聞輪替設定 |
 | AC-25 | `providers/registry`、`storage`（IndexedDB）、`/retry`、錯誤畫面 | ADR-003 |
@@ -796,3 +1026,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.2.1 | 2026-11-22 | T-051 審查（TechLead）：§5.0.4 錯誤碼對照表 `news_unavailable` 補齊為 503／可重試／畫面文字／降級方式，`httpStatusOf`、`isRetryable` 對 18 種 kind 都有值；§11.2 備援規則寫明 `news_unavailable` 只在 `daily-prep` 內部使用，第 4 步對前端回 `plan_not_ready` |
 | v1.3 | 2026-11-23 | T-003 卡住的三點（TASKS §5 第 15、27 點）：新增 ADR-010 與 §7.1——後端環境變數名稱（用自動注入的 `SUPABASE_URL`／`SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`，不用年底淘汰的 anon／service_role；自訂 `GEMINI_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`、`APP_ALLOWED_ORIGINS`）與前端 `VITE_SUPABASE_PUBLISHABLE_KEY`；`verify_jwt = false`，函式內 `requireUser`（supabase-js `getClaims`）＋`AuthContext` 品牌型別；Node 端 Deno 型別用最小 `deno.d.ts`＋`WebWorker` lib；§5.1 加 `GET /health`；§4、§7、§12、§15 同步；ADR-008 修訂 3、ADR-009 修訂 1（CLI 驗證改在 CI `db` job）；修正 TASKS §5 第 23 點的三處小不一致（§3.2 第 3、4 點、§5.0.1 重複表頭） |
 | v1.4 | 2026-11-23 | ARCH-005（TASKS §5 第 28 點）：新增 §4.3 字卡狀態轉換表與 contracts `card.ts`、§4.4 每日 25 張選卡、§4.5 今晚題目與提示 chunk、§4.6 跟讀選句與遮字、§4.7 chunk 命中與計分；§4 `card` 表補 `seed_chunk_id`、`due_date` 可為 null、`correct_count` 定義；§11.2 `anchor_date` 預設 `2026-11-22`；新增 ADR-011；§5.0.1 檔案配置補 `src/settings.ts`（T-008 審查時 TechLead 提出）與 `src/card.ts` |
+| v1.5 | 2026-11-24 | T-006 寫單前的 Q-28～Q-30（TechLead），三題都採方案 A：§4.8.1 `card.mastered_at`＋trigger（只在 reviewing → mastered 時寫、不能重設）、§4.8.2 `evening_answer.speech_duration_ms`（另加無稿重答的 chunk 計數）、§4.8.3 `slot_checkin` 改成事件列（opened／completed／skipped、`recorded_at`；步驟清單在 contracts `checkin.ts`）、§4.8.4 `weekly_metric`（`security_invoker`、台北週一、各欄算法、contracts `metrics.ts`）；§4.9 寫入權限：`profile.settings` 付費同意用 trigger＋`set_paid_consent()`（ADR-010 修訂 1）、題庫 RLS、`card_ids` 由 T-025 防護、刪履歷先 retire；§3.1 `_shared/config` 的依賴對齊程式（ADR-008 修訂 4）；§5.0.1 加 `checkin.ts`、`metrics.ts`；§5.1 加 `POST /checkins`；§7.1、§12 更新 ADR-009 (1) 與 ADR-010 的實測證據（run 45348491671），ADR-009 (2) 仍未驗證（ADR-009 修訂 2） |

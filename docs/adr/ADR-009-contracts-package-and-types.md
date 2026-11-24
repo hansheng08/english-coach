@@ -1,6 +1,6 @@
 # ADR-009：`@english-coach/contracts` 套件名稱、引用方式與共用型別
 - 狀態：**已接受**（Architect，ARCH-003，2026-11-22；不改 PRD、不改技術棧，依憲章 §5 由 Architect 決定，不需 G2）｜日期：2026-11-22｜提出：Architect
-- 修訂：修訂 1（2026-11-23，見文末）
+- 修訂：修訂 1（2026-11-23）、修訂 2（2026-11-24）；見文末
 - 相關：ARCHITECTURE §3.2、§5.0、§6、§12；ADR-003、ADR-008（修訂 1、2）；TASKS §5 第 5、17、18 點；T-051、T-003
 
 ## 背景
@@ -69,3 +69,15 @@
 - `supabase/functions/package.json` 的 `@supabase/supabase-js` 依賴已由 Hansheng 核准安裝（幕僚長 2026-11-23 轉達）；版本照決定 1 第 4 點 `^2.119.2` 起算，安裝時用當下最新的 2.x。
 - Node 端 `supabase/functions` 的 tsconfig 與 Deno 型別見 ADR-010 決定 3。
 
+## 修訂 2（2026-11-24，Architect；ARCHITECTURE v1.5）
+- 狀態：**已接受**（送 G2 PR `[G2] T-006 資料模型（Q-28～Q-30）與架構備忘`，Hansheng Merge 即核准）
+- **決定 1 第 4 點補充**：`supabase/config.toml` 的每個 `[functions.<slug>]` 都要設 `import_map = "./functions/deno.json"`（路徑相對於 `supabase/`）。
+  - 起因：2026-11-23 驗證 (1) 第一次失敗。Architect 查 CLI 3.2.0 的結果是：它只會讀函式資料夾自己的 `deno.json`、config 的 `import_map`、`--import-map` 參數，或 `functions/import_map.json`，不會自動往上找 `supabase/functions/deno.json`。這是讀原始碼的結論，沒有 A-xxx PoC。
+  - 新增函式（例如 T-025 `daily-prep`、`purge-audio`）時一定要加這一行，漏了的話 `@english-coach/*` 會解析失敗。
+  - 現在 `[functions.api]` 已經有這一行。
+- **驗證狀態（憲章 v5 §9）**：
+  - (1) `functions serve` 下 `api` 能 import `@english-coach/contracts` 並執行：**已實測**。CI `db` job 在 PR #25（`task/T-005`，`pull_request` 觸發，2026-11-24 15:30 台北時間，success）的 run：https://github.com/hansheng08/english-coach/actions/runs/45348491671
+    - log 有 `MOUNT_OK: packages/contracts appears in the container mount list.`、`SERVE_READY`、health `HTTP 401 (expected 401)`、`HTTP 200 (expected 200)`。
+    - 這是 CI `db` job，**不是 A-xxx PoC**；本專案目前沒有對應的 A-xxx PoC run。
+  - (2) 打包（deploy）含 contracts：**未驗證**。上述 run 寫的是「以 `functions serve` 的執行成功當作 (2) 的本機等效」，但這不等於真的部署過。依 Hansheng 2026-11-24 08:22 的決定（憲章 v5 §0.1），這項不擋開發，等建立正式免費 Supabase 專案、第一次部署時再實測。失敗就照決定 1 的「備案」處理，處理方式不變：停下回報，Architect 修訂本 ADR 後才執行。
+  - (3) Node 端解析：T-003 已驗證（`pnpm check`），本修訂不變。

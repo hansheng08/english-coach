@@ -1,6 +1,6 @@
 # ADR-008：模組邊界與架構測試
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；見文末
+- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；修訂 4（v1.5，2026-11-24）；見文末
 
 ## 背景
 主要由 Claude Code 寫程式。要讓錯誤（例如在畫面直接呼叫 AI、在 domain 裡讀時間、在 handler 跳過 registry）在 CI 就失敗，而不是靠 Review 抓。
@@ -118,3 +118,12 @@
 - **新增第 15 條**：`Deno.serve` 只能出現在 `supabase/functions/<函式>/index.ts`（ESLint `no-restricted-syntax`，`MemberExpression[object.name='Deno'][property.name='serve']`；和同區塊其他選擇器合併，避免覆蓋）。其他 Deno API 由 `supabase/functions/_types/deno.d.ts` 的最小宣告限制（沒宣告就編譯失敗，ADR-010 決定 3）。
 - lint 測試新增範例：`supabase/functions/api/router.ts` 寫 `Deno.serve(h)` → error；`supabase/functions/api/index.ts` → 合法；`supabase/functions/api/router.ts` 寫 `x as AuthContext` → error；`supabase/functions/_shared/db/auth.ts` → 合法。
 
+## 修訂 4（2026-11-24，Architect；ARCHITECTURE v1.5，隨 T-006 資料模型 PR）
+- 狀態：**已接受**（送 G2 PR `[G2] T-006 資料模型（Q-28～Q-30）與架構備忘`，Hansheng Merge 即核准）
+- 起因：ARCHITECTURE §3.1 與 CLAUDE.md §4 寫 `_shared/config` 「不依賴任何模組」，但 T-003 的實作（ADR-010 決定 1：用 zod 驗證、回 `Result`／`AppError`）import 了 `@english-coach/contracts` 與 `zod`，dependency-cruiser 目前也沒有限制 `_shared/config` 的規則。文件改成跟程式一致，再補上規則。
+- **新增第 16 條**：`supabase/functions/_shared/config/**` 的正式程式只能 import `@english-coach/contracts`、`zod` 與同資料夾內的檔案。不得 import `_shared/db`、`_shared/providers`、`_shared/news`、`@english-coach/domain`、`@supabase/*`，也不得 import 任何 `<函式>/**`。（dependency-cruiser `forbidden`：`from.path = ^supabase/functions/_shared/config/`、`from.pathNot` 用第 3 條的測試檔 regex；`to.path` 不是 `^packages/contracts/src/`、`zod`，也不在 `^supabase/functions/_shared/config/` 底下時報 error。）
+- **新增第 17 條**：`supabase/functions/_shared/db/paid-consent.ts`（唯一在 `api` 裡用 secret 金鑰的檔案，ARCHITECTURE §4.9、ADR-010 修訂 1）只能被 `supabase/functions/api/**` import（dependency-cruiser `forbidden`：`to.path = ^supabase/functions/_shared/db/paid-consent\.ts$`，`from.pathNot` 是 `^supabase/functions/(api|_shared/db)/` 或測試檔時報 error）。
+- 實作：TechLead 派給 T-020，或另開工具單；在那之前規則只寫在文件，不算違反。arch 測試新增範例：
+  - `_shared/config/env.ts` import `_shared/db/client.ts` → error。
+  - `_shared/config/env.ts` import `@english-coach/contracts` → 合法。
+  - `daily-prep/handler.ts` import `_shared/db/paid-consent.ts` → error。

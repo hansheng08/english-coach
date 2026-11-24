@@ -1,10 +1,10 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.3（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.5（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
 - 單一使用者（Hansheng）的英文口說學習 PWA，Android＋Chrome 優先。需求：`docs/PRD.md`（AC-01～25、NFR-01～06）。
-- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-010`。動手前先讀任務單「背景」指定的章節。
+- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-011`。動手前先讀任務單「背景」指定的章節。
 
 ## 2. 技術棧（G2 已核准）
 - TypeScript 5 strict 全端；pnpm workspaces。
@@ -35,7 +35,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 | `packages/domain` | `packages/contracts` | `fetch`、`Date.now()`、無參數 `new Date()`、`Math.random`、`throw`（只限正式程式，見 §7）、資料庫、供應商 |
 | `supabase/functions/_shared/providers/<adapter>` | `contracts`、`config` | `domain`、`db`、其他 adapter |
 | `supabase/functions/_shared/providers/registry.ts` | `contracts`、adapters、`config/paid.ts` | 備援清單、自動改選供應商 |
-| `supabase/functions/_shared/config` | — | 唯一可以讀 `Deno.env` 的地方；只讀 ARCHITECTURE §7.1 列出的變數名稱 |
+| `supabase/functions/_shared/config` | `contracts`、`zod`（ADR-008 修訂 4 第 16 條） | 唯一可以讀 `Deno.env` 的地方；只讀 ARCHITECTURE §7.1 列出的變數名稱 |
 | `supabase/functions/_shared/db` | `contracts`、`@supabase/supabase-js`（後端唯一可以用的地方：查表、Storage、JWT → `user_id`） | 供應商；把 `SupabaseClient` 或 `{ data, error }` 傳出去 |
 | `supabase/functions/<endpoint>` | 以上（adapter 只能經 registry；資料庫與登入者只能經 `_shared/db`） | 直接 import adapter、`@supabase/*`；`Deno.serve` 只在該函式的 `index.ts` |
 | `apps/web/src/features/<X>` | `contracts`、`apps/web/src/{api,audio,ui,storage}` | 其他 feature、`@supabase/supabase-js` |
@@ -61,6 +61,10 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 10. 不修改 `docs/` 裡別人擁有的文件；`docs/reports/<編號>.md` 是你唯一要寫的文件。
 11. 不把複習間隔（3／7／14／14／1）或新聞輪替順序寫死在程式裡：一律從 `settings.srs`／`settings.news` 讀，預設值只放在 `packages/contracts` 的 schema（ARCHITECTURE §4.2、§11.2）。
 12. 不抓 `news_source` 白名單以外的網址；不抓 robots.txt 不允許的網址。
+13. 不在程式裡寫 `card.mastered_at`（由資料庫 trigger 在 reviewing → mastered 時寫入，不能重設；ARCHITECTURE §4.8.1）。不改 `slot_checkin` 的事件列（只能新增），步驟清單只放在 contracts 的 `SLOT_STEPS`（§4.8.3）。
+14. 不在 `_shared/db/paid-consent.ts` 以外的地方用 secret 金鑰改 `settings.paid_consent_at`／`monthly_paid_cap_ntd`，只能呼叫 `set_paid_consent()`。secret 金鑰只給 `daily-prep`、`purge-audio` 和這個檔案用（ARCHITECTURE §4.9、ADR-010 修訂 1）。
+15. 用 secret 金鑰的查詢（會繞過 RLS）一定要自己帶 `user_id` 條件（例如 T-025 選卡）；刪除履歷要先把題目 `retired = true`，再刪履歷（§4.9）。
+16. `config.toml` 新增函式時，`[functions.<slug>]` 一定要寫 `verify_jwt = false` 和 `import_map = "./functions/deno.json"`（ADR-009 修訂 2、ADR-010）。新增 view 一定要寫 `with (security_invoker = true)`。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。

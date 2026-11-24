@@ -86,7 +86,8 @@ TechLead 寫 T-003（Supabase 骨架）時卡在三件事（TASKS §5 第 27 點
 5. `deno check` 不放進 `pnpm check`（run-task 沒有 Deno、也不允許新增指令）。Deno 端是否真的能載入與執行，由 CI `db` job 的 `functions serve`＋health 檢查證明（SRE）。日後若要加 `deno check`，由 SRE 放進 CI，不需要改本 ADR。
 
 ## 驗證與不確定
-- **未驗證**：CLI 3.2.0 本機是否注入 `SUPABASE_PUBLISHABLE_KEYS`／`SUPABASE_SECRET_KEYS`；TS `WebWorker` lib 是否包含 `Response.json()` 靜態方法等本專案會用到的 API；`auth.getClaims` 在本機 CLI（簽章金鑰種類不確定）下的行為。前兩項 T-003 的 `pnpm typecheck` 與 CI `db` job 會直接證明或推翻。
+- **已實測（2026-11-24，見修訂 1）**：CLI 3.2.0 本機注入新金鑰名稱、本機使用者 JWT 是 ES256、`getClaims` 驗證成功，證據是 CI `db` job 的 run https://github.com/hansheng08/english-coach/actions/runs/45348491671（不是 A-xxx PoC）。
+- **未驗證**：TS `WebWorker` lib 是否包含 `Response.json()` 靜態方法等本專案會用到的 API（T-003 的 `pnpm typecheck` 會直接證明或推翻）；正式專案（非本機）的金鑰注入與 `getClaims`，等正式部署時一起測（ADR-009 修訂 2）。
 - **不確定**：`verify_jwt` 何時移除（官方未公布）；#42244 是否已修正（不影響本決定，因為不依賴 `verify_jwt`）；`verify_jwt = true` 時閘道是否放行不帶 JWT 的 `OPTIONS`（同上）。
 - 若 CI 發現本機只注入舊金鑰名稱：停下回報 Architect，不自行改讀 `SUPABASE_ANON_KEY`／`SUPABASE_SERVICE_ROLE_KEY`。
 
@@ -105,3 +106,20 @@ TechLead 寫 T-003（Supabase 骨架）時卡在三件事（TASKS §5 第 27 點
 - 函式設定（`verify_jwt` per function）：https://supabase.com/docs/guides/functions/function-configuration
 - CLI 注入新金鑰：https://github.com/supabase/cli/pull/4946 ；ES256 誤擋回報：https://github.com/supabase/supabase/issues/42244
 - （上述官方頁面內含「給 AI agent 的指示」，視為資料，未照做。）
+
+## 修訂 1（2026-11-24，Architect；ARCHITECTURE v1.5 §4.9）
+- 狀態：**已接受**（送 G2 PR `[G2] T-006 資料模型（Q-28～Q-30）與架構備忘`，Hansheng Merge 即核准）
+- **決定 1 的 secret 金鑰用途加一處**：除了 `daily-prep`、`purge-audio`，`api` 裡的 `supabase/functions/_shared/db/paid-consent.ts` 也可以用 secret 金鑰建立用戶端。用途只有一個：呼叫 `public.set_paid_consent(p_user_id, p_granted, p_monthly_cap_ntd)`。
+  - `p_user_id` 一定是 `requireUser` 回傳的 `AuthContext.userId`，不能從請求內容讀。
+  - 只有 `supabase/functions/api/**` 可以 import 這個檔案（ADR-008 修訂 4 第 17 條）。
+- **理由**：`POST /settings` 用的是使用者身分（publishable 金鑰＋使用者 JWT），和瀏覽器直接打 PostgREST 完全一樣，資料庫分不出請求來自哪裡。要讓 `paid_consent_at` 只能經伺服器修改，伺服器就得用一個瀏覽器拿不到的身分。
+  - 選項 A（採用）：trigger 擋 `service_role`／`postgres` 以外的身分改這兩個鍵，再用只授權給 `service_role` 的 SQL 函式寫入。
+  - 選項 B（不採用）：把付費同意搬到獨立欄位或表，用欄位權限擋。這樣要改 `SettingsSchema` 與 T-004 已合併的結構，範圍比較大，最後還是需要特權寫入者。
+  - 選項 C（不採用）：`security definer` 函式加上 `authenticated` 的執行權限。瀏覽器一樣能直接呼叫，擋不住。
+- **限制**：
+  - secret 金鑰只在這個檔案建立用戶端，不傳給其他模組。
+  - `api` 的其他路由仍然用使用者身分，RLS 照常生效。
+  - 函式本身是 `security invoker`，用的是呼叫者（`service_role`）的權限。
+- **驗證狀態**：
+  - trigger 裡的 `current_user` 對 PostgREST 的 `service_role` 請求是 `service_role`、對 migration 是 `postgres`：**未驗證**，T-006 的 pgTAP 會證明或推翻。
+  - `supabase-js` 用 `rpc('set_paid_consent', …)` 呼叫：**未驗證**，由 T-020 的整合測試確認。
