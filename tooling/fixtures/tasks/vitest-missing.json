@@ -1,0 +1,10 @@
+{
+  "testResults": [
+    {
+      "name": "x.test.mjs",
+      "assertionResults": [
+        { "fullName": "suite (AC-O901-1) (TC-1) works", "status": "passed" }
+      ]
+    }
+  ]
+}
