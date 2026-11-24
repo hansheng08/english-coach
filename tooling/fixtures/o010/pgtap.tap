@@ -1,0 +1,5 @@
+1..3
+ok 1 - (AC-T9-1) (TC-1) a
+not ok 2 - (AC-T9-2) b
+# Failed test 2: "(AC-T9-2) b"
+ok 3 # SKIP (AC-T9-3) c
