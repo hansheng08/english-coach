@@ -5,13 +5,19 @@
 #   push to main            -> task-lint every docs/tasks/*.md added or
 #                              modified in this push (BEFORE_SHA..SHA).
 #                              No such file -> pass with an explicit line.
-#   push/PR on task/**      -> scope-check (git diff --name-only BASE...HEAD)
-#                              then ac-coverage on a Vitest JSON report.
+#   push/PR on task/<id>    -> scope-check (git diff --name-only BASE...HEAD),
+#   and fix/Q-<nnn> (O-009)    Vitest JSON, ac-coverage, report-lint on the
+#                              changed docs/reports/*.md, run-mutants when
+#                              docs/qa/mutants/<branch id>.json exists, then
+#                              verify-summary into GITHUB_STEP_SUMMARY.
+#                              ac-coverage / report-lint / run-mutants /
+#                              verify-summary all run and are all reported;
+#                              any one failing fails the job (exit 1).
 #   anything else           -> exit 1 (the job-level `if` must not route
 #                              other refs here; reaching this is a wiring bug).
 # Fail-closed: every missing input, git error or tool failure exits non-zero.
 # Env: EVENT_NAME REF_NAME HEAD_REF BEFORE_SHA SHA BASE_SHA PR_HEAD_SHA
-#      RUNNER_TEMP; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests).
+#      RUNNER_TEMP; optional GITHUB_STEP_SUMMARY; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests).
 set -euo pipefail
 
 TOOLING_DIR="${TOOLING_DIR:-tooling}"
@@ -50,8 +56,10 @@ case "$EVENT_NAME" in
     ;;
   *) die "unsupported event '${EVENT_NAME}'" ;;
 esac
-[[ "$BRANCH" =~ ^task/[TQOAP]-[0-9]{3}$ ]] || die "branch '${BRANCH}' is not task/<id>; job-level if should have skipped it"
+[[ "$BRANCH" =~ ^(task/[TQOAP]-[0-9]{3}|fix/Q-[0-9]{3})$ ]] || die "branch '${BRANCH}' is not task/<id> or fix/Q-<nnn>; job-level if should have skipped it"
 [[ -n "$BASE" && -n "$HEAD" ]] || die "base ('${BASE}') or head ('${HEAD}') is empty"
+BRANCH_ID="${BRANCH#*/}"
+HEAD_SHA="$(git rev-parse --verify "${HEAD}^{commit}")" || die "cannot resolve head '${HEAD}'"
 
 CHANGED="$OUT_DIR/taskcheck-changed.txt"
 git diff --name-only "${BASE}...${HEAD}" > "$CHANGED" || die "git diff --name-only ${BASE}...${HEAD} failed"
@@ -67,4 +75,42 @@ else
   pnpm exec vitest run --reporter=json --outputFile="$RESULTS" || die "vitest run failed (exit $?)"
 fi
 [[ -s "$RESULTS" ]] || die "Vitest JSON report '${RESULTS}' is missing or empty"
-node "$TOOLING_DIR/ac-coverage.mjs" --branch "$BRANCH" --results "$RESULTS"
+
+# From here every check runs and is reported; FAILED collects the names.
+FAILED=()
+if ! node "$TOOLING_DIR/ac-coverage.mjs" --branch "$BRANCH" --results "$RESULTS"; then FAILED+=(ac-coverage); fi
+
+REPORTS="$OUT_DIR/taskcheck-reports.txt"
+git diff --name-only --diff-filter=AM "${BASE}...${HEAD}" -- 'docs/reports/*.md' > "$REPORTS" || die "git diff for docs/reports failed"
+mapfile -t reports < "$REPORTS"
+if [[ "${#reports[@]}" -eq 0 ]]; then
+  echo "taskcheck: report-lint: no added or modified docs/reports/*.md on this branch"
+elif ! node "$TOOLING_DIR/report-lint.mjs" "${reports[@]}"; then
+  FAILED+=(report-lint)
+fi
+
+MUTANTS="docs/qa/mutants/${BRANCH_ID}.json"
+MUTANTS_REPORT="$OUT_DIR/taskcheck-mutants.json"
+rm -f "$MUTANTS_REPORT"
+summary_args=(--task "$BRANCH_ID" --sha "$HEAD_SHA" --vitest "$RESULTS" --changed "$CHANGED")
+if [[ -f "$MUTANTS" ]]; then
+  if ! node "$TOOLING_DIR/run-mutants.mjs" --file "$MUTANTS" --out "$MUTANTS_REPORT"; then FAILED+=(run-mutants); fi
+  [[ -s "$MUTANTS_REPORT" ]] || die "run-mutants did not write '${MUTANTS_REPORT}'"
+  summary_args+=(--mutants "$MUTANTS_REPORT")
+else
+  echo "taskcheck: run-mutants: 未執行（沒有 ${MUTANTS}）"
+fi
+
+SUMMARY="$OUT_DIR/taskcheck-verify-summary.md"
+if node "$TOOLING_DIR/verify-summary.mjs" "${summary_args[@]}" > "$SUMMARY"; then
+  cat "$SUMMARY"
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then cat "$SUMMARY" >> "$GITHUB_STEP_SUMMARY"; fi
+else
+  FAILED+=(verify-summary)
+fi
+
+if [[ "${#FAILED[@]}" -gt 0 ]]; then
+  echo "taskcheck: FAILED: ${FAILED[*]}" >&2
+  exit 1
+fi
+echo "taskcheck: OK ${BRANCH}"

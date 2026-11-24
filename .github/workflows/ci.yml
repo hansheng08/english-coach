@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: ${{ env.NODE_VERSION }}
-      - name: Test pushguard, settings, ci-ok, and O-004/O-005/O-008 verify scripts
+      - name: Test pushguard, settings, ci-ok, and O-004/O-005/O-008/O-009 verify scripts
         run: |
           node --test \
             .claude/hooks/pushguard/guard.test.mjs \
@@ -101,6 +101,8 @@ jobs:
           bash .github/scripts/run-task-outcome-test.sh
           bash .github/scripts/run-task-summary-step-test.sh
           bash .github/scripts/taskcheck-test.sh
+          bash .github/scripts/g3-comment-guard-test.sh
+          bash .github/scripts/run-task-post-check-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
 
@@ -157,17 +159,21 @@ jobs:
 
   # O-008: charter v6 §13 task-file lint, scope check and AC coverage.
   # main push: task-lint the docs/tasks/*.md added or modified by the push.
-  # task/** push and PR: scope-check (diff must stay inside the task file's
-  # 檔案範圍) and ac-coverage (every AC / TC id has a passed Vitest test).
+  # task/** and (O-009) fix/** push and PR: scope-check (diff must stay inside
+  # the task file's 檔案範圍), ac-coverage (every AC / TC id has a passed
+  # Vitest test), report-lint (changed docs/reports/*.md), run-mutants (QA's
+  # docs/qa/mutants/<branch id>.json, only when it exists) and verify-summary
+  # (自動驗證摘要 in the job summary). See taskcheck.sh.
   # Other refs skip this job; ci-ok lists it as "Skipped (not verified)".
   taskcheck:
     needs: detect
     if: >-
       needs.detect.outputs.has_node == 'true' &&
-      ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/'))) ||
-       (github.event_name == 'pull_request' && startsWith(github.head_ref, 'task/')))
+      ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/') || startsWith(github.ref_name, 'fix/'))) ||
+       (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'task/') || startsWith(github.head_ref, 'fix/'))))
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # O-009: run-mutants runs the Vitest suite once per QA mutant.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -179,7 +185,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Task lint / scope check / AC coverage
+      - name: Task lint / scope check / AC coverage / report lint / mutants / summary
         env:
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}

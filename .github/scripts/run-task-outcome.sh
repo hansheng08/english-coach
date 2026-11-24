@@ -2,15 +2,19 @@
 # Compute the webhook outcome for claude-run-task Notify.
 #
 # Usage:
-#   bash run-task-outcome.sh [--task-lint <outcome>] <claude> <verify> <summary>
+#   bash run-task-outcome.sh [--task-lint <outcome>] [--post-check <outcome>] <claude> <verify> <summary>
 #       -> prints one word (the overall outcome)
-#   bash run-task-outcome.sh [--task-lint <outcome>] --json <claude> <verify> <summary> <verify_reason>
+#   bash run-task-outcome.sh [--task-lint <outcome>] [--post-check <outcome>] --json <claude> <verify> <summary> <verify_reason>
 #       -> prints one JSON object with the overall outcome AND each
 #          normalized step outcome, for the claude-task-finished webhook:
 #          {"outcome":…,"claude_outcome":…,"verify_outcome":…,
 #           "summary_outcome":…,"verify_reason":…,"task_lint_outcome":…}
 #       task_lint_outcome is "none" when --task-lint is not given (callers
 #       before O-008); claude-run-task.yml always passes it.
+#       O-009 adds "post_check_outcome" (--post-check: report-lint on
+#       docs/reports/<task>.md + automatic verification summary after
+#       Claude); "none" when not given. The two options may come in either
+#       order but each at most once.
 #
 # Step outcomes from GitHub are success | failure | cancelled | skipped.
 # Every input is normalized first; anything else (empty, whitespace, other
@@ -22,7 +26,16 @@
 #                  §13 and Claude was never started (0 turns)
 #   (a --task-lint value other than success/failure gives failure, or
 #    cancelled when it is cancelled; it is checked before everything else)
-#   success        claude, verify and summary are all success
+#   success        claude, verify and summary are all success (and, when
+#                  --post-check is given, post-check is success too)
+#   post_check_failed  (O-009) claude, verify and summary success but the
+#                  post-check step failed: report-lint rejected the report,
+#                  tests on the pushed head failed, or the verification
+#                  summary could not be produced. Other post-check values
+#                  after an otherwise successful run give failure
+#                  (cancelled -> cancelled). When claude did not succeed the
+#                  post-check is skipped by design and does not change the
+#                  outcome.
 #   verify_failed  claude success + summary success + verify failure:
 #                  Claude finished; the "Verify push triggered CI" step
 #                  failed. See verify_reason: branch_missing means the push
@@ -59,16 +72,27 @@ normalize_verify_reason() {
 
 lint_given=0
 lint="none"
-if [[ "${1-}" == "--task-lint" ]]; then
-  lint_given=1
+post_given=0
+post="none"
+while [[ "${1-}" == "--task-lint" || "${1-}" == "--post-check" ]]; do
+  opt="$1"
   if [[ "$#" -lt 2 ]]; then
-    lint="invalid"
+    val="invalid"
     shift
   else
-    lint="$(normalize_step_outcome "${2-}")"
+    val="$(normalize_step_outcome "${2-}")"
     shift 2
   fi
-fi
+  if [[ "$opt" == "--task-lint" ]]; then
+    if [[ "$lint_given" -eq 1 ]]; then val="invalid"; fi
+    lint_given=1
+    lint="$val"
+  else
+    if [[ "$post_given" -eq 1 ]]; then val="invalid"; fi
+    post_given=1
+    post="$val"
+  fi
+done
 
 mode="word"
 want=3
@@ -109,14 +133,21 @@ elif [[ "$argc_ok" -eq 1 ]]; then
     cancelled) result="cancelled" ;;
     *) result="failure" ;;
   esac
+  if [[ "$result" == "success" && "$post_given" -eq 1 && "$post" != "success" ]]; then
+    case "$post" in
+      failure) result="post_check_failed" ;;
+      cancelled) result="cancelled" ;;
+      *) result="failure" ;;
+    esac
+  fi
 fi
 if [[ "$result" != "success" ]]; then
-  echo "run-task-outcome: task_lint=${lint} claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
+  echo "run-task-outcome: task_lint=${lint} post_check=${post} claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
 fi
 if [[ "$mode" == "json" ]]; then
   # Every value is one of the fixed literals above, so no escaping is needed.
-  printf '{"outcome":"%s","claude_outcome":"%s","verify_outcome":"%s","summary_outcome":"%s","verify_reason":"%s","task_lint_outcome":"%s"}\n' \
-    "$result" "$claude" "$verify" "$summary" "$reason" "$lint"
+  printf '{"outcome":"%s","claude_outcome":"%s","verify_outcome":"%s","summary_outcome":"%s","verify_reason":"%s","task_lint_outcome":"%s","post_check_outcome":"%s"}\n' \
+    "$result" "$claude" "$verify" "$summary" "$reason" "$lint" "$post"
 else
   printf '%s\n' "$result"
 fi

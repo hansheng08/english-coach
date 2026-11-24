@@ -23,6 +23,10 @@
 //      branch with `gh api .../git/ref/heads/`; the Verify step passes
 //      `GH_TOKEN: ${{ github.token }}`;
 //   8. (O-007) `anthropics/claude-code-action` is pinned to a 40-hex SHA.
+//   9. (O-009) run-task SKILL.md sends git add / git commit / git push as
+//      three separate standalone Bash calls from the start (O-008 run
+//      45418884942: a denied compound push followed by a lone push was
+//      flagged as a resplit) and cites charter v6 §13 rule 9 for reports.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -90,6 +94,11 @@ export const REQUIRED_SKILL_SNIPPETS = [
   '會遭權限擋下並依第 12 條停下',
   '讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具',
   '避免透過 Bash 呼叫 `sed` 或 `head`',
+  // O-009: add / commit / push as three standalone calls; report rule v6.
+  'commit 與 push 從第一次就分成三次各自獨立的 Bash 呼叫',
+  '`git push -u origin <分支名稱>`',
+  '不得用 `&&`、`;`、`|`、`2>&1`',
+  '憲章 v6 §13 第 9 條',
 ];
 
 function escapeRe(s) {
@@ -384,7 +393,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned)\n');
   process.exitCode = 0;
 }
 

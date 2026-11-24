@@ -1,5 +1,6 @@
 // 分支變更範圍檢查（O-008）：變更檔只能落在任務單「檔案範圍」。fail-closed。
 import {
+  branchId,
   failure,
   isMain,
   loadTasks,
@@ -32,6 +33,9 @@ export function checkScope({ branch, tasks, changed }) {
     allow.push(...x.parsed.allow, `docs/reports/${x.task.id}.md`, `docs/qa/mutants/${x.task.id}.json`);
     deny.push(...x.parsed.deny);
   }
+
+  const id = branchId(branch);
+  if (id !== null) allow.push(`docs/qa/mutants/${id}.json`);
 
   const findings = [];
   files.forEach((f, i) => {

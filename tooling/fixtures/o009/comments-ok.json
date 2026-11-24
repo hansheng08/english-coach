@@ -1,0 +1,5 @@
+[
+  { "id": 1, "body": "QA 通過\n引用 CI run 的 pnpm check 結果", "url": "https://example.invalid/1" },
+  { "id": 2, "body": "## 自動驗證摘要（O-902 @ abc1234）" },
+  { "id": "3", "body": null }
+]

@@ -183,11 +183,14 @@ test('M12 mutation: workflow without --allowedTools -> exit 1 (fail-closed)', ()
   assert.match(r.out, /--allowedTools "\.\.\." not found/);
 });
 
-// B-003 (O-004 re-review): run-task SKILL carries charter v5 §13 rules 11/12
-// and the mandatory 「權限被拒」 report section.
-test('B-003: run-task SKILL has charter v5 §13 rules #11, #12 and 權限被拒 section', () => {
+// B-003 (O-004 re-review): run-task SKILL carries the report-number rule
+// (O-009: charter v6 §13 rule 9 replaces v5 rule 11), rule 12 and the
+// mandatory 「權限被拒」 report section.
+test('B-003 / O-009: run-task SKILL has charter v6 §13 rules #9, #12 and 權限被拒 section', () => {
   const md = readFileSync(join(REPO, '.claude/skills/run-task/SKILL.md'), 'utf8');
-  assert.match(md, /數字與輸出一律從原始輸出或 execution artifact 複製，不得手打或改寫/);
+  assert.match(md, /報告不貼測試輸出、不手打數字/);
+  assert.match(md, /憲章 v6 §13 第 9 條/);
+  assert.doesNotMatch(md, /憲章 v5/);
   assert.match(md, /指令被權限擋下時，不得拆成幾條重送或換寫法繞過/);
   assert.match(md, /^## 報告：權限被拒（必填）$/m);
   assert.match(md, /^## 權限被拒$/m);
@@ -260,7 +263,8 @@ test('M17 mutation: remove git add -A prohibition from SKILL.md -> exit 1', () =
 test('M18 mutation: remove built-in tool / sed／head reminder from SKILL.md -> exit 1', () => {
   const r = runMutated((f) => {
     const k = '.claude/skills/run-task/SKILL.md';
-    f[k] = f[k].replace('讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具，避免透過 Bash 呼叫 `sed` 或 `head`。', '');
+    // O-009 extended the sentence after `head`, so drop the shared prefix only.
+    f[k] = f[k].replace('讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具，避免透過 Bash 呼叫 `sed` 或 `head`', '');
     assert.doesNotMatch(f[k], /避免透過 Bash 呼叫 `sed` 或 `head`/);
   });
   assert.equal(r.code, 1, r.out);
@@ -354,4 +358,37 @@ test('M25 mutation: verify-push.sh missing -> exit 1 (fail-closed)', () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('M26 mutation (O-009): SKILL step 6 back to a combined commit + push -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.claude/skills/run-task/SKILL.md';
+    const before = f[k];
+    f[k] = f[k].replace('commit 與 push 從第一次就分成三次各自獨立的 Bash 呼叫', 'commit 之後再 push');
+    assert.notEqual(f[k], before);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task SKILL\.md is missing required rule snippet: commit 與 push 從第一次就分成三次各自獨立的 Bash 呼叫/);
+});
+
+test('M27 mutation (O-009): SKILL allows chaining git with && -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.claude/skills/run-task/SKILL.md';
+    const before = f[k];
+    f[k] = f[k].replace('不得用 `&&`、`;`、`|`、`2>&1`', '可以用 `&&` 串接');
+    assert.notEqual(f[k], before);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /missing required rule snippet: 不得用 `&&`、`;`、`\|`、`2>&1`/);
+});
+
+test('M28 mutation (O-009): SKILL push without -u origin <分支名稱> -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.claude/skills/run-task/SKILL.md';
+    const before = f[k];
+    f[k] = f[k].replace('`git push -u origin <分支名稱>`', '`git push`');
+    assert.notEqual(f[k], before);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /missing required rule snippet: `git push -u origin <分支名稱>`/);
 });

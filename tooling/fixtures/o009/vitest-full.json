@@ -1,0 +1,19 @@
+{
+  "testResults": [
+    {
+      "name": "a.test.mjs",
+      "assertionResults": [
+        { "fullName": "a (AC-X-1) one", "status": "passed" },
+        { "fullName": "a (AC-X-2) two", "status": "failed" },
+        { "fullName": "a (AC-X-3) three", "status": "passed" }
+      ]
+    },
+    {
+      "name": "b.test.mjs",
+      "assertionResults": [
+        { "fullName": "b (AC-X-4) four", "status": "pending" },
+        { "fullName": "b (AC-X-5) five", "status": "passed" }
+      ]
+    }
+  ]
+}
