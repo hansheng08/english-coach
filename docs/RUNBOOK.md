@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.5（2026-11-24）
+- 版本：v0.6（2026-11-24，O-005：db job 改用本機 Auth Admin API、`enable_signup = false`、`adr010-env` 前綴、能力表補 lockfile／`.env.example` 規則）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -63,7 +63,15 @@ GitHub 的 `ubuntu-latest` runner 已內建 Docker，不必再裝。`ci.yml` 用
 4. 對 `GET {API_URL}/functions/v1/api/health`（ADR-010、ARCHITECTURE §5.1）做 curl（最多約 30 次、每次 timeout 5 s）：
    - 無 JWT → 401
    - 帶 `supabase status -o env` 的 `ANON_KEY` → 401（這不是登入使用者的 JWT；`requireUser` 要求 `role === 'authenticated'`）
-   - 用本機 Auth 註冊測試使用者取得的 access token → 200 `{ "ok": true }`
+   - 用本機 **Auth Admin API** 建立的已確認測試使用者，以密碼登入取得的 access token → 200 `{ "ok": true }`（見下方第 4a 點）
+4a. **註冊關閉與測試帳號（O-005，Q-26 方案 B）**：設定檔 `[auth] enable_signup = false`（Q-01、ARCHITECTURE §7「關閉註冊」）。腳本 `.github/scripts/db-auth-check.sh`（被 `db-job-verify.sh` source）逐項 fail-closed：
+   - `GET /auth/v1/settings` 必須 HTTP 200 且 `disable_signup: true`；
+   - `POST /auth/v1/signup` 必須被拒（HTTP 400／403／422 且 `error_code=signup_disabled`），證明註冊真的關閉；
+   - `POST /auth/v1/admin/users`（`email_confirm: true`）只帶 `apikey: <SECRET_KEY>`：CLI 3.2.0 的本機 Kong 會把 `apikey` 等於 secret key 的請求轉成 `Authorization: Bearer <service_role JWT>` 再送 Auth（來源：supabase/cli v3.2.0 `apps/cli/src/commands/start/services/kong.service.ts` 的 `buildKongBearerToken`）；必須 HTTP 200／201，且有 `id`、相同 email、`email_confirmed_at`；
+   - `POST /auth/v1/token?grant_type=password`（`apikey: <PUBLISHABLE_KEY>`）必須 HTTP 200、`token_type=bearer`、`access_token` 為三段式 JWT，且 payload `role=authenticated`、有 `sub`、非匿名。
+   - `SECRET_KEY`、`PUBLISHABLE_KEY`、`ANON_KEY`、`API_URL` 取自 `supabase status -o env`（CLI 3.2.0 變數名，來源同上 repo 的 `apps/cli/src/commands/status/SIDE_EFFECTS.md`）；缺任何一個就失敗。測試密碼每次隨機產生、只用一次；**任何金鑰、密碼、token 的值都不印**，`supabase start`／`db reset` 輸出也先遮罩 `sb_secret_…`、`sb_publishable_…`、JWT 與 S3 金鑰。
+   - 產品設定（T-003 起改用根目錄 `supabase/config.toml`）同樣要 `enable_signup = false`，否則 `db` job 會在上面第一、二項失敗——這是刻意的（Q-01）。
+   - CI 實測：以 O-005 PR 觸發的 `pull_request` run 為準（run 連結記在 PR 說明與 TechLead Review 留言；憲章 v5 §9 不為補 run ID 另推 commit）。該 run 綠燈之前，上述 Auth 流程在 CLI 3.2.0 的實際行為視為未驗證；腳本邏輯本身由 `db-auth-check-test.sh`（CI `pushguard`）以假回應驗證。
 5. ADR-009 (1)：serve 日誌不得出現 `@english-coach/contracts` 解析失敗。
 6. ADR-009 (2)：**不要**跑 `supabase functions deploy`（CLI 3.2.0 為 Remote only，且沒有 `--dry-run`）。本機若找不到 eszip，以 serve 成功載入 contracts 作為本機等效，並標 UNCONFIRMED。如何結案見 §2.4；T-018 的前端 Vite／`bundle` job **不算**。
 7. 無論成功失敗，最後會 `supabase stop`（腳本 `trap`）。
@@ -76,7 +84,10 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 - **`docker info` 或 `supabase start` 失敗**：映像拉取逾時、或排除的服務名稱拼錯。對照 `supabase start --help` 的 `-x` 清單。
 - **health 一直連不上**：看該步驟上傳／印出的 `functions-serve.log` 末段；常見是函式編譯失敗或 contracts 路徑不對。
 - **無 JWT 不是 401、或 ANON_KEY 變成 200**：閘道 `verify_jwt` 可能仍開著，或函式沒做 `requireUser`。確認 `config.toml` 有 `[functions.api] verify_jwt = false`，且 serve 有 `--no-verify-jwt`。
-- **使用者 JWT 不是 200**：本機 signup 是否回了 `access_token`（email 確認是否關閉）；或 CLI 只注入舊金鑰名稱（`SUPABASE_ANON_KEY`），探針會在 200 路徑回 500 並讓 job 失敗——這時依 ADR-010 **停下回報 Architect**，不要改產品程式去讀舊名稱。
+- **`disable_signup=true` 或 signup 被拒檢查失敗**：設定檔 `[auth] enable_signup` 不是 `false`（產品設定或探針）。依 Q-01 改回 `false`，不要為了讓 CI 綠燈而打開註冊。
+- **Auth Admin API 建帳號失敗（401／403）**：`supabase status -o env` 沒有 `SECRET_KEY`，或本機 Kong 沒把 secret key 轉成 service_role（CLI 版本變了）。看日誌的 `admin create user HTTP …` 與 `error_code`；不要改用寫死的金鑰值。
+- **使用者 JWT 不是 200**：先看 `password sign-in HTTP …` 與 `user JWT: alg=… role=…` 兩行；或 CLI 只注入舊金鑰名稱（`SUPABASE_ANON_KEY`），探針會在 200 路徑回 500 並讓 job 失敗——這時依 ADR-010 **停下回報 Architect**，不要改產品程式去讀舊名稱。
+- **ADR-010 金鑰檢查失敗**：函式日誌必須有獨立 token `adr010-env`，後面四欄 `has_supabase_url=true has_publishable=true has_secret=true only_legacy_keys=false`（只記有無，不記值）。只有舊前綴 `o003-env` 也算失敗。T-003 的產品 `api` 函式要印同樣格式的一行。
 - **ADR-009 (1) 失敗**：`deno.json` 的 `imports` 是否指向 `packages/contracts/src/index.ts`。
 - 不要在 CI 對已連結的遠端專案跑 `functions deploy`（需要新的 `SUPABASE_ACCESS_TOKEN`，必須先問幕僚長）。
 
@@ -94,9 +105,9 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 
 修正前（僅作對照）：在尚未設定 `import_map` 時，即使主機上 `packages/contracts` 已與 `supabase/` 同層，`functions serve` 仍會 `Module not found "file://…/packages/contracts/src/index.ts"`，health 為 HTTP 503 `BOOT_ERROR`。那不是目前狀態。備案（搬到 `supabase/functions/_shared/`，套件名稱不變）只在 (1) 再次失敗、或下面的 (2) 被推翻時才啟動。
 
-**ADR-009 (2) 仍為 UNCONFIRMED。** CLI 3.2.0 的 `functions deploy` 是 remote only、沒有 `--dry-run`，CI 不得部署。目前找不到本機 eszip，腳本以 serve 成功 import／掛載 contracts 作為本機等效，並在日誌標明尚未直接證明「部署包」含 contracts。
+**ADR-009 (2) 仍為 UNCONFIRMED（未驗證）。** 2026-11-24 08:22 Hansheng 修訂憲章 v5 §0.1：先維持未驗證、不另建專用測試專案、**不擋 T-003 開工**；等之後建立正式免費 Supabase 專案（尚無正式資料時）再實測一次部署（需要的雲端資源或 Secret 仍比照 G4 經 Hansheng 核准）；若屆時打包失敗，依 ADR-009 備案把 contracts／domain 搬到 `supabase/functions/_shared/`。 CLI 3.2.0 的 `functions deploy` 是 remote only、沒有 `--dry-run`，CI 不得部署。目前找不到本機 eszip，腳本以 serve 成功 import／掛載 contracts 作為本機等效，並在日誌標明尚未直接證明「部署包」含 contracts。
 
-要關閉 UNCONFIRMED，需等到下列之一：未來 CLI 提供本機打包或 dry-run，且產物能證明含 contracts；或 Hansheng 核准的 staging／G4 部署能直接證明部署包含 contracts。**T-018 的前端 Vite／`apps/web`／`bundle` job 不算**，不能用來結案 (2)。在此之前 T-003 可繼續做 ADR-009 (3) 與產品骨架。
+要關閉 UNCONFIRMED，需等到下列之一：未來 CLI 提供本機打包或 dry-run，且產物能證明含 contracts；或上述正式免費專案上、經 Hansheng 核准的一次部署能直接證明部署包含 contracts。**T-018 的前端 Vite／`apps/web`／`bundle` job 不算**，不能用來結案 (2)。在此之前 T-003 可繼續做 ADR-009 (3) 與產品骨架。
 
 
 ## 3. 執行環境能力表（寫任務單前先對照）
@@ -108,40 +119,51 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | 項目 | 狀態 | 依據 |
 |---|---|---|
 | 在 `task/`、`fix/`、`poc/` 分支工作；`git add`／`commit`；單獨的 `git push -u origin <目前同名分支>` | 能做（已驗證） | T-012 等任務把分支推上 GitHub 並觸發 `ci.yml` `push` run（例如 run 45205560119 的後續乾淨 `git push` 曾成功；複合 `git push … 2>&1` 則被 pushguard 擋下） |
-| `pnpm install --frozen-lockfile`、`pnpm check`／`typecheck`／`lint`／`arch`／`test`／`e2e` | 能做（設定已列） | `claude_args --allowedTools` 白名單（見 workflow）。個別指令是否每次成功視任務而定 |
+| `pnpm install --frozen-lockfile`、`pnpm check`／`typecheck`／`lint`／`arch`／`test`／`e2e` | 能做（設定已列） | `claude_args --allowedTools` 白名單（見 workflow）。個別指令是否每次成功視任務而定。O-005 起 `--allowedTools` 與 run-task SKILL 由 `Bash(pnpm install *)` 收窄為 `Bash(pnpm install --frozen-lockfile*)`＋`Bash(pnpm install --no-frozen-lockfile)` |
 | 檔案用 Read／Write／Edit／Glob／Grep | 能做（設定已列） | 同上 `--allowedTools` |
 | 改／推 `.github/workflows/` | 不能做（政策）；**一次被拒的推送未在本環境實測，標未驗證** | 憲章 v5 §5：Claude Code 的權杖改不了 workflow，改由 SRE 在 box 以 O-xxx 開 [G3] PR |
 | Bash `cat`／`grep`／`head`／`ls`／`sed`（含複合指令裡的同名命令） | 不能做 | `.claude/settings.json` deny 與 pushguard；T-012 曾用 `cd …; cat …; grep … \| head; ls; sed`（當時尚未 deny） |
 | `gh`（含唯讀）、`curl`／`wget`／`sudo`、任意 `supabase` CLI、`docker` | 不能做（設定已列） | `--allowedTools` 未開放；不得當作任務單裡的驗證手段 |
 | 開 PR、合併 PR、推 `main`、force push | 不能做 | pushguard + 任務單強制工作規則；本表不把這些寫成可做之事 |
-| 新增套件（改 lockfile） | 須先核准；**一次被拒的實測未做，標未驗證** | 任務單／`--frozen-lockfile` 限制 |
+| 已核准的 lockfile 更新：單獨一條 `pnpm install --no-frozen-lockfile`（先用 Edit 改 `package.json`，再跑這條） | 設定已允許（靜態規則檢查通過）；**在真實 run-task 執行：未驗證**（本單不得派 Claude Code） | `.claude/settings.json` `allow`、`claude-run-task.yml` `--allowedTools`、run-task SKILL `allowed-tools` 三處都列同一條精確規則；`node .github/scripts/claude-permission-check.mjs .` 輸出 `Bash "pnpm install --no-frozen-lockfile": settings=allow actions=allow skill=listed`（O-005 實測，原始輸出見 `docs/reports/O-005.md`）。加上參數（例如 `… 2>&1`、`… zod`）就不符精確規則 |
+| 未核准的新增／移除套件：`pnpm add *`、`pnpm remove *`、`pnpm install <套件>`、`pnpm i <套件>` | 不能做（設定）；真實 run-task 的被拒行為**未驗證** | 同一支檢查輸出：`pnpm add zod`／`pnpm remove zod` → `settings=ask actions=ask`（無人值守無法回答 ask），`pnpm install zod`／`pnpm i zod` → `settings=none actions=none`。O-005 前 `--allowedTools` 的 `Bash(pnpm install *)` 會放行 `pnpm install zod`（對 origin/main 跑同一支檢查得到 `claude-run-task.yml allows unapproved "pnpm install zod" via Bash(pnpm install *)`） |
+| Read 真實環境檔（`.env`、`.env.local`、`.env.*.local`、`.env.dev*`、`.env.prod*`、`.env.stag*`、`.env.test*`、`.env.preview*`、`.env.secret*`、`.env.keys`、`.env.ci*`、備份檔 `.env.bak*` 等；根目錄與子資料夾） | 不能做（設定 deny）；真實 run-task 的比對行為**未驗證** | `.claude/settings.json` 對每種各列 `Read(./…)` 與 `Read(**/…)`；檢查輸出例如 `Read apps/web/.env.local: deny (Read(**/.env.local))`。未列名的變體（例如 `.env.foo`）不會被擋——repo 的 `.gitignore` 忽略 `.env*`，Actions 的 checkout 本來就沒有真實環境檔 |
+| Read `.env.example`（根目錄、`apps/web/`、`supabase/functions/`） | 設定不擋（靜態規則檢查通過）；真實 run-task **未驗證** | O-005 拿掉會連帶擋住 `.env.example` 的 `Read(./.env.*)`、`Read(**/.env.*)`（Claude Code 的 deny 一律優先於 allow）；檢查輸出 `Read .env.example: not denied` |
 | 指令被擋後拆開重送（例如複合 `git push` 被拒後再送單獨 `git push`） | 不能做；被偵測到則 `run_task_summary` 失敗 | `detect-resplit.mjs`；憲章 v5 §13 第 12 條。`git status` 等附帶允許指令不當作拆送 |
 
-### 3.2 box 上的 SRE（共享 Linux；2026-11-24 08:09 Asia/Taipei 實測）
+**權限規則怎麼驗（O-005）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷。CI `pushguard` job 每次都跑它與 `claude-permission-check.test.mjs`（含 12 個把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為要等真實 run-task 觀察到才算驗證。
 
-**沒有 Docker、沒有本機 Supabase CLI。** 本機實測原始輸出：
+### 3.2 box 上的 SRE（共享 Linux；2026-11-24 09:55 Asia/Taipei 重新實測）
+
+**沒有 Docker、沒有本機 Supabase CLI。** 本機實測原始輸出（`command -v` 逐一檢查）：
 
 ```
+2026-11-24 09:55 CST
 MISSING docker (command not found)
-docker info: docker: command not found（/var/run/docker.sock 亦不存在）
 MISSING supabase (command not found)
-FOUND node     /usr/local/bin/node        v24.22.1
-FOUND npm      /usr/local/bin/npm         11.21.1
-FOUND npx      /usr/local/bin/npx         11.21.1
-FOUND gh       /usr/local/bin/gh          2.103.0
-FOUND git      /usr/bin/git               2.47.3
-FOUND actionlint /usr/local/bin/actionlint 1.7.12
-FOUND python3  /usr/bin/python3           Python 3.13.5
-FOUND jq       /usr/bin/jq                jq-1.7
-FOUND curl     /usr/bin/curl              8.14.1
 MISSING deno (command not found)
-FOUND pnpm     /usr/local/bin/pnpm        12.21.0（需自設 COREPACK_HOME；預設路徑 /usr/local/share/corepack/v1 無寫入權）
-MISSING gitleaks (command not found)（CI 的 secrets job 另有安裝，不代表 box 預裝）
+MISSING gitleaks (command not found)
+FOUND node /usr/local/bin/node
+FOUND gh /usr/local/bin/gh
+FOUND git /usr/bin/git
+FOUND actionlint /usr/local/bin/actionlint
+FOUND jq /usr/bin/jq
+FOUND python3 /usr/bin/python3
+FOUND curl /usr/bin/curl
+MISSING shellcheck (command not found)
+v24.22.1
+1.7.12
+jq-1.7
+gh version 2.103.0 (2026-10-21)
 ```
+
+（`gitleaks` 不是預裝：O-005 掃描時臨時下載官方 8.30.1、`sha256sum -c` 驗證後放在 `/tmp`，用完不算 box 的固定能力。上一版 08:09 的實測另列 `npm` 11.21.1、`pnpm` 12.21.0（需自設 `COREPACK_HOME`）、`git` 2.47.3、`python3` 3.13.5、`curl` 8.14.1。）
 
 | 項目 | 狀態 | 依據 |
 |---|---|---|
-| `curl`、`gh`、`git`、`actionlint` 1.7.12、`node`／`npm`／`jq`／`python3` | 能做（已驗證） | 上表 `command -v` 與 `--version`（2026-11-24 08:09 Asia/Taipei） |
+| `curl`、`gh`、`git`、`actionlint` 1.7.12、`node`／`jq`／`python3` | 能做（已驗證） | 上方 `command -v` 與 `--version`（2026-11-24 09:55 Asia/Taipei） |
+| 本機跑 CI 的腳本測試（`node --test`、`*-test.sh`、`claude-permission-check.mjs`、`fail-open-lint.mjs`、`actionlint`） | 能做（已驗證） | O-005 本機全數 exit 0，原始輸出見 `docs/reports/O-005.md` |
+| `shellcheck`、`deno` | 不能做（未安裝） | 上方 `MISSING`；actionlint 因此不會對 `run:` 區塊做 shellcheck |
 | 改 CI／探針／`.github/workflows/` 並推 `task/O-xxx`、開 [G3] PR | 能做（已驗證） | 本機成功 `git push` 含 workflow 的 `task/O-004`，並 `gh pr create`／`gh pr edit`（PR #18） |
 | Docker、`supabase start`／`functions serve` | **不能做** | `docker`／`supabase` 指令不存在；db job 的 CLI 驗證只能在 GitHub Actions 的 `db` job 跑 |
 | 合併 PR、推 `main`、force push、自設 GitHub secret、未核准就派 Claude Code | 不做（政策） | 交接單與憲章；本輪未嘗試這些動作 |

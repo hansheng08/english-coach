@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # O-003: start-local-stack checks for the ci.yml db job.
+# O-005: test user via local Auth Admin API (enable_signup = false, Q-26 plan B);
+#        ADR-010 key-presence prefix adr010-env.
 # Usage: invoked from the repo root after supabase CLI is on PATH and Docker is up.
 set -euo pipefail
 
@@ -12,7 +14,7 @@ else
   # so the Edge Runtime mount can follow deno.json imports the same way ADR-009
   # describes. The checked-in probe lives under .github/ci/ and is not visible
   # as a sibling of packages/ (run 45205832782: Module not found).
-  WORKDIR="${RUNNER_TEMP:-/tmp}/o003-stack"
+  WORKDIR="${RUNNER_TEMP:-/tmp}/db-job-stack"
   rm -rf "$WORKDIR"
   mkdir -p "$WORKDIR/packages"
   cp -a "${ROOT}/.github/ci/supabase-probe/supabase" "$WORKDIR/supabase"
@@ -49,19 +51,31 @@ echo "== docker info =="
 docker info >/dev/null
 echo "Docker is available on this runner."
 
+# Mask key-looking values in CLI tables (local defaults, but logs never carry
+# key values; O-005). pipefail keeps the CLI exit code.
+mask_keys() {
+  sed -E \
+    -e 's/(sb_(secret|publishable)_)[A-Za-z0-9_-]+/\1***/g' \
+    -e 's/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/***jwt***/g' \
+    -e 's/((Access|Secret) Key[^A-Za-z0-9]+)[A-Za-z0-9]{16,}/\1***/g'
+}
+
 echo "== supabase start =="
-supabase --workdir "$WORKDIR" start -x "$EXCLUDES"
+supabase --workdir "$WORKDIR" start -x "$EXCLUDES" 2>&1 | mask_keys
 
 echo "== supabase db reset =="
-supabase --workdir "$WORKDIR" db reset
+supabase --workdir "$WORKDIR" db reset 2>&1 | mask_keys
 
 echo "== supabase status -o env (names only) =="
 # shellcheck disable=SC1090
 eval "$(supabase --workdir "$WORKDIR" status -o env)"
-: "${API_URL:?API_URL missing from supabase status -o env}"
-: "${ANON_KEY:?ANON_KEY missing from supabase status -o env}"
-echo "API_URL is set (value not printed)."
-echo "ANON_KEY is set (value not printed)."
+# shellcheck source=db-auth-check.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/db-auth-check.sh"
+# PUBLISHABLE_KEY / SECRET_KEY: CLI 3.2.0 status -o env names (sb_ keys; the
+# local Kong maps apikey=SECRET_KEY to the service_role bearer for Auth).
+for v in API_URL ANON_KEY PUBLISHABLE_KEY SECRET_KEY; do
+  db_auth_require_var "$v" || exit 1
+done
 
 echo "== dummy function env (ADR-010 names, dummy values, not secrets) =="
 {
@@ -104,8 +118,8 @@ done
 echo "== wait for ${HEALTH_PATH} (ignore BOOT_ERROR 503 until the worker boots) =="
 ready=0
 for i in $(seq 1 45); do
-  code="$(curl -sS -o /tmp/o003-health-wait.body -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"  # o004-allow: retry loop; success still requires HTTP 200/401/404 later
-  body="$(tr '\n' ' ' < /tmp/o003-health-wait.body 2>/dev/null || true)"  # o004-allow: retry loop body read; missing file is treated as empty, not success
+  code="$(curl -sS -o "${RUNNER_TEMP:-/tmp}/health-wait.body" -w '%{http_code}' --max-time 5 "$HEALTH_URL" || true)"  # o004-allow: retry loop; success still requires HTTP 200/401/404 later
+  body="$(tr '\n' ' ' < "${RUNNER_TEMP:-/tmp}/health-wait.body" 2>/dev/null || true)"  # o004-allow: retry loop body read; missing file is treated as empty, not success
   echo "Attempt ${i}/45: HTTP ${code:-000} body=${body}"
   if [[ "$code" =~ ^(200|401|404)$ ]]; then
     echo "health worker is up (HTTP ${code}) on attempt ${i}"
@@ -118,8 +132,8 @@ echo "---- functions serve log ----"
 cat "$SERVE_LOG" || true  # o004-allow: diagnostic dump; boot/health checks still hard-fail
 echo "---- end serve log ----"
 echo "== container mount list (serve --debug + docker inspect) =="
-if grep -E -i 'mount|bind|import.?map|deno\.json|packages/contracts|volume' "$SERVE_LOG" >/tmp/o003-mount-grep.txt; then
-  cat /tmp/o003-mount-grep.txt
+if grep -E -i 'mount|bind|import.?map|deno\.json|packages/contracts|volume' "$SERVE_LOG" >"${RUNNER_TEMP:-/tmp}/mount-grep.txt"; then
+  cat "${RUNNER_TEMP:-/tmp}/mount-grep.txt"
 else
   echo "(no mount/import_map/packages.contracts lines in serve debug log yet)"
 fi
@@ -175,56 +189,52 @@ sleep 1
 echo "== health with ANON_KEY (not a user JWT) → 401 (ADR-010: role must be authenticated) =="
 curl_code 401 -H "Authorization: Bearer ${ANON_KEY}" -H "apikey: ${ANON_KEY}" "$HEALTH_URL"
 
-echo "== create local Auth user for health 200 =="
-# Unique email; local config has enable_confirmations = false.
-EMAIL="o003-ci-$(date +%s)@example.com"
+echo "== Auth: enable_signup = false is active (Q-01 / Q-26 plan B) =="
+AUTH_SETTINGS_BODY="$(mktemp)"
+AUTH_SETTINGS_CODE="$(curl -sS -o "$AUTH_SETTINGS_BODY" -w '%{http_code}' --max-time 15 \
+  -H "apikey: ${PUBLISHABLE_KEY}" \
+  "${API_URL}/auth/v1/settings")"
+db_auth_check_settings_signup_disabled "$AUTH_SETTINGS_CODE" "$AUTH_SETTINGS_BODY" || exit 1
+
+# A random password generated here, used once, never printed.
+TEST_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+SIGNUP_EMAIL="adr010-signup-$(date +%s)-${RANDOM}@example.com"
 SIGNUP_BODY="$(mktemp)"
-SIGNUP_CODE="$(curl -sS -o "$SIGNUP_BODY" -w '%{http_code}' --max-time 15 \
-  -X POST "${API_URL}/auth/v1/signup" \
-  -H "apikey: ${ANON_KEY}" \
-  -H "Authorization: Bearer ${ANON_KEY}" \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"${EMAIL}\",\"password\":\"Ci-O003-passw0rd!\"}")"
-echo "signup HTTP ${SIGNUP_CODE}"
-# Do not print tokens. Extract access_token with jq if present.
-ACCESS_TOKEN="$(jq -r '.access_token // .session.access_token // empty' "$SIGNUP_BODY")"
-if [[ -z "$ACCESS_TOKEN" || "$ACCESS_TOKEN" == "null" ]]; then
-  echo "ERROR: signup did not return access_token. HTTP ${SIGNUP_CODE}. Keys in body: $(jq -r 'keys|join(",")' "$SIGNUP_BODY" 2>/dev/null || echo unknown)"
-  exit 1
-fi
-echo "Got user access_token (value not printed)."
+SIGNUP_CODE="$(jq -n --arg email "$SIGNUP_EMAIL" --arg password "$TEST_PASSWORD" '{email: $email, password: $password}' \
+  | curl -sS -o "$SIGNUP_BODY" -w '%{http_code}' --max-time 15 \
+      -X POST "${API_URL}/auth/v1/signup" \
+      -H "apikey: ${PUBLISHABLE_KEY}" \
+      -H "Content-Type: application/json" \
+      --data @-)"
+db_auth_check_signup_rejected "$SIGNUP_CODE" "$SIGNUP_BODY" || exit 1
+
+echo "== Auth Admin API: create confirmed test user (secret key; nothing printed) =="
+EMAIL="adr010-ci-$(date +%s)-${RANDOM}@example.com"
+ADMIN_BODY="$(mktemp)"
+# Only apikey: Kong maps the opaque sb_secret key to the service_role bearer.
+ADMIN_CODE="$(jq -n --arg email "$EMAIL" --arg password "$TEST_PASSWORD" '{email: $email, password: $password, email_confirm: true}' \
+  | curl -sS -o "$ADMIN_BODY" -w '%{http_code}' --max-time 15 \
+      -X POST "${API_URL}/auth/v1/admin/users" \
+      -H "apikey: ${SECRET_KEY}" \
+      -H "Content-Type: application/json" \
+      --data @-)"
+db_auth_check_admin_user_created "$ADMIN_CODE" "$ADMIN_BODY" "$EMAIL" || exit 1
+
+echo "== Auth: password sign-in for the admin-created user =="
+TOKEN_BODY="$(mktemp)"
+TOKEN_CODE="$(jq -n --arg email "$EMAIL" --arg password "$TEST_PASSWORD" '{email: $email, password: $password}' \
+  | curl -sS -o "$TOKEN_BODY" -w '%{http_code}' --max-time 15 \
+      -X POST "${API_URL}/auth/v1/token?grant_type=password" \
+      -H "apikey: ${PUBLISHABLE_KEY}" \
+      -H "Content-Type: application/json" \
+      --data @-)"
+ACCESS_TOKEN=""
+db_auth_extract_access_token "$TOKEN_CODE" "$TOKEN_BODY" ACCESS_TOKEN || exit 1
+rm -f "$TOKEN_BODY" "$ADMIN_BODY" "$SIGNUP_BODY"
+unset TEST_PASSWORD
 
 echo "== user JWT claims on host (no token values) =="
-ACCESS_TOKEN="$ACCESS_TOKEN" python3 - <<'JWTPY'
-import os, json, base64, sys
-tok = os.environ.get("ACCESS_TOKEN") or ""
-parts = tok.split(".")
-print(f"jwt parts={len(parts)}")
-if len(parts) < 2:
-    print("access_token is not a JWT-shaped string")
-    sys.exit(0)
-
-def dec(x):
-    pad = "=" * ((4 - len(x) % 4) % 4)
-    return json.loads(base64.urlsafe_b64decode(x + pad))
-
-try:
-    header = dec(parts[0])
-    payload = dec(parts[1])
-except Exception as exc:
-    print(f"jwt decode error type={type(exc).__name__}")
-    sys.exit(0)
-
-print(
-    "alg=" + str(header.get("alg")),
-    "has_kid=" + str(bool(header.get("kid"))),
-    "role=" + str(payload.get("role")),
-    "aud=" + str(payload.get("aud")),
-    "has_sub=" + str(bool(payload.get("sub"))),
-    "is_anonymous=" + str(payload.get("is_anonymous")),
-    "claim_keys=" + ",".join(sorted(map(str, payload.keys()))),
-)
-JWTPY
+db_auth_check_user_jwt_claims "$ACCESS_TOKEN" || exit 1
 
 echo "== JWKS algs (public key types only, no key values) =="
 curl -sS "${API_URL}/auth/v1/.well-known/jwks.json" | jq -r '"JWKS algs=" + ([.keys[] | (.alg // .kty)] | join(","))'
@@ -239,8 +249,8 @@ echo "curl HTTP ${USER_CODE} (expected 200)"
 echo "body: $(tr '\n' ' ' < "$USER_BODY")"
 if [[ "$USER_CODE" != "200" ]]; then
   echo "ERROR: expected HTTP 200 with user JWT, got ${USER_CODE}"
-  echo "---- o003-auth diagnostic lines ----"
-  grep -E "o003-auth|o003-handler-error" "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
+  echo "---- adr010-auth diagnostic lines ----"
+  grep -E "adr010-auth|adr010-handler-error" "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
   tail -n 80 "$SERVE_LOG" || true  # o004-allow: error-path log dump; already exiting non-zero
   exit 1
 fi
@@ -248,8 +258,8 @@ if ! jq -e '.ok == true' "$USER_BODY" >/dev/null; then
   echo "ERROR: body is not {\"ok\": true}"
   exit 1
 fi
-echo "== o003-auth function log =="
-grep -E 'o003-auth' "$SERVE_LOG" || true  # o004-allow: display-only after a successful 200
+echo "== adr010-auth function log =="
+grep -E 'adr010-auth' "$SERVE_LOG" || true  # o004-allow: display-only after a successful 200
 
 # shellcheck source=adr010-keycheck.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/adr010-keycheck.sh"
