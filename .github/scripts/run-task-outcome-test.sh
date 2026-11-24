@@ -112,6 +112,9 @@ run_json "claude cancelled" \
 run_json "invalid inputs are normalized to invalid, outcome failure" \
   '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid"}' \
   " success" SUCCESS 'x"y' 'ok; rm -rf /'
+run_json "wrong-case Success in every field normalizes to invalid" \
+  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid"}' \
+  Success Success Success OK
 run_json "verify success but summary skipped is failure" \
   '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"skipped","verify_reason":"ok"}' \
   success success skipped ok
