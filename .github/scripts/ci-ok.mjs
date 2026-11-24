@@ -27,7 +27,7 @@ export function evaluateNeeds(needs) {
   return { ok: failures.length === 0, failures, skippedConditional };
 }
 
-export function renderSummary({ ok, failures, skippedConditional }) {
+export function renderSummary({ ok, failures, skippedConditional }, { eventName } = {}) {
   const lines = [`## ci-ok: ${ok ? 'PASS' : 'FAIL'}`, ''];
   if (failures.length > 0) lines.push('Failed:', ...failures.map((f) => `- ${f}`), '');
   lines.push(
@@ -35,6 +35,12 @@ export function renderSummary({ ok, failures, skippedConditional }) {
       ? `Skipped (not verified): ${skippedConditional.join(', ')}`
       : 'Skipped (not verified): none',
   );
+  // C4: on push runs, db is skipped by design (only runs on pull_request).
+  // That must not be read as "db was verified green".
+  const event = eventName ?? process.env.GITHUB_EVENT_NAME ?? '';
+  if (event === 'push' && skippedConditional.includes('db')) {
+    lines.push('db: 未驗證（push 事件不跑 db job；以 pull_request 的 CI 為準）');
+  }
   return `${lines.join('\n')}\n`;
 }
 
@@ -48,7 +54,7 @@ function main() {
     return;
   }
   const result = evaluateNeeds(needs);
-  const summary = renderSummary(result);
+  const summary = renderSummary(result, { eventName: process.env.GITHUB_EVENT_NAME ?? '' });
   console.log(summary);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary);
   process.exitCode = result.ok ? 0 : 1;

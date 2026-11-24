@@ -67,3 +67,37 @@ test('CLI: invalid NEEDS_JSON exits 1', () => {
   const r = spawnSync(process.execPath, [SCRIPT], { env: { PATH: process.env.PATH, NEEDS_JSON: 'x' }, encoding: 'utf8' });
   assert.equal(r.status, 1);
 });
+
+test('summary always lists skipped jobs', () => {
+  const text = renderSummary(evaluateNeeds(needs({})));
+  assert.match(text, /Skipped \(not verified\): none/);
+});
+test('push event with db skipped is marked 未驗證', () => {
+  const result = evaluateNeeds(needs({ db: 'skipped', e2e: 'skipped', bundle: 'skipped' }));
+  const text = renderSummary(result, { eventName: 'push' });
+  assert.match(text, /Skipped \(not verified\): bundle, db, e2e/);
+  assert.match(text, /db: 未驗證/);
+});
+test('pull_request event with db skipped does not add the push 未驗證 line', () => {
+  const text = renderSummary(evaluateNeeds(needs({ db: 'skipped' })), { eventName: 'pull_request' });
+  assert.match(text, /Skipped \(not verified\): db/);
+  assert.doesNotMatch(text, /db: 未驗證/);
+});
+test('CLI: push + skipped db writes 未驗證', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ci-ok-'));
+  const summary = join(dir, 'summary.md');
+  writeFileSync(summary, '');
+  const r = spawnSync(process.execPath, [SCRIPT], {
+    env: {
+      PATH: process.env.PATH,
+      NEEDS_JSON: JSON.stringify(needs({ db: 'skipped', e2e: 'skipped', bundle: 'skipped' })),
+      GITHUB_STEP_SUMMARY: summary,
+      GITHUB_EVENT_NAME: 'push',
+    },
+    encoding: 'utf8',
+  });
+  const text = readFileSync(summary, 'utf8');
+  rmSync(dir, { recursive: true, force: true });
+  assert.equal(r.status, 0);
+  assert.match(text, /db: 未驗證/);
+});

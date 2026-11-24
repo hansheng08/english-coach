@@ -91,7 +91,7 @@ const EXTRA = [
   ['gh auth token', 'deny'],
   ['gh workflow run ci.yml', 'deny'],
   ['pwsh -Command "git push origin main"', 'deny'],
-  ['git log --oneline | head', NONE],
+  ['git log --oneline | head', 'deny'],  // settings deny list: use Read, not head
 ];
 for (const [command, expected] of EXTRA) {
   test(`extra: ${JSON.stringify(command)} → ${expected ?? 'no opinion'}`, () => {
@@ -136,4 +136,25 @@ test('index: command not a string → deny; output is a single JSON object', () 
   const out = JSON.parse(r.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, 'PreToolUse');
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
+});
+
+test('settings deny list: cat/grep/head/ls/sed are denied, including compounds', () => {
+  for (const command of [
+    'cat contracts/src/validation.ts',
+    'grep -n export contracts/src/index.ts',
+    'head -40 contracts/src/index.ts',
+    'ls domain/src contracts/src',
+    'sed -n 1,30p domain/src/srs.test.ts',
+    'cd packages; cat contracts/src/validation.ts; grep -n export contracts/src/index.ts | head -40; ls domain/src; sed -n 1,30p domain/src/srs.test.ts',
+  ]) {
+    const r = evaluate({ command, getBranch: () => T });
+    assert.equal(r?.decision, 'deny', command);
+    assert.match(r.reason, /settings\.json deny list/);
+    assert.match(r.reason, /charter v5 §13 rule #12/);
+  }
+});
+
+test('git ls-files and Read-equivalent git commands stay unblocked by the file-tool deny', () => {
+  const r = evaluate({ command: 'git ls-files packages/domain', getBranch: () => T });
+  assert.equal(r?.decision ?? null, null);
 });

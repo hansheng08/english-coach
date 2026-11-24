@@ -16,13 +16,17 @@ jobs:
       # contents: write — Claude Code may commit via the action; official action
       # documents repo write. Push itself uses the Claude GitHub App (OIDC),
       # but we cannot prove the action never uses GITHUB_TOKEN for repo writes.
+      # Also used to post a commit comment when no PR exists yet (C3 fallback).
       contents: write
       # id-token: write — required to exchange OIDC for the Claude GitHub App token (O-002 A').
       id-token: write
       # actions: read — Verify push triggered CI uses gh run list with github.token.
       actions: read
-      # Removed pull-requests: write and issues: write: this workflow does not
-      # open or comment on PRs/issues (mode C: no PR from Claude Code).
+      # pull-requests: write — C3 posts a run-task summary (denial count,
+      # Duration, test excerpt) on an *existing* PR for the task branch.
+      # If no PR exists, or gh pr comment returns HTTP 403, post a commit
+      # comment instead (contents: write). This step does not open a PR.
+      pull-requests: write
     steps:
       - name: Validate task id
         env:
@@ -65,10 +69,15 @@ jobs:
         if: always()
         env:
           LOG: ${{ steps.claude.outputs.execution_file }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
         run: |
           set -euo pipefail
           if [[ -z "${LOG:-}" || ! -f "$LOG" ]]; then
-            echo "No execution_file; skip."
+            if [[ "${CLAUDE_OUTCOME}" == "success" ]]; then
+              echo "ERROR: claude outcome is success but execution_file is missing or unreadable: '${LOG}'"
+              exit 1
+            fi
+            echo "No execution_file; skip denial summary (claude outcome=${CLAUDE_OUTCOME:-unknown})."
             exit 0
           fi
           DENIALS=$(jq '[.[] | select(.type=="result") | .permission_denials // []] | add // []' "$LOG")
@@ -93,37 +102,24 @@ jobs:
 
       - name: Verify push triggered CI
         id: verify_push
-        if: success()
+        # Independent of run_task_summary: a resplit/comment failure must not
+        # skip Verify, and Verify must not run unless Claude itself succeeded.
+        if: ${{ always() && steps.claude.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           TASK: ${{ github.event.client_payload.task }}
-        run: |
-          set -euo pipefail
-          BRANCH=$(git branch --show-current)
-          if [[ ! "$BRANCH" =~ ^(task|fix)/ ]]; then
-            BRANCH="task/${TASK}"
-          fi
-          git fetch origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" || true
-          if ! git rev-parse --verify "origin/${BRANCH}" >/dev/null 2>&1; then
-            echo "No origin/${BRANCH}; skip CI verify (Claude may not have pushed)."
-            exit 0
-          fi
-          SHA=$(git rev-parse "origin/${BRANCH}")
-          echo "Looking for ci.yml run event=push branch=${BRANCH} sha=${SHA}"
-          for i in $(seq 1 12); do
-            RUN_JSON=$(gh run list --workflow ci.yml --branch "${BRANCH}" --event push --limit 20 --json databaseId,headSha,event,status,conclusion,url,createdAt)
-            MATCH=$(jq -c --arg sha "$SHA" '[.[] | select(.headSha==$sha)]' <<<"$RUN_JSON")
-            if [[ $(jq 'length' <<<"$MATCH") -gt 0 ]]; then
-              echo "$MATCH" | jq .
-              echo "Found push-triggered CI run for ${SHA}"
-              exit 0
-            fi
-            echo "Attempt ${i}/12: no matching push CI run yet, waiting 15s..."
-            sleep 15
-          done
-          echo "ERROR: no event=push ci.yml run found for ${BRANCH} @ ${SHA} after ~180s"
-          gh run list --workflow ci.yml --branch "${BRANCH}" --limit 10
-          exit 1
+        run: bash .github/scripts/verify-push.sh
+
+      - name: Detect denied-command resplit and post run-task summary
+        id: run_task_summary
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOG: ${{ steps.claude.outputs.execution_file }}
+          TASK: ${{ github.event.client_payload.task }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
+        run: bash .github/scripts/run-task-summary-step.sh
 
       - name: Notify Grok chief of staff
         if: always()
@@ -133,17 +129,15 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify_push.outcome }}
+          SUMMARY_OUTCOME: ${{ steps.run_task_summary.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
           if [ -z "${WEBHOOK_URL:-}" ]; then echo "Webhook not configured, skip."; exit 0; fi
-          # Previously OUTCOME was only steps.claude.outcome, so a failed
-          # "Verify push triggered CI" still reported outcome=success to 幕僚長.
-          OUTCOME="$CLAUDE_OUTCOME"
-          if [ "${VERIFY_OUTCOME:-skipped}" = "failure" ]; then
-            OUTCOME="failure"
-          fi
-          echo "notify outcome=${OUTCOME} (claude=${CLAUDE_OUTCOME} verify=${VERIFY_OUTCOME:-skipped})"
+          # Include run_task_summary: a failed/skipped summary with claude=success
+          # must not notify 幕僚長 as outcome=success (O-004 B3 / P12).
+          OUTCOME="$(bash .github/scripts/run-task-outcome.sh "$CLAUDE_OUTCOME" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}")"
+          echo "notify outcome=${OUTCOME} (claude=${CLAUDE_OUTCOME} verify=${VERIFY_OUTCOME:-} summary=${SUMMARY_OUTCOME:-})"
           jq -n --arg task "$TASK" --arg outcome "$OUTCOME" --arg run "$RUN_URL" \
             '{event: "claude-task-finished", task: $task, outcome: $outcome, run: $run}' \
           | curl -sS -X POST "$WEBHOOK_URL" \

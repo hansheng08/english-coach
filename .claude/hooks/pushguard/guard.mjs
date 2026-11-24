@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 const BRANCH_RE = /^(task|fix|poc)\/[A-Za-z0-9][A-Za-z0-9._-]*(\/[A-Za-z0-9][A-Za-z0-9._-]*)*$/;
 const WRAPPERS = new Set(['env', 'command', 'builtin', 'time', 'timeout', 'nice', 'nohup', 'xargs']);
 const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'pwsh', 'powershell', 'cmd', 'eval', 'invoke-expression', 'iex']);
+const DENIED_FILE_TOOLS = new Set(['cat', 'grep', 'head', 'ls', 'sed']);
 const GIT_OPTS_WITH_VALUE = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--super-prefix', '--config-env', '--exec-path']);
 const GH_READONLY = [
   ['run', 'list'], ['run', 'view'], ['run', 'watch'],
@@ -15,7 +16,7 @@ const CHAIN_CHARS = /[;&|\n]/;
 const SUBSHELL_GIT = /(\$\(|`)[^)`]*\b(git\s+(-\S+\s+)*(push|merge|pull)|gh)\b/;
 
 const deny = (reason) => ({ decision: 'deny', reason: `pushguard: ${reason}` });
-const GOOD_PUSH = 'only "git push [-u] origin <current task/, fix/ or poc/ branch>" is allowed';
+const GOOD_PUSH = 'only a standalone "git push [-u] origin <current task/, fix/ or poc/ branch>" is allowed (do not put git push in a compound command; if denied, stop and record it — charter v5 §13 rule #12 — do not split and resend)';
 
 /** 取目前分支；取不到（detached HEAD、不在 git repo、逾時）回傳 null。 */
 export function getCurrentBranch(cwd) {
@@ -212,6 +213,8 @@ export function evaluate({ command, getBranch }) {
     let result = null;
     if (SHELLS.has(name) && /push|merge|gh /.test(raw)) {
       result = deny(`wrapping git/gh in "${words[0]}" cannot be checked safely; run the command directly`);
+    } else if (DENIED_FILE_TOOLS.has(name)) {
+      result = deny(`Bash(${name}) is denied; use the Read / Glob / Grep tools (settings.json deny list). If denied, stop and record it (charter v5 §13 rule #12); do not split and resend`);
     } else if (name === 'git') {
       result = evalGit(raw, segments, words, prefixed || words[0] !== 'git', getBranch);
     } else if (name === 'gh') {

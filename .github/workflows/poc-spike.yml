@@ -1,0 +1,60 @@
+# C6: manually triggerable spike for Architect poc/A-xxx branches.
+# Does not use Docker and does not add or require new secrets.
+# Default: print the environment. If the branch has .github/ci/spike.sh,
+# that script is run instead (keep it read-only / non-deploying).
+name: poc-spike
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch to check out (must match poc/A-xxx)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  spike:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate ref
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$REF" =~ ^poc/A-[0-9]{3}([/_-].*)?$ ]]; then
+            echo "ERROR: ref must look like poc/A-xxx (got: $REF)"
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+        if: hashFiles('package.json') != ''
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Run spike
+        env:
+          SPIKE_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          echo "spike ref=${SPIKE_REF}"
+          echo "sha=$(git rev-parse HEAD)"
+          echo "node=$(node --version)"
+          if [[ -f .github/ci/spike.sh ]]; then
+            echo "running .github/ci/spike.sh"
+            bash .github/ci/spike.sh
+          else
+            echo "No .github/ci/spike.sh on this branch; environment dump only (no Docker, no deploy)."
+            git log -1 --oneline
+            git status --short
+          fi
