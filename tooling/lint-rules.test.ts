@@ -264,3 +264,34 @@ describe('ESLint rules (ADR-008 revision 2)', () => {
     expect(DETECT['#12']?.((await lint('apps/web/src/api/x.ts', "import { a } from '../../../../packages/domain/src/index.ts';"))[0] ?? { ruleId: null, message: '' })).toBe(true);
   });
 });
+
+const SERVE = 'Deno.serve(() => new Response(null));';
+const AS_AUTH = 'type AuthContext = string; declare const x: string; export const c = x as AuthContext;';
+const DENO_ENV_GET = "export const k = Deno.env.get('X');";
+
+// [列, 假檔名, 程式片段, 規則標記, 是否應該回報]
+const REV3_ROWS: readonly (readonly [number, string, string, string, boolean])[] = [
+  [1, 'supabase/functions/api/router.ts', SERVE, 'ADR-008 #15', true],
+  [2, 'supabase/functions/api/index.ts', SERVE, 'ADR-008 #15', false],
+  [3, 'supabase/functions/api/router.ts', AS_AUTH, 'ADR-008 #14', true],
+  [4, 'supabase/functions/_shared/db/auth.ts', AS_AUTH, 'ADR-008 #14', false],
+  [5, 'supabase/functions/_shared/db/auth.ts', "export function f(): never { throw new Error('x'); }", 'ADR-008 #9', true],
+  [6, 'supabase/functions/_shared/db/auth.ts', DENO_ENV_GET, 'ADR-008 #7', true],
+  [7, 'supabase/functions/_shared/db/x.ts', AS_AUTH, 'ADR-008 #14', true],
+  [8, 'supabase/functions/api/index.ts', DENO_ENV_GET, 'ADR-008 #7', true],
+  [9, 'supabase/functions/api/index.ts', "type CardId = string; export const id = 'a' as CardId;", 'ADR-008 #14', true],
+  [10, 'supabase/functions/_shared/config/x.ts', SERVE, 'ADR-008 #15', true],
+  [11, 'supabase/functions/_shared/db/index.ts', SERVE, 'ADR-008 #15', true],
+  [12, 'supabase/functions/api/router.test.ts', SERVE, 'ADR-008 #15', true],
+  [13, 'packages/domain/src/x.ts', SERVE, 'ADR-008 #15', true],
+  [14, 'supabase/functions/_shared/db/auth.test.ts', AS_AUTH, 'ADR-008 #14', false],
+];
+
+describe('ESLint rules (ADR-008 revision 3)', () => {
+  for (const [row, file, code, marker, shouldReport] of REV3_ROWS) {
+    it(`(AC-T3-7) row ${String(row)} ${file}: ${marker} ${shouldReport ? 'reported' : 'not reported'}`, async () => {
+      const msgs = await lint(file, code);
+      expect(has(msgs, marker), JSON.stringify(msgs)).toBe(shouldReport);
+    });
+  }
+});

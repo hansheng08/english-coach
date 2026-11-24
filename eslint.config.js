@@ -14,6 +14,10 @@ const denoEnv = {
   selector: "MemberExpression[object.name='Deno'][property.name='env']",
   message: 'ADR-008 #7: Deno.env may only be read in supabase/functions/_shared/config/**',
 };
+const denoServe = {
+  selector: "MemberExpression[object.name='Deno'][property.name='serve']",
+  message: 'ADR-008 #15: Deno.serve may only appear in supabase/functions/<function>/index.ts',
+};
 const clockSelectors = [
   {
     selector: "MemberExpression[object.name='Date'][property.name='now']",
@@ -38,7 +42,7 @@ const throwSelector = {
 };
 
 // ADR-008 修訂 2 決定 5：品牌型別的 as／<T> 只能出現在建立函式所在檔案與測試程式
-const BRAND_NAMES = 'UserId|CardId|AnswerId|QuestionId|ArticleId|PlanDate|StoragePath|Ntd|Wav16kMono|PaidConsent';
+const BRAND_NAMES = 'UserId|CardId|AnswerId|QuestionId|ArticleId|PlanDate|StoragePath|Ntd|Wav16kMono|PaidConsent|AuthContext';
 const brandSelectors = ['TSAsExpression', 'TSTypeAssertion'].map((node) => ({
   selector: `${node}[typeAnnotation.typeName.name=/^(${BRAND_NAMES})$/]`,
   message: 'ADR-008 #14: create branded values with a zod schema or the type\'s creator function, not "as"',
@@ -52,6 +56,8 @@ const DOMAIN = 'packages/domain';
 const TAIPEI_DATE = `${DOMAIN}/src/taipei-date.ts`; // 唯一可以 as PlanDate 的正式程式檔
 const REGISTRY = 'supabase/functions/_shared/providers/registry.ts'; // 唯一可以 as PaidConsent 的檔案
 const BRAND_CREATORS = ['packages/contracts/src/ids.ts', 'packages/contracts/src/audio.ts']; // as Ntd、as Wav16kMono
+const AUTH = 'supabase/functions/_shared/db/auth.ts'; // 唯一可以 as AuthContext 的檔案
+const FN_ENTRY = 'supabase/functions/*/index.ts'; // 唯一可以 Deno.serve 的檔案
 const CONFIG = 'supabase/functions/_shared/config';
 const SHARED_THROW_DIRS = [
   'supabase/functions/_shared/providers',
@@ -156,42 +162,44 @@ export default defineConfig(
     // A. domain 正式程式：#7、#9（時鐘、亂數、throw）、#14（品牌 as）
     files: [under(DOMAIN)],
     ignores: [...TEST_GLOBS, TAIPEI_DATE],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors, throwSelector, ...brandSelectors] },
+    rules: {
+      'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors, throwSelector, ...brandSelectors],
+    },
   },
   {
     // A'. taipei-date.ts：可以 as PlanDate，其他同 A
     files: [TAIPEI_DATE],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors, throwSelector] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors, throwSelector] },
   },
   {
     // B. domain 測試程式：時鐘與亂數仍禁止，throw 與品牌 as 放行
     files: testGlobsUnder(DOMAIN),
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...clockSelectors] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors] },
   },
   {
     // C. _shared/{providers,db,news} 正式程式：#9b（throw）、#14
     files: SHARED_THROW_DIRS.map(under),
-    ignores: [...TEST_GLOBS, REGISTRY],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, throwSelector, ...brandSelectors] },
+    ignores: [...TEST_GLOBS, REGISTRY, AUTH],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, throwSelector, ...brandSelectors] },
   },
   {
-    // C'. registry.ts：可以 as PaidConsent，其他同 C
-    files: [REGISTRY],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, throwSelector] },
+    // C'. registry.ts（可以 as PaidConsent）、auth.ts（可以 as AuthContext）：其他同 C
+    files: [REGISTRY, AUTH],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, throwSelector] },
   },
   {
     // D. _shared/config 正式程式：唯一可以讀 Deno.env 的地方；#14
     files: [under(CONFIG)],
     ignores: TEST_GLOBS,
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, ...brandSelectors] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoServe, ...brandSelectors] },
   },
   {
     // D'. _shared/config 測試程式
     files: testGlobsUnder(CONFIG),
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoServe] },
   },
   {
-    // E. 其餘正式程式：#7、#14
+    // E. 其餘正式程式：#7、#14、#15
     files: [`**/*.${TS}`],
     ignores: [
       under(DOMAIN),
@@ -199,18 +207,25 @@ export default defineConfig(
       ...SHARED_THROW_DIRS.map(under),
       ...TEST_GLOBS,
       ...BRAND_CREATORS,
+      FN_ENTRY,
     ],
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...brandSelectors] },
+  },
+  {
+    // E-entry. supabase/functions/<函式>/index.ts：唯一可以 Deno.serve 的檔案（沒有 denoServe），其他同 E
+    files: [FN_ENTRY],
+    ignores: TEST_GLOBS,
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, ...brandSelectors] },
   },
   {
     // E-sub. ids.ts（as Ntd）、audio.ts（as Wav16kMono）：其他同 E
     files: BRAND_CREATORS,
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe] },
   },
   {
     // E'. 其餘測試程式（含 _shared/{providers,db,news} 的測試程式：可以 throw）
     files: TEST_GLOBS,
     ignores: [under(DOMAIN), under(CONFIG)],
-    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv] },
+    rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe] },
   },
 );

@@ -11,3 +11,7 @@ export const CardStreamEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('error'), error: ApiErrorBodySchema.shape.error }),
 ]);
 export type CardStreamEvent = z.infer<typeof CardStreamEventSchema>;
+
+/** GET /health 的回應（ADR-010 決定 2 第 4 點）。 */
+export const HealthResponseSchema = z.object({ ok: z.literal(true) });
+export type HealthResponse = z.infer<typeof HealthResponseSchema>;
