@@ -165,6 +165,7 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | 檔案用 Read／Write／Edit／Glob／Grep | 能做（設定已列） | 同上 `--allowedTools` |
 | 改／推 `.github/workflows/` | 不能做（政策）；**一次被拒的推送未在本環境實測，標未驗證** | 憲章 v5 §5：Claude Code 的權杖改不了 workflow，改由 SRE 在 box 以 O-xxx 開 [G3] PR |
 | Bash `cat`／`grep`／`head`／`ls`／`sed`（含複合指令裡的同名命令） | 不能做（`head`、`sed` 已在真實 run-task 被拒；`cat`／`grep`／`ls` 的真實被拒**未實測**） | `.claude/settings.json` deny 與 pushguard。T-003 run 45314135320 `permission_denials`：tool-use step 24 指令含 `\| head -30`，結果 `PreToolUse:Bash hook error: pushguard: Bash(head) is denied; use the Read / Glob / Grep tools (settings.json deny list). If denied, stop and record it (charter v5 §13 rule #12); do not split and resend`；step 49 指令以 `sed -i -e` 開頭，結果同樣格式但為 `Bash(sed) is denied`。T-012 曾用 `cd …; cat …; grep … \| head; ls; sed`（當時尚未 deny） |
+| `pnpm db:test`（O-010：psql＋pgTAP 逐檔跑 `supabase/tests/*.sql`，寫 `.tmp/pgtap/*.tap`，成敗只看 TAP） | 設定已開放（`--allowedTools`、`.claude/settings.json`、SKILL 都列 `Bash(pnpm db:test*)`，`claude-permission-check` 靜態檢查通過）；Actions 上真的跑得起來**待下次真實 run-task 實測驗證** | workflow 在 Claude 之前裝 SHA 釘選的 `supabase/setup-cli`（CLI 3.2.0）並 `supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor`（與 `db` job 同一組排除）；起不來時 Claude 步驟被略過、Notify 判失敗。O-010 本身的 run 45434212541 是在接線前跑的，沒有本機 Supabase，也依任務單沒有執行 `pnpm db:test`。Claude 仍不能直接呼叫 `supabase`／`psql`／`docker` |
 | `gh`（含唯讀）、`curl`／`wget`／`sudo`、任意 `supabase` CLI、`docker` | 不能做（設定已列） | `--allowedTools` 未開放；不得當作任務單裡的驗證手段 |
 | 開 PR、合併 PR、推 `main`、force push | 不能做 | pushguard + 任務單強制工作規則；本表不把這些寫成可做之事 |
 | 已核准的 lockfile 更新：單獨一條 `pnpm install --no-frozen-lockfile`（先用 Edit 改 `package.json`，再跑這條） | 能做（已驗證：真實 run-task） | T-003 run [45314135320](https://github.com/hansheng08/english-coach/actions/runs/45314135320)（2026-11-24 10:40–10:51 Asia/Taipei；head `1743021f5f96051d5683c58fe558c820142b55f2`）execution artifact 出現一次、且僅一次，指令原文為 `pnpm install --no-frozen-lockfile`（tool-use step 18，`is_error=False`）。原始輸出：`Scope: all 4 workspace projects`／`✓ Lockfile passes supply-chain policies (verified 55s ago)`／`Packages: +9`／`Done in 1.6s using pnpm v12.21.0`。加上參數（例如 `… 2>&1`、`… zod`）仍不符精確規則（O-005 靜態檢查） |
@@ -211,6 +212,8 @@ gh version 2.103.0 (2026-10-21)
 | 本機跑 CI 的腳本測試（`node --test`、`*-test.sh`、`claude-permission-check.mjs`、`fail-open-lint.mjs`、`actionlint`） | 能做（已驗證） | O-005 本機全數 exit 0，原始輸出見 `docs/reports/O-005.md` |
 | `shellcheck`、`deno` | 不能做（未安裝） | 上方 `MISSING`；actionlint 因此不會對 `run:` 區塊做 shellcheck |
 | 改 CI／探針／`.github/workflows/` 並推 `task/O-xxx`、開 [G3] PR | 能做（已驗證） | 本機成功 `git push` 含 workflow 的 `task/O-004`，並 `gh pr create`／`gh pr edit`（PR #18） |
+| PostgreSQL 17.12＋pgTAP 1.3.3、`psql` 17.12、`pg_prove` 3.37（O-010） | 能做（已驗證：2026-11-25 00:20 Asia/Taipei） | `psql --version` → `psql (PostgreSQL) 17.12 (Debian 17.12-0+deb13u1)`；`pg_prove --version` → `pg_prove 3.37`；`select extversion from pg_extension where extname='pgtap'` → `1.3.3`。叢集 `17 main`（埠 5432）平時是 `down`，要 `sudo -n pg_ctlcluster 17 main start` 才起來；pgTAP 裝在 `extensions` schema，`search_path` 要含 `extensions`（Supabase 預設如此），否則 `plan(integer) does not exist`、psql exit 3、db-test 判 `DB-PSQL`。**這不是 Supabase**：沒有 `auth` schema 與 Supabase 角色，`supabase/tests/*.sql` 的 RLS 測試不能在 box 上跑；box 只用來驗證 TAP 格式與 db-test 的判定 |
+| `pnpm db:test` 判定（O-010） | 能做（已驗證：box 真實 PG17） | 自備兩個測試檔、`--db-url postgresql://postgres:postgres@127.0.0.1:5432/postgres`：全部 `ok` → `db-test: OK 1 file(s), 2 test(s)`、exit 0；其中一項 `not ok` → 同一個 psql 指令直接執行時 **exit 0**，db-test 輸出 `DB-FAIL: b_test.sql: (AC-T9-2) two`、exit 1 |
 | Docker、`supabase start`／`functions serve` | **不能做** | `docker`／`supabase` 指令不存在；db job 的 CLI 驗證只能在 GitHub Actions 的 `db` job 跑 |
 | 合併 PR、推 `main`、force push、自設 GitHub secret、未核准就派 Claude Code | 不做（政策） | 交接單與憲章；本輪未嘗試這些動作 |
 
@@ -242,7 +245,7 @@ gh version 2.103.0 (2026-10-21)
 - 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `pushguard` job 執行。
 - `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`docs/**`、`workflow_dispatch` 的 run 會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
-- 已知限制：只有 pgTAP 測試的 AC 會被 ac-coverage 判 `CV-MISSING`（等 O-010）。`fix/**` 分支自 O-009 起也跑（見 §5）。
+- O-010 起：有 `supabase/config.toml` 時，`taskcheck` job 先起本機 Supabase（同 `db` job 的 CLI 與排除清單；main 的 push 不起），`taskcheck.sh` 執行 `pnpm db:test --tap-dir $RUNNER_TEMP/taskcheck-pgtap`，再把每個 `*.tap` 以 `--tap` 交給 ac-coverage，所以只有 pgTAP 測試的 AC 也算覆蓋。db-test 失敗照樣跑 ac-coverage／report-lint／摘要並判紅；一個 TAP 檔都沒有時直接 exit 1。這條路徑在 Actions 上的第一次實測是 O-010 PR 的 CI。`fix/**` 分支自 O-009 起也跑（見 §5）。
 - 實測狀態：本機 box 已跑 `taskcheck-test.sh`、`run-task-outcome-test.sh`、`ci-ok.test.mjs`、`actionlint`；Actions 上的 `taskcheck` job 與 `Task lint` 步驟**待 O-008 PR 的 CI 與下一次真實 `run-task` 實測驗證**。
 
 ## 5. mutants.json、自動驗證摘要、報告 lint、G3 留言檢查（O-009，憲章 v6 §0.1、§5、§9）

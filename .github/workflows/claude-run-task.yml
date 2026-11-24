@@ -68,6 +68,23 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
         run: node tooling/task-lint.mjs "docs/tasks/${TASK}.md"
 
+      # O-010: start the local Supabase stack before Claude so a task whose
+      # 驗證方式 lists `pnpm db:test` can run pgTAP (psql) against it.
+      # Fail-closed: a failed install/start skips Claude (default success()
+      # condition) and Notify reports a failure. Same CLI pin and excludes as
+      # ci.yml (db job / taskcheck). 待下次真實 run-task 實測驗證.
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        if: hashFiles('supabase/config.toml') != ''
+        with:
+          version: '3.2.0'
+
+      - name: Start local Supabase for pnpm db:test
+        id: supabase_start
+        if: hashFiles('supabase/config.toml') != ''
+        run: |
+          psql --version
+          supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@eb56b6666facdbd501035f4a0269d8caee2e7a8b # v1 (v1.0.289)
@@ -77,7 +94,7 @@ jobs:
           plugins: "pstack@cursor-plugins"
           prompt: |
             /pstack:poteto-mode 執行任務單 docs/tasks/${{ github.event.client_payload.task }}.md（任務編號 ${{ github.event.client_payload.task }}）。你在 GitHub Actions 上無人值守地執行，沒有人能回答問題，不要停下來等回覆。完整遵守 .claude/skills/run-task/SKILL.md 的步驟與限制：依任務單的分支規則工作、驗證方式以任務單為準、結果寫到 docs/reports/<任務編號>.md、commit 並推送分支、不開 PR、不合併、不動 main。
-          claude_args: '--max-turns 200 --allowedTools "Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --frozen-lockfile*), Bash(pnpm install --no-frozen-lockfile), Bash(pnpm check *), Bash(pnpm typecheck *), Bash(pnpm lint *), Bash(pnpm arch *), Bash(pnpm test *), Bash(pnpm e2e *), Agent, TodoWrite"'
+          claude_args: '--max-turns 200 --allowedTools "Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --frozen-lockfile*), Bash(pnpm install --no-frozen-lockfile), Bash(pnpm check *), Bash(pnpm typecheck *), Bash(pnpm lint *), Bash(pnpm arch *), Bash(pnpm test *), Bash(pnpm e2e *), Bash(pnpm db:test*), Agent, TodoWrite"'
 
       - name: Summarize permission denials
         if: always()

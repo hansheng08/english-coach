@@ -173,7 +173,8 @@ jobs:
        (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'task/') || startsWith(github.head_ref, 'fix/'))))
     runs-on: ubuntu-latest
     # O-009: run-mutants runs the Vitest suite once per QA mutant.
-    timeout-minutes: 30
+    # O-010: + local Supabase start and pnpm db:test.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -185,7 +186,21 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Task lint / scope check / AC coverage / report lint / mutants / summary
+      # O-010: taskcheck.sh runs `pnpm db:test` (psql + pgTAP against the
+      # local Supabase DB) when supabase/config.toml exists, and feeds every
+      # TAP file to ac-coverage. Not started for main pushes (task-lint only).
+      # Fail-closed: if this start fails the job fails; if it is skipped while
+      # config.toml exists, db-test cannot connect and taskcheck fails.
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        if: hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+      - name: Start local Supabase for pnpm db:test
+        if: hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')
+        run: |
+          psql --version
+          supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor
+      - name: Task lint / scope check / db-test / AC coverage / report lint / mutants / summary
         env:
           EVENT_NAME: ${{ github.event_name }}
           REF_NAME: ${{ github.ref_name }}
