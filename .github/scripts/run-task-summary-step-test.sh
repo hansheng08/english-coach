@@ -76,6 +76,36 @@ else
   echo "CASE OK (missing-file error text present)"
 fi
 
+# O-009: the posted comment carries the automatic verification summary.
+OKBIN="$(mktemp -d)"
+cp "$PATH_DIR/git" "$OKBIN/git"
+cat > "$OKBIN/gh" << 'FAKE'
+#!/usr/bin/env bash
+if [[ "${1:-} ${2:-}" == "pr list" ]]; then exit 0; fi
+if [[ "${1:-}" == "api" ]]; then cat > "${CAPTURE:?}"; echo '{}'; exit 0; fi
+echo "unexpected gh $*" >&2; exit 90
+FAKE
+chmod +x "$OKBIN/gh"
+EXEC="$WORKDIR/exec.json"
+echo '[{"type":"result","subtype":"success","permission_denials":[]}]' > "$EXEC"
+printf '## 自動驗證摘要（O-004 @ abc123d）\n結果：通過\n' > "$WORKDIR/verify-summary.md"
+run_case "O-009: verify summary is appended to the posted comment" 0 \
+  env PATH="$OKBIN:$PATH" CAPTURE="$WORKDIR/posted.json" CLAUDE_OUTCOME=success LOG="$EXEC" bash "$HERE/run-task-summary-step.sh"
+if jq -e '.body | contains("## 自動驗證摘要（O-004 @ abc123d）")' "$WORKDIR/posted.json" > /dev/null; then
+  echo "CASE OK (verify summary in posted body)"
+else
+  echo "ERROR: verify summary not in posted body"; cat "$WORKDIR/posted.json"; FAIL=1
+fi
+rm -f "$WORKDIR/verify-summary.md"
+run_case "O-009: missing verify summary still posts, with the not-produced note" 0 \
+  env PATH="$OKBIN:$PATH" CAPTURE="$WORKDIR/posted2.json" CLAUDE_OUTCOME=success LOG="$EXEC" bash "$HERE/run-task-summary-step.sh"
+if jq -e '.body | contains("自動驗證摘要未產生")' "$WORKDIR/posted2.json" > /dev/null; then
+  echo "CASE OK (not-produced note in posted body)"
+else
+  echo "ERROR: not-produced note missing"; cat "$WORKDIR/posted2.json"; FAIL=1
+fi
+rm -rf "$OKBIN"
+
 if [[ "$FAIL" -ne 0 ]]; then
   echo "run-task-summary-step-test: FAILED"
   exit 1

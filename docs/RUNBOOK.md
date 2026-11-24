@@ -173,6 +173,8 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | Write／Edit `supabase/functions/.env.example` | 能做（已驗證：真實 run-task） | T-003 run 45314135320 execution artifact：Write 一次（tool-use step 34）結果 `File created successfully at: /home/runner/work/english-coach/english-coach/supabase/functions/.env.example (file state is current in your context — no need to Read it back)`；Edit 兩次（steps 97、99）結果均為 `The file /home/runner/work/english-coach/english-coach/supabase/functions/.env.example has been updated successfully. (file state is current in your context — no need to Read it back)` |
 | Read `.env.example`（根目錄、`apps/web/`、`supabase/functions/`） | 設定不擋（靜態規則檢查通過）；真實 run-task 的 Read **未實測** | T-003 run 45314135320 的 15 次 Read 的 `file_path` 都不含 `.env.example`（Write／Edit 成功後的回傳也寫「no need to Read it back」）。O-005 拿掉會連帶擋住 `.env.example` 的 `Read(./.env.*)`、`Read(**/.env.*)`；靜態檢查仍輸出 `Read .env.example: not denied`。根目錄與 `apps/web/.env.example` 的 Write／Edit／Read 在該次都未出現 |
 | Verify 步驟用 `git fetch` 讀遠端分支 | 不能做（已在真實 run-task 失敗） | run 45323782247 Step 10：`remote: Invalid username or token. Password authentication is not supported for Git operations.`、`##[error]Process completed with exit code 128.`（App token 已在 Step 7 結束前撤銷）。O-007 改用 `gh api`＋`gh run list`（見 §1.5）；新做法在 Actions 上**待下次真實 `run-task` 實測驗證** |
+| 寫入 `.claude/`（含 `.claude/skills/run-task/SKILL.md`） | 未驗證；預期不能做 | Claude Code 官方文件（permission modes → Protected paths）：寫入 `.claude/` 在 `default`／`acceptEdits` 會跳確認，無人值守的 run 無法回答。因此 O-004～O-006、O-009 的 `.claude/` 變更都由 SRE 在 box 上改 |
+| `git add`／`git commit`／`git push -u origin <分支>` 從頭就分成三次單獨的 Bash 呼叫 | 能做（已驗證：真實 run-task） | O-009 run [45426570786](https://github.com/hansheng08/english-coach/actions/runs/45426570786)：三條指令各自一次 tool call，push 成功、`Detect denied-command resplit…` 步驟 success。同一次 run 唯一的被拒是 `git fetch origin && git checkout -b task/O-009 origin/main && ls tooling tooling/fixtures`（`ls` 被擋）；之後單獨送 `git checkout -b task/O-009 origin/main`，detect-resplit 只看 `git push` 與 `cat`／`grep`／`head`／`ls`／`sed`，所以沒判定。O-009 起 SKILL 第 2 步要求 fetch 與建分支也各自單獨送 |
 | 指令被擋後拆開重送（例如複合 `git push` 被拒後再送單獨 `git push`） | 不能做；被偵測到則 `run_task_summary` 失敗 | `detect-resplit.mjs`；憲章 v5 §13 第 12 條。`git status` 等附帶允許指令不當作拆送 |
 
 **權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `pushguard` job 每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
@@ -238,7 +240,26 @@ gh version 2.103.0 (2026-10-21)
 | `tooling/ac-coverage.mjs` | 同上，讀 `pnpm exec vitest run --reporter=json` 的輸出 | `ci-ok` 紅叉 |
 
 - 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `pushguard` job 執行。
-- `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`docs/**`、`fix/**`、`workflow_dispatch` 的 run 會略過它，摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。
+- `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`docs/**`、`workflow_dispatch` 的 run 會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
-- 已知限制：只有 pgTAP 測試的 AC 會被 ac-coverage 判 `CV-MISSING`（等 O-010）；`fix/**` 分支暫不跑 scope-check／ac-coverage。
+- 已知限制：只有 pgTAP 測試的 AC 會被 ac-coverage 判 `CV-MISSING`（等 O-010）。`fix/**` 分支自 O-009 起也跑（見 §5）。
 - 實測狀態：本機 box 已跑 `taskcheck-test.sh`、`run-task-outcome-test.sh`、`ci-ok.test.mjs`、`actionlint`；Actions 上的 `taskcheck` job 與 `Task lint` 步驟**待 O-008 PR 的 CI 與下一次真實 `run-task` 實測驗證**。
+
+## 5. mutants.json、自動驗證摘要、報告 lint、G3 留言檢查（O-009，憲章 v6 §0.1、§5、§9）
+
+腳本在 `tooling/`（Claude Code 依 `docs/tasks/O-009.md` 寫：`run-mutants.mjs`、`verify-summary.mjs`、`report-lint.mjs`、`comment-lint.mjs`，`scope-check` 支援 `fix/Q-xxx`）；接線、SKILL 改版在 `.github/`、`.claude/skills/`（SRE）。全部只用 Node 內建模組，失敗一律 exit 1。
+
+| 檢查 | 何時跑 | 失敗時 |
+|---|---|---|
+| `run-mutants`（QA 的 `docs/qa/mutants/<分支編號>.json`；分支編號＝`task/` 或 `fix/` 之後的部分） | `ci.yml` `taskcheck`：`task/**`、`fix/**` 的 push 與 PR，檔案存在才跑；不存在時 log 印「run-mutants: 未執行（沒有 …）」 | 存活（`MU-SURVIVED`）、非預期失敗、基準失敗、錨點錯、還原比對不符都 exit 1 → `ci-ok` 紅叉。QA 判定是否退件；等價突變由 QA 從 JSON 移除 |
+| `report-lint` | `taskcheck`：本分支新增或修改的 `docs/reports/*.md`；`claude-run-task.yml`「Report lint and automatic verification summary」步驟：`docs/reports/$TASK.md` | taskcheck：`ci-ok` 紅叉；run-task：Notify `outcome=post_check_failed` |
+| `verify-summary`（自動驗證摘要：測試數、突變、權限被拒、變更檔案） | `taskcheck` 寫進 job summary；run-task 寫進 job summary 並附在 run-task 留言（PR 留言或 commit comment） | 輸入缺漏或結構錯 exit 1（taskcheck 紅叉／run-task `post_check_failed`） |
+| `comment-lint` | 新 workflow `g3-comment-guard.yml`：`pull_request`（opened／edited／reopened／synchronize）、`issue_comment`、`pull_request_review`、`pull_request_review_comment`；只處理標題 `[G3]` 開頭的 PR | 寫 PR head 的 commit status `g3-comment-guard`＝failure，job exit 1。讀 API 失敗也判 failure |
+
+- 接線腳本：`taskcheck.sh`（測試 `taskcheck-test.sh`，新增 fix 分支、report-lint、run-mutants、verify-summary 案例）、`run-task-post-check.sh`（測試 `run-task-post-check-test.sh`，用真的 report-lint／verify-summary）、`g3-comment-guard.sh`（測試 `g3-comment-guard-test.sh`，假 gh＋真的 comment-lint）、`run-task-outcome.sh` 新增 `--post-check`（`post_check_failed`、`post_check_outcome`）、`run-task-summary-step.sh` 附上自動驗證摘要。全部在 `pushguard` job 執行。
+- `g3-comment-guard` **不屬於 `ci-ok`**：留言事件不會重跑 `ci.yml`。結果是 commit status；要不要在 main 分支保護設成必要檢查，由 Hansheng 在 G3 決定。`issue_comment`／review 事件從預設分支執行 workflow（不 checkout PR 程式），所以要等 O-009 合併後才會對留言事件生效。
+- 判斷依據只有留言開頭文字（所有留言作者都是 `hansheng08`）。已知限制：開頭不是 `TechLead Review` 的留言不會被判；QA 寫「不在本機重跑 pnpm check」也會判紅（寧可誤報）；QA 驗收留言請只引用 CI run。
+- 權杖：`g3-comment-guard.yml` 用 `GITHUB_TOKEN`（`contents: read`、`pull-requests: read`、`issues: read`、`statuses: write`），不新增 secret。
+- run-task SKILL（O-009 改版）：第 2 步 fetch 與建分支各自單獨送；第 5 步報告格式與 ≤ 80 行（report-lint）；第 6 步 `git add`、`git commit`、`git push -u origin <分支>` 從頭就三次單獨送；第 9 步改為憲章 v6 §13 第 9 條。`claude-permission-check.mjs` 檢查這些字句（突變測試 M26～M28）。
+- 實測狀態：box 上已跑 `taskcheck-test.sh`、`run-task-post-check-test.sh`、`g3-comment-guard-test.sh`、`run-task-outcome-test.sh`、`run-task-summary-step-test.sh`、`node --test`、`claude-permission-check`、`fail-open-lint`、`actionlint`、`pnpm check`；`run-mutants` 在 box 以真的 Vitest 跑過一次（`tooling/task-lint.mjs` 的兩筆突變：一筆被抓、一筆存活，目標檔 SHA-256 前後相同）；`comment-lint` 對 PR #21、#27 的真實留言都判出 `CM-TECHLEAD` 與 `CM-QA-RERUN`。Actions 上的 `taskcheck` 新步驟以 O-009 PR 的 CI 為準；run-task 的「Report lint and automatic verification summary」步驟、`post_check_failed` 通知，以及 `g3-comment-guard` 對留言事件的觸發與 commit status，**待下次真實 run-task 實測驗證**（後者要等 O-009 合併）。
+

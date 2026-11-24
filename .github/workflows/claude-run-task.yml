@@ -131,6 +131,22 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
         run: bash .github/scripts/verify-push.sh
 
+      # O-009: workflow-side checks on the tree Claude pushed (Claude cannot
+      # skip them): report-lint on docs/reports/$TASK.md and the automatic
+      # verification summary (Vitest JSON + changed files + permission
+      # denials) that the next step adds to the run-task comment. Runs only
+      # when Claude succeeded; fails -> Notify outcome=post_check_failed.
+      - name: Report lint and automatic verification summary
+        id: post_check
+        if: ${{ always() && steps.claude.outcome == 'success' }}
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+          LOG: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          bash .github/scripts/run-task-post-check.sh
+
       - name: Detect denied-command resplit and post run-task summary
         id: run_task_summary
         if: ${{ always() }}
@@ -153,6 +169,7 @@ jobs:
           VERIFY_OUTCOME: ${{ steps.verify_push.outcome }}
           VERIFY_REASON: ${{ steps.verify_push.outputs.verify_reason }}
           SUMMARY_OUTCOME: ${{ steps.run_task_summary.outcome }}
+          POST_CHECK_OUTCOME: ${{ steps.post_check.outcome }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -164,7 +181,10 @@ jobs:
           # and this job still fails when Verify fails (O-004 B3 / P12).
           # O-008: --task-lint adds task_lint_outcome; a failed Task lint
           # gives outcome=task_lint_failed (Claude never started).
-          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
+          # O-009: --post-check adds post_check_outcome; a failed report-lint /
+          # verification summary after an otherwise good run gives
+          # outcome=post_check_failed.
+          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --post-check "${POST_CHECK_OUTCOME:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
           echo "notify ${OUTCOME_JSON}"
           if [ -z "${WEBHOOK_URL:-}" ]; then echo "Webhook not configured, skip."; exit 0; fi
           jq -n --arg task "$TASK" --arg run "$RUN_URL" --argjson o "$OUTCOME_JSON" \
