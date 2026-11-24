@@ -146,6 +146,53 @@ run_case "run-mutants without a report is fail-closed" 1 \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA" EXIT_run_mutants=1 NO_OUT_run_mutants=1
 git switch -q task/T-901
 
+# O-010 db-test cases: supabase/config.toml in the working tree turns db-test on.
+mkdir -p supabase && : > supabase/config.toml
+DB_GOOD='printf "db-test %s\n" "$1" >> "$CALLS"; mkdir -p "$1"; printf "1..1\nok 1 - x\n" > "$1/b.tap"; printf "1..1\nok 1 - y\n" > "$1/a.tap"'
+DB_FAIL_WITH_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; mkdir -p "$1"; printf "1..1\nnot ok 1 - x\n" > "$1/a.tap"; exit 1'
+DB_FAIL_NO_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; exit 1'
+DB_OK_NO_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; mkdir -p "$1"; : > "$1/a.txt"'
+COV_TAP="ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tap W/taskcheck-pgtap/a.tap --tap W/taskcheck-pgtap/b.tap"
+SUM="verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt"
+run_case "config.toml: db-test runs, every TAP (sorted) goes to ac-coverage" 0 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
+run_case "config.toml on pull_request runs db-test too" 0 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
+  EVENT_NAME=pull_request HEAD_REF=task/T-901 BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
+run_case "db-test failure (not ok, TAP written) fails the job; coverage and summary still run" 1 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_FAIL_WITH_TAP"
+run_case "db-test failure without any TAP is fail-closed" 1 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_FAIL_NO_TAP"
+run_case "db-test exit 0 but no *.tap is fail-closed" 1 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_OK_NO_TAP"
+run_case "config.toml: ac-coverage failure with TAP still fails the job" 1 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD" EXIT_ac_coverage=1
+FAKEBIN="$WORK/fakebin"
+mkdir -p "$FAKEBIN"
+cat > "$FAKEBIN/pnpm" <<'FAKE'
+#!/usr/bin/env bash
+printf 'pnpm %s\n' "$*" >> "$CALLS"
+[[ "$1 $2" == "db:test --tap-dir" && -n "$3" ]] || exit 9
+mkdir -p "$3"; printf '1..1\nok 1 - x\n' > "$3/a.tap"
+exit "${EXIT_pnpm:-0}"
+FAKE
+chmod +x "$FAKEBIN/pnpm"
+run_case "default command is pnpm db:test --tap-dir <dir>" 0 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" PATH="$FAKEBIN:$PATH"
+run_case "default command failing fails the job" 1 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" PATH="$FAKEBIN:$PATH" EXIT_pnpm=1
+rm -rf supabase
+run_case "no config.toml: db-test does not run even with DB_TEST_CMD set" 0 \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json|${SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
+
 if [[ "$FAIL" -ne 0 ]]; then
   echo "taskcheck-test: FAILED"
   exit 1

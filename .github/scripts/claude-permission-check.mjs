@@ -27,6 +27,11 @@
 //      three separate standalone Bash calls from the start (O-008 run
 //      45418884942: a denied compound push followed by a lone push was
 //      flagged as a resplit) and cites charter v6 §13 rule 9 for reports.
+//  10. (O-010) `pnpm db:test` (with or without --tap-dir) is allowed in
+//      settings.json, in the workflow --allowedTools and listed in the SKILL
+//      allowed-tools; the SKILL tells the model to run it until `db-test: OK`;
+//      claude-run-task.yml installs a SHA-pinned supabase/setup-cli and runs
+//      `supabase start` before the Claude step, with no continue-on-error.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -87,6 +92,9 @@ export const UNAPPROVED_COMMANDS = [
 
 export const EXPECTED_MAX_TURNS = 200;
 
+// O-010: pgTAP runner the model may call on Actions.
+export const DB_TEST_COMMANDS = ['pnpm db:test', 'pnpm db:test --tap-dir .tmp/pgtap'];
+
 // Substrings that must all appear in run-task SKILL.md (O-006).
 export const REQUIRED_SKILL_SNIPPETS = [
   '一律使用 `git add <明確檔案路徑>`',
@@ -99,6 +107,8 @@ export const REQUIRED_SKILL_SNIPPETS = [
   '`git push -u origin <分支名稱>`',
   '不得用 `&&`、`;`、`|`、`2>&1`',
   '憲章 v6 §13 第 9 條',
+  // O-010: pgTAP via pnpm db:test; psql exit code is not the verdict.
+  '`pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止',
 ];
 
 function escapeRe(s) {
@@ -290,6 +300,21 @@ export function parseSkillAllowedTools(md) {
   return splitToolList(line.slice('allowed-tools:'.length));
 }
 
+// O-010: Supabase must be installed (SHA-pinned) and started before Claude,
+// and neither step may be continue-on-error (fail-closed).
+export function supabaseStartProblems(yml) {
+  const problems = [];
+  const claudeIdx = yml.indexOf('- name: Run Claude Code');
+  if (claudeIdx < 0) return ['claude-run-task.yml: "Run Claude Code" step not found'];
+  const before = yml.slice(0, claudeIdx);
+  const setup = /uses:\s*supabase\/setup-cli@([^\s#]+)/.exec(before);
+  if (!setup) problems.push('claude-run-task.yml: no supabase/setup-cli step before Run Claude Code');
+  else if (!/^[0-9a-f]{40}$/.test(setup[1])) problems.push(`claude-run-task.yml: supabase/setup-cli not pinned to a commit SHA (@${setup[1]})`);
+  if (!/^\s+supabase start\b/m.test(before)) problems.push('claude-run-task.yml: no `supabase start` before Run Claude Code');
+  if (setup && /continue-on-error:\s*true/.test(before.slice(setup.index))) problems.push('claude-run-task.yml: Supabase install/start must not be continue-on-error');
+  return problems;
+}
+
 export function loadInputs(root) {
   const settings = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   if (!settings.permissions) throw new Error('.claude/settings.json: permissions missing');
@@ -342,6 +367,18 @@ export function checkPermissions(inputs) {
     if (skill.length) errors.push(`run-task SKILL allowed-tools allows unapproved "${cmd}" via ${skill.join(', ')}`);
   }
 
+  for (const cmd of DB_TEST_COMMANDS) {
+    const local = decide(perms, 'Bash', cmd);
+    const actions = decide(perms, 'Bash', cmd, workflowTools);
+    const listed = matchesAny(workflowTools, 'Bash', cmd);
+    const skill = matchesAny(skillTools, 'Bash', cmd);
+    report.push(`Bash "${cmd}": settings=${local.decision} actions=${actions.decision} skill=${skill.length ? 'listed' : 'not listed'}`);
+    if (local.decision !== 'allow') errors.push(`settings.json does not allow "${cmd}" (got ${local.decision})`);
+    if (actions.decision !== 'allow') errors.push(`claude-run-task.yml + settings do not allow "${cmd}" (got ${actions.decision})`);
+    if (!listed.length) errors.push(`claude-run-task.yml --allowedTools does not list "${cmd}"`);
+    if (!skill.length) errors.push(`run-task SKILL allowed-tools does not list "${cmd}"`);
+  }
+
   const maxTurns = inputs.maxTurns;
   report.push(`claude-run-task.yml --max-turns: ${maxTurns}`);
   if (maxTurns !== EXPECTED_MAX_TURNS) {
@@ -373,6 +410,9 @@ export function checkPermissions(inputs) {
     const pin = claudeActionPinProblems(yml);
     errors.push(...pin);
     if (!pin.length) report.push('claude-run-task.yml: anthropics/claude-code-action pinned to a commit SHA');
+    const sb = supabaseStartProblems(yml);
+    errors.push(...sb);
+    if (!sb.length) report.push('claude-run-task.yml: supabase/setup-cli SHA-pinned and supabase start before Claude');
   }
   return { errors, report };
 }
@@ -393,7 +433,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude)\n');
   process.exitCode = 0;
 }
 

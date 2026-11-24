@@ -13,11 +13,18 @@
 #                              ac-coverage / report-lint / run-mutants /
 #                              verify-summary all run and are all reported;
 #                              any one failing fails the job (exit 1).
+#                              O-010: when supabase/config.toml exists,
+#                              `pnpm db:test --tap-dir <dir>` runs against the
+#                              local Supabase the job started; a db-test
+#                              failure is reported like the others, and every
+#                              <dir>/*.tap is passed to ac-coverage as --tap.
+#                              No TAP file at all -> exit 1 (fail-closed).
 #   anything else           -> exit 1 (the job-level `if` must not route
 #                              other refs here; reaching this is a wiring bug).
 # Fail-closed: every missing input, git error or tool failure exits non-zero.
 # Env: EVENT_NAME REF_NAME HEAD_REF BEFORE_SHA SHA BASE_SHA PR_HEAD_SHA
-#      RUNNER_TEMP; optional GITHUB_STEP_SUMMARY; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests).
+#      RUNNER_TEMP; optional GITHUB_STEP_SUMMARY; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests),
+#      DB_TEST_CMD (tests; gets the TAP dir as $1).
 set -euo pipefail
 
 TOOLING_DIR="${TOOLING_DIR:-tooling}"
@@ -78,7 +85,20 @@ fi
 
 # From here every check runs and is reported; FAILED collects the names.
 FAILED=()
-if ! node "$TOOLING_DIR/ac-coverage.mjs" --branch "$BRANCH" --results "$RESULTS"; then FAILED+=(ac-coverage); fi
+cov_args=(--branch "$BRANCH" --results "$RESULTS")
+if [[ -f supabase/config.toml ]]; then
+  TAP_DIR="$OUT_DIR/taskcheck-pgtap"
+  rm -rf "$TAP_DIR"
+  # One code path for CI and tests: the default command is the real one.
+  if ! bash -c "${DB_TEST_CMD:-pnpm db:test --tap-dir \"\$1\"}" -- "$TAP_DIR"; then FAILED+=(db-test); fi
+  taps=()
+  if [[ -d "$TAP_DIR" ]]; then mapfile -t taps < <(find "$TAP_DIR" -maxdepth 1 -type f -name '*.tap' | LC_ALL=C sort); fi
+  [[ "${#taps[@]}" -gt 0 ]] || die "db-test wrote no *.tap under '${TAP_DIR}' (failed: ${FAILED[*]:-none})"
+  for t in "${taps[@]}"; do cov_args+=(--tap "$t"); done
+else
+  echo "taskcheck: db-test: 未執行（沒有 supabase/config.toml）"
+fi
+if ! node "$TOOLING_DIR/ac-coverage.mjs" "${cov_args[@]}"; then FAILED+=(ac-coverage); fi
 
 REPORTS="$OUT_DIR/taskcheck-reports.txt"
 git diff --name-only --diff-filter=AM "${BASE}...${HEAD}" -- 'docs/reports/*.md' > "$REPORTS" || die "git diff for docs/reports failed"

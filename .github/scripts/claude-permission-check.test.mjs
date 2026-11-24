@@ -62,6 +62,8 @@ test('real repo passes with exit 0', () => {
   assert.match(r.out, /claude-run-task\.yml checkout: persist-credentials: false/);
   assert.match(r.out, /verify-push\.sh: no git fetch, gh api git\/ref\/heads, Verify step GH_TOKEN=github\.token/);
   assert.match(r.out, /anthropics\/claude-code-action pinned to a commit SHA/);
+  assert.match(r.out, /Bash "pnpm db:test": settings=allow actions=allow skill=listed/);
+  assert.match(r.out, /supabase\/setup-cli SHA-pinned and supabase start before Claude/);
 });
 
 test('matcher: ./ is root-only, **/ is any depth including root', () => {
@@ -391,4 +393,77 @@ test('M28 mutation (O-009): SKILL push without -u origin <分支名稱> -> exit 
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /missing required rule snippet: `git push -u origin <分支名稱>`/);
+});
+
+const YML = '.github/workflows/claude-run-task.yml';
+const SK = '.claude/skills/run-task/SKILL.md';
+function mut(f, k, from, to) {
+  const before = f[k];
+  f[k] = f[k].replace(from, to);
+  assert.notEqual(f[k], before, `anchor not found in ${k}: ${from}`);
+}
+
+test('M29 mutation (O-010): drop Bash(pnpm db:test*) from settings allow -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => {
+    const n = p.allow.length;
+    p.allow = p.allow.filter((x) => x !== 'Bash(pnpm db:test*)');
+    assert.equal(p.allow.length, n - 1);
+  }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /settings\.json does not allow "pnpm db:test"/);
+});
+
+test('M30 mutation (O-010): pnpm db:test moved to ask -> exit 1 (headless cannot answer ask)', () => {
+  const r = runMutated((f) => editSettings(f, (p) => { p.ask.push('Bash(pnpm db:test*)'); }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /claude-run-task\.yml \+ settings do not allow "pnpm db:test --tap-dir \.tmp\/pgtap" \(got ask\)/);
+});
+
+test('M31 mutation (O-010): drop Bash(pnpm db:test*) from workflow --allowedTools -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, ', Bash(pnpm db:test*)', ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /--allowedTools does not list "pnpm db:test"/);
+});
+
+test('M32 mutation (O-010): SKILL allowed-tools without db:test -> exit 1', () => {
+  const r = runMutated((f) => mut(f, SK, ', Bash(pnpm db:test*)\n---', '\n---'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task SKILL allowed-tools does not list "pnpm db:test"/);
+});
+
+test('M33 mutation (O-010): SKILL loses the run-db:test-until-OK rule -> exit 1', () => {
+  const r = runMutated((f) => mut(f, SK, '要跑到它印出 `db-test: OK` 為止', '可視情況執行'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /missing required rule snippet: `pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止/);
+});
+
+test('M34 mutation (O-010): supabase start removed from claude-run-task.yml -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, /\n {10}supabase start [^\n]*/, ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /no `supabase start` before Run Claude Code/);
+});
+
+test('M35 mutation (O-010): supabase/setup-cli back to a tag -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, /supabase\/setup-cli@[0-9a-f]{40}/, 'supabase/setup-cli@v3'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /supabase\/setup-cli not pinned to a commit SHA \(@v3\)/);
+});
+
+test('M36 mutation (O-010): Supabase start marked continue-on-error -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, '        id: supabase_start\n', '        id: supabase_start\n        continue-on-error: true\n'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /must not be continue-on-error/);
+});
+
+test('M37 mutation (O-010): Supabase steps moved after Run Claude Code -> exit 1', () => {
+  const r = runMutated((f) => {
+    const y = f[YML];
+    const a = y.indexOf('      - uses: supabase/setup-cli@');
+    const b = y.indexOf('      - name: Run Claude Code');
+    const c = y.indexOf('      - name: Summarize permission denials');
+    assert.ok(a > 0 && b > a && c > b);
+    f[YML] = y.slice(0, a) + y.slice(b, c) + y.slice(a, b) + y.slice(c);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /no supabase\/setup-cli step before Run Claude Code/);
 });

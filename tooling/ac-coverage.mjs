@@ -10,6 +10,7 @@ import {
   tasksForBranch,
   usageFailure,
 } from './task-file.mjs';
+import { parseTap, tapToTests } from './tap.mjs';
 
 const TOOL = 'ac-coverage';
 
@@ -33,11 +34,18 @@ function collectTests(results) {
   return { tests };
 }
 
-export function checkCoverage({ branch, tasks, results }) {
+export function checkCoverage({ branch, tasks, results, taps }) {
   const set = tasksForBranch(branch, tasks);
   if (set.length === 0) return [{ file: branch, line: 0, rule: 'CV-NOTASK', message: `找不到分支 ${branch} 對應的任務單` }];
-  const collected = collectTests(results);
+  if (results === undefined && taps === undefined) return [{ file: '-', line: 0, rule: 'INPUT', message: '沒有任何測試結果（需要 results 或 taps）' }];
+  const collected = results === undefined ? { tests: [] } : collectTests(results);
   if (collected.error !== undefined) return [{ file: '-', line: 0, rule: 'INPUT', message: collected.error }];
+  for (const tap of taps ?? []) {
+    if (tap.errors.length > 0) {
+      return tap.errors.map((e) => ({ file: tap.file, line: e.line, rule: 'INPUT', message: `${e.rule}: ${e.message}` }));
+    }
+    collected.tests.push(...tapToTests(tap));
+  }
 
   const findings = [];
   // markers：全部都要出現在測試名稱裡才算相關
@@ -60,24 +68,62 @@ export function checkCoverage({ branch, tasks, results }) {
   return findings;
 }
 
+const USAGE_TEXT = 'usage: ac-coverage.mjs --branch <name> [--results <vitest.json>] [--tap <file.tap> ...] [--tasks-dir <dir>]';
+
+// --tap 可重複：先從 argv 抽出，其餘交給 parseArgs。
+function splitTapArgs(argv) {
+  const tapPaths = [];
+  const rest = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i] ?? '';
+    if (arg === '--tap') {
+      const value = argv[i + 1];
+      if (typeof value !== 'string' || value === '' || value.startsWith('--')) return { ok: false, message: 'option --tap needs a value' };
+      tapPaths.push(value);
+      i += 1;
+    } else if (arg.startsWith('--tap=')) {
+      const value = arg.slice('--tap='.length);
+      if (value === '') return { ok: false, message: 'option --tap needs a value' };
+      tapPaths.push(value);
+    } else {
+      rest.push(arg);
+    }
+  }
+  return { ok: true, tapPaths, rest };
+}
+
 export function run(argv) {
-  const args = parseArgs(argv, { options: ['branch', 'results', 'tasks-dir'], positional: false });
+  const split = splitTapArgs(argv);
+  if (!split.ok) return usageFailure(TOOL, 'USAGE', split.message);
+  const args = parseArgs(split.rest, { options: ['branch', 'results', 'tasks-dir'], positional: false });
   if (!args.ok) return usageFailure(TOOL, 'USAGE', args.message);
   const { branch, results } = args.values;
-  if (branch === undefined || results === undefined) {
-    return usageFailure(TOOL, 'USAGE', 'usage: ac-coverage.mjs --branch <name> --results <vitest.json> [--tasks-dir <dir>]');
+  if (branch === undefined || (results === undefined && split.tapPaths.length === 0)) {
+    return usageFailure(TOOL, 'USAGE', USAGE_TEXT);
   }
-  const raw = readText(results);
-  if (!raw.ok) return usageFailure(TOOL, 'INPUT', raw.message);
   let json;
-  try {
-    json = JSON.parse(raw.text);
-  } catch (e) {
-    return usageFailure(TOOL, 'INPUT', `JSON 無法解析：${e instanceof Error ? e.message : String(e)}`);
+  if (results !== undefined) {
+    const raw = readText(results);
+    if (!raw.ok) return usageFailure(TOOL, 'INPUT', raw.message);
+    try {
+      json = JSON.parse(raw.text);
+    } catch (e) {
+      return usageFailure(TOOL, 'INPUT', `JSON 無法解析：${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const taps = [];
+  for (const p of split.tapPaths) {
+    const raw = readText(p);
+    if (!raw.ok) return usageFailure(TOOL, 'INPUT', raw.message);
+    const tap = parseTap(raw.text, p);
+    if (tap.errors.length > 0) {
+      return usageFailure(TOOL, 'INPUT', `${p}: ${tap.errors.map((e) => e.rule).join(',')}`);
+    }
+    taps.push(tap);
   }
   const loaded = loadTasks(args.values['tasks-dir'] ?? 'docs/tasks');
   if (!loaded.ok) return usageFailure(TOOL, 'INPUT', loaded.message);
-  const findings = checkCoverage({ branch, tasks: loaded.tasks, results: json });
+  const findings = checkCoverage({ branch, tasks: loaded.tasks, results: json, taps: split.tapPaths.length > 0 ? taps : undefined });
   return findings.length > 0 ? failure(TOOL, findings) : success(TOOL, [branch]);
 }
 
