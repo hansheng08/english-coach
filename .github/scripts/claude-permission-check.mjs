@@ -9,7 +9,13 @@
 //      `.claude/settings.json`, the `--allowedTools` list of
 //      `.github/workflows/claude-run-task.yml`, and the run-task SKILL
 //      `allowed-tools`, while `pnpm add *`, `pnpm remove *` and
-//      package-adding `pnpm install <pkg>` stay not-allowed.
+//      package-adding `pnpm install <pkg>` stay not-allowed;
+//   4. `.github/workflows/claude-run-task.yml` sets `--max-turns 200`
+//      (O-006; T-003 run 45314135320 completed 170 turns and the action
+//      then failed because 170 exceeded the previous limit of 120);
+//   5. run-task SKILL.md requires explicit-path `git add` (forbids
+//      `-A` / `--all` / `.` / `-u`) and tells the model to use built-in
+//      Read/Edit/Write/Grep/Glob instead of Bash `sed` or `head`.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -66,6 +72,17 @@ export const UNAPPROVED_COMMANDS = [
   'pnpm install zod',
   'pnpm install --no-frozen-lockfile zod',
   'pnpm i zod',
+];
+
+export const EXPECTED_MAX_TURNS = 200;
+
+// Substrings that must all appear in run-task SKILL.md (O-006).
+export const REQUIRED_SKILL_SNIPPETS = [
+  '一律使用 `git add <明確檔案路徑>`',
+  '嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`',
+  '會遭權限擋下並依第 12 條停下',
+  '讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具',
+  '避免透過 Bash 呼叫 `sed` 或 `head`',
 ];
 
 function escapeRe(s) {
@@ -164,6 +181,25 @@ export function parseWorkflowAllowedTools(yml) {
   return splitToolList(m[1]);
 }
 
+// Collect every `--max-turns <digits>` in the workflow. Fail-closed if none
+// are present or if the values disagree. Does not default to 200.
+export function parseWorkflowMaxTurns(yml) {
+  const matches = [...yml.matchAll(/--max-turns\s+(\d+)/g)];
+  if (!matches.length) throw new Error('claude-run-task.yml: --max-turns <N> not found');
+  const values = [...new Set(matches.map((m) => Number(m[1])))];
+  if (values.some((n) => !Number.isInteger(n))) {
+    throw new Error('claude-run-task.yml: --max-turns value is not an integer');
+  }
+  if (values.length !== 1) {
+    throw new Error(`claude-run-task.yml: conflicting --max-turns values: ${values.join(', ')}`);
+  }
+  return values[0];
+}
+
+export function missingSkillSnippets(md) {
+  return REQUIRED_SKILL_SNIPPETS.filter((s) => !md.includes(s));
+}
+
 export function parseSkillAllowedTools(md) {
   const fm = /^---\n([\s\S]*?)\n---/.exec(md);
   if (!fm) throw new Error('run-task SKILL.md: frontmatter not found');
@@ -175,16 +211,16 @@ export function parseSkillAllowedTools(md) {
 export function loadInputs(root) {
   const settings = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   if (!settings.permissions) throw new Error('.claude/settings.json: permissions missing');
-  const workflowTools = parseWorkflowAllowedTools(
-    readFileSync(join(root, '.github/workflows/claude-run-task.yml'), 'utf8'),
-  );
-  const skillTools = parseSkillAllowedTools(
-    readFileSync(join(root, '.claude/skills/run-task/SKILL.md'), 'utf8'),
-  );
-  return { perms: settings.permissions, workflowTools, skillTools };
+  const workflowYml = readFileSync(join(root, '.github/workflows/claude-run-task.yml'), 'utf8');
+  const skillMd = readFileSync(join(root, '.claude/skills/run-task/SKILL.md'), 'utf8');
+  const workflowTools = parseWorkflowAllowedTools(workflowYml);
+  const skillTools = parseSkillAllowedTools(skillMd);
+  const maxTurns = parseWorkflowMaxTurns(workflowYml);
+  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns };
 }
 
-export function checkPermissions({ perms, workflowTools, skillTools }) {
+export function checkPermissions(inputs) {
+  const { perms, workflowTools, skillTools } = inputs;
   const errors = [];
   const report = [];
 
@@ -222,6 +258,22 @@ export function checkPermissions({ perms, workflowTools, skillTools }) {
     if (actions.decision === 'allow') errors.push(`claude-run-task.yml allows unapproved "${cmd}" via ${actions.rules.join(', ')}`);
     if (skill.length) errors.push(`run-task SKILL allowed-tools allows unapproved "${cmd}" via ${skill.join(', ')}`);
   }
+
+  const maxTurns = inputs.maxTurns;
+  report.push(`claude-run-task.yml --max-turns: ${maxTurns}`);
+  if (maxTurns !== EXPECTED_MAX_TURNS) {
+    errors.push(`claude-run-task.yml --max-turns is ${maxTurns}, expected ${EXPECTED_MAX_TURNS}`);
+  }
+
+  const skillMd = inputs.skillMd ?? '';
+  const missing = missingSkillSnippets(skillMd);
+  if (missing.length) {
+    for (const s of missing) {
+      errors.push(`run-task SKILL.md is missing required rule snippet: ${s}`);
+    }
+  } else {
+    report.push('run-task SKILL.md: git add explicit-path rule and built-in tool reminder present');
+  }
   return { errors, report };
 }
 
@@ -241,7 +293,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add and built-in tool rules present)\n');
   process.exitCode = 0;
 }
 

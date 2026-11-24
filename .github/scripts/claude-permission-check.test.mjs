@@ -1,4 +1,4 @@
-// Tests for claude-permission-check.mjs (O-005 / Q-27). Run in CI pushguard.
+// Tests for claude-permission-check.mjs (O-005 / Q-27, O-006). Run in CI pushguard.
 // Includes exit-code assertions on the real repo and mutation tests that copy
 // the three input files to a temp dir, inject one bad rule, and assert the
 // CLI exits 1 with a message naming the problem.
@@ -56,6 +56,8 @@ test('real repo passes with exit 0', () => {
   const r = run(REPO);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /claude-permission-check: OK/);
+  assert.match(r.out, /claude-run-task\.yml --max-turns: 200/);
+  assert.match(r.out, /run-task SKILL\.md: git add explicit-path rule and built-in tool reminder present/);
 });
 
 test('matcher: ./ is root-only, **/ is any depth including root', () => {
@@ -187,4 +189,77 @@ test('B-003: run-task SKILL has charter v5 §13 rules #11, #12 and 權限被拒 
   assert.match(md, /^## 權限被拒$/m);
   assert.match(md, /沒有就寫「0 次」/);
   assert.match(md, /以 execution artifact 為準/);
+});
+
+// O-006: --max-turns 200 and SKILL git-add / built-in tool rules.
+test('O-006: parseWorkflowMaxTurns and missingSkillSnippets unit cases', async () => {
+  const { parseWorkflowMaxTurns, missingSkillSnippets, REQUIRED_SKILL_SNIPPETS } = await import('./claude-permission-check.mjs');
+  assert.equal(parseWorkflowMaxTurns('claude_args: \'--max-turns 200 --allowedTools "Read"\''), 200);
+  assert.throws(() => parseWorkflowMaxTurns('claude_args: --allowedTools "Read"'), /--max-turns <N> not found/);
+  assert.throws(() => parseWorkflowMaxTurns('--max-turns 200\n--max-turns 120'), /conflicting --max-turns values: 200, 120/);
+  assert.deepEqual(missingSkillSnippets(REQUIRED_SKILL_SNIPPETS.join('\n')), []);
+  assert.deepEqual(missingSkillSnippets(''), REQUIRED_SKILL_SNIPPETS);
+});
+
+test('M13 mutation: --max-turns 200 changed to 120 -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.github/workflows/claude-run-task.yml';
+    f[k] = f[k].replace('--max-turns 200', '--max-turns 120');
+    assert.match(f[k], /--max-turns 120/);
+    assert.doesNotMatch(f[k], /--max-turns 200/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /claude-run-task\.yml --max-turns is 120, expected 200/);
+});
+
+test('M14 mutation: remove --max-turns entirely -> exit 1 (fail-closed)', () => {
+  const r = runMutated((f) => {
+    const k = '.github/workflows/claude-run-task.yml';
+    f[k] = f[k].replace('--max-turns 200 ', '');
+    assert.doesNotMatch(f[k], /--max-turns/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /--max-turns <N> not found/);
+});
+
+test('M15 mutation: --max-turns 200 changed to 199 -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.github/workflows/claude-run-task.yml';
+    f[k] = f[k].replace('--max-turns 200', '--max-turns 199');
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /claude-run-task\.yml --max-turns is 199, expected 200/);
+});
+
+test('M16 mutation: conflicting --max-turns 200 and 120 -> exit 1 (fail-closed)', () => {
+  const r = runMutated((f) => {
+    const k = '.github/workflows/claude-run-task.yml';
+    f[k] = f[k].replace('--max-turns 200', '--max-turns 200 --max-turns 120');
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /conflicting --max-turns values: 200, 120/);
+});
+
+test('M17 mutation: remove git add -A prohibition from SKILL.md -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.claude/skills/run-task/SKILL.md';
+    const before = f[k];
+    // The phrase is repeated in step 6 and in the commit／push section; drop every copy.
+    f[k] = f[k].replaceAll('嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`', '可用 git add 一次加入多個檔案');
+    assert.notEqual(f[k], before);
+    assert.doesNotMatch(f[k], /嚴禁使用 `git add -A`/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task SKILL\.md is missing required rule snippet: 嚴禁使用 `git add -A`、`git add --all`、`git add \.`、`git add -u`/);
+});
+
+test('M18 mutation: remove built-in tool / sed／head reminder from SKILL.md -> exit 1', () => {
+  const r = runMutated((f) => {
+    const k = '.claude/skills/run-task/SKILL.md';
+    f[k] = f[k].replace('讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具，避免透過 Bash 呼叫 `sed` 或 `head`。', '');
+    assert.doesNotMatch(f[k], /避免透過 Bash 呼叫 `sed` 或 `head`/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task SKILL\.md is missing required rule snippet: 讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具/);
+  assert.match(r.out, /避免透過 Bash 呼叫 `sed` 或 `head`/);
 });
