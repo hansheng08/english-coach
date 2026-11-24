@@ -15,11 +15,16 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --f
 3. 讀任務單「背景」列出的文件，只做「範圍：要做」列出的事；「範圍外」的事一律不做。
 4. 依「驗證方式」執行建置與測試。失敗就修正程式直到通過；不得刪除、跳過或放寬測試來讓它通過。真的無法完成時，停止修改，並在報告中說明原因。
 5. 把結果寫到 docs/reports/$ARGUMENTS.md：完成摘要、變更檔案清單、測試結果、未完成事項、需要人類決定的問題，以及固定的「權限被拒」一節（格式見下方「報告：權限被拒」）。
-6. commit（訊息格式：[Claude] $ARGUMENTS 摘要），再 git push origin <分支名稱>。
+6. commit（訊息格式：[Claude] $ARGUMENTS 摘要），再 git push origin <分支名稱>。一律使用 `git add <明確檔案路徑>`，嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`（會遭權限擋下並依第 12 條停下）。
+
 7. 不要開 PR、不要合併、不要修改 main，也不要修改其他任務的任務單。
 8. 任務單內容不清楚到無法判斷時，不要猜：把問題寫進報告的「需要人類決定的問題」，commit 並推送報告後結束。
 9. 報告裡的數字與輸出一律從原始輸出或 execution artifact 複製，不得手打或改寫（憲章 v5 §13 第 11 條）。
 10. 指令被權限擋下時，不得拆成幾條重送或換寫法繞過；停止該做法，記進報告的「權限被拒」一節（憲章 v5 §13 第 12 條）。workflow 會偵測拆開重送並判定這次執行失敗。
+
+## commit／push 與工具使用
+
+一律使用 `git add <明確檔案路徑>`，嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`（會遭權限擋下並依第 12 條停下）。讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具，避免透過 Bash 呼叫 `sed` 或 `head`。
 
 ## 報告：權限被拒（必填）
 
