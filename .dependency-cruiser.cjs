@@ -80,6 +80,13 @@ module.exports = {
       from: { pathNot: TEST },
       to: { path: TEST, pathNot: 'node_modules/' },
     },
+    {
+      name: 'arch31-db-no-providers',
+      comment: 'ARCHITECTURE §3.1: supabase/functions/_shared/db must not import provider modules (adapters or registry)',
+      severity: 'error',
+      from: { path: '^supabase/functions/_shared/db/' },
+      to: { path: '^supabase/functions/_shared/providers/' },
+    },
   ],
   options: {
     // 目錄不存在也不會讓指令失敗：掃描根目錄 "."，只用 exclude 排除非產品程式。

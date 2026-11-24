@@ -108,10 +108,16 @@ const CASES: Case[] = [
       'packages/domain/src/x-testing.test.ts',
     ],
   },
+  {
+    rule: 'arch31-db-no-providers',
+    adr: '(ARCHITECTURE §3.1)',
+    bad: ['supabase/functions/_shared/db/bad-provider.ts'],
+    good: ['supabase/functions/_shared/db/client.ts'],
+  },
 ];
 
 describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
-  it('ADR-008: the config defines exactly the 10 named rules', () => {
+  it('ADR-008: the config defines exactly the 11 named rules', () => {
     expect(ruleNames).toEqual(CASES.map((c) => c.rule));
   });
 
