@@ -7,6 +7,7 @@ select plan(69);
 insert into auth.users (id, email) values
   ('a0000000-0000-4000-8000-000000000001', 't005-user-a@example.com'),
   ('b0000000-0000-4000-8000-000000000002', 't005-user-b@example.com');
+delete from public.news_source; -- T-022 seeds 9 sources; this file uses only its own 2 (rolled back)
 insert into public.news_source (id, name, feed_url, category, priority, fetch_mode) values
   ('e0000000-0000-4000-8000-000000000051', 'Example AI', 'https://news.example.com/ai/feed/', 'ai', 1, 'rss_full'),
   ('e0000000-0000-4000-8000-000000000052', 'Example Software', 'https://news.example.com/software/feed/', 'software', 1, 'rss_then_page');
