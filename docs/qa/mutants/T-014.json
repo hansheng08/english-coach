@@ -1,0 +1,140 @@
+{
+  "task": "T-014",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "p.id === id && p.capability === capability",
+      "after": "p.capability === capability",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "p.id === id && p.capability === capability",
+      "after": "p.id === id",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "'gemini-paid': 'paid',",
+      "after": "'gemini-paid': 'free',",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": " || found.value.tier === 'paid'",
+      "after": "",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "grantedAt === null || grantedAt.length === 0 || cap === null",
+      "after": "grantedAt === null || cap === null",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "grantedAt === null || grantedAt.length === 0 || cap === null",
+      "after": "grantedAt === null || grantedAt.length === 0",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "usedThisMonthNtd >= cap",
+      "after": "usedThisMonthNtd > cap",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "if (!key.ok) return err({ ...key.error, capability });",
+      "after": "",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "return err(notConfigured(id, capability, 'azure-speech-paid is not available in the MVP'));",
+      "after": "return find(capability, id);",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "if (!paid) return found;",
+      "after": "return found;",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "return resolvePaid(capability, settings, consent.value);",
+      "after": "return found;",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "stt: { provider: 'groq', model: 'whisper-large-v3-turbo' },",
+      "after": "stt: { provider: 'groq-paid' as never, model: 'whisper-large-v3-turbo' },",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/_shared/providers/registry.ts",
+      "before": "  paid_consent_at: null,\n  monthly_paid_cap_ntd: null,\n};",
+      "after": "  paid_consent_at: '2026-01-01T00:00:00Z',\n  monthly_paid_cap_ntd: null,\n};",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/_shared/config/paid.ts",
+      "before": "value === undefined || value.length === 0",
+      "after": "value === undefined",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/_shared/config/paid.ts",
+      "before": "const GEMINI_PAID_KEY_NAME = 'GEMINI_PAID_API_KEY';",
+      "after": "const GEMINI_PAID_KEY_NAME = 'GEMINI_API_KEY';",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    }
+  ]
+}
