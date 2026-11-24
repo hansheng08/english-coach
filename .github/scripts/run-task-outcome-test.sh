@@ -79,8 +79,8 @@ run_json() {
   elif [[ "$got" != "$expected" ]]; then
     echo "ERROR: expected ${expected}"
     FAIL=1
-  elif ! jq -e 'type == "object" and (keys | length) == 5' <<<"$got" >/dev/null; then
-    echo "ERROR: not a 5-key JSON object"
+  elif ! jq -e 'type == "object" and (keys | length) == 6' <<<"$got" >/dev/null; then
+    echo "ERROR: not a 6-key JSON object"
     FAIL=1
   else
     echo "CASE OK"
@@ -89,43 +89,84 @@ run_json() {
 }
 
 run_json "all success" \
-  '{"outcome":"success","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"ok"}' \
+  '{"outcome":"success","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"ok","task_lint_outcome":"none"}' \
   success success success ok
 run_json "run 45323782247 shape: claude success, verify failure (fetch auth)" \
-  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"none"}' \
+  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"none"}' \
   success failure success ""
 run_json "verify failure with api_auth reason" \
-  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"api_auth"}' \
+  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"api_auth","task_lint_outcome":"none"}' \
   success failure success api_auth
 run_json "verify failure with branch_missing reason" \
-  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"branch_missing"}' \
+  '{"outcome":"verify_failed","claude_outcome":"success","verify_outcome":"failure","summary_outcome":"success","verify_reason":"branch_missing","task_lint_outcome":"none"}' \
   success failure success branch_missing
 run_json "claude failure, verify skipped" \
-  '{"outcome":"failure","claude_outcome":"failure","verify_outcome":"skipped","summary_outcome":"success","verify_reason":"none"}' \
+  '{"outcome":"failure","claude_outcome":"failure","verify_outcome":"skipped","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"none"}' \
   failure skipped success ""
 run_json "summary failure" \
-  '{"outcome":"summary_failed","claude_outcome":"success","verify_outcome":"success","summary_outcome":"failure","verify_reason":"ok"}' \
+  '{"outcome":"summary_failed","claude_outcome":"success","verify_outcome":"success","summary_outcome":"failure","verify_reason":"ok","task_lint_outcome":"none"}' \
   success success failure ok
 run_json "claude cancelled" \
-  '{"outcome":"cancelled","claude_outcome":"cancelled","verify_outcome":"skipped","summary_outcome":"skipped","verify_reason":"none"}' \
+  '{"outcome":"cancelled","claude_outcome":"cancelled","verify_outcome":"skipped","summary_outcome":"skipped","verify_reason":"none","task_lint_outcome":"none"}' \
   cancelled skipped skipped ""
 run_json "invalid inputs are normalized to invalid, outcome failure" \
-  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid"}' \
+  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid","task_lint_outcome":"none"}' \
   " success" SUCCESS 'x"y' 'ok; rm -rf /'
 run_json "wrong-case Success in every field normalizes to invalid" \
-  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid"}' \
+  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"invalid","task_lint_outcome":"none"}' \
   Success Success Success OK
 run_json "verify success but summary skipped is failure" \
-  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"skipped","verify_reason":"ok"}' \
+  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"skipped","verify_reason":"ok","task_lint_outcome":"none"}' \
   success success skipped ok
 run_json "3 args in --json mode is failure" \
-  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"none"}' \
+  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"none"}' \
   success success success
 run_json "5 args in --json mode is failure" \
-  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"ok"}' \
+  '{"outcome":"failure","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"ok","task_lint_outcome":"none"}' \
   success success success ok extra
 run_json "no args in --json mode is failure" \
-  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"none"}'
+  '{"outcome":"failure","claude_outcome":"invalid","verify_outcome":"invalid","summary_outcome":"invalid","verify_reason":"none","task_lint_outcome":"none"}'
+
+# O-008: --task-lint gate (checked before Claude/Verify/summary).
+# run_lint <name> <expected outcome> <args...>  (args include --task-lint)
+run_lint() {
+  local name="$1" expected="$2"
+  shift 2
+  echo "===== LINT CASE: ${name} ====="
+  local got ec
+  set +e
+  got="$(bash "$HERE/run-task-outcome.sh" "$@" 2>/dev/null)"
+  ec=$?
+  set -e
+  echo "outcome=${got} exit=${ec} (expected ${expected}, exit 0)"
+  if [[ "$ec" -ne 0 ]]; then
+    echo "ERROR: expected exit 0, got ${ec}"
+    FAIL=1
+  elif [[ "$got" != "$expected" ]]; then
+    echo "ERROR: expected ${expected}, got ${got}"
+    FAIL=1
+  else
+    echo "CASE OK"
+  fi
+  echo
+}
+run_lint "O-008: lint failure, Claude skipped is task_lint_failed" task_lint_failed --task-lint failure skipped skipped success
+run_lint "O-008: lint failure wins even if later steps say success" task_lint_failed --task-lint failure success success success
+run_lint "O-008: lint success + all success is success" success --task-lint success success success success
+run_lint "O-008: lint success + verify failure is still verify_failed" verify_failed --task-lint success success failure success
+run_lint "O-008: lint success + claude failure is failure" failure --task-lint success failure skipped success
+run_lint "O-008: lint skipped is failure (not success)" failure --task-lint skipped success success success
+run_lint "O-008: lint empty is failure" failure --task-lint "" success success success
+run_lint "O-008: lint wrong case is failure" failure --task-lint Success success success success
+run_lint "O-008: lint cancelled is cancelled" cancelled --task-lint cancelled skipped skipped success
+run_lint "O-008: --task-lint without value is failure" failure --task-lint
+run_lint "O-008: lint failure in --json mode" \
+  '{"outcome":"task_lint_failed","claude_outcome":"skipped","verify_outcome":"skipped","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"failure"}' \
+  --task-lint failure --json skipped skipped success ""
+run_lint "O-008: lint success in --json mode, all success" \
+  '{"outcome":"success","claude_outcome":"success","verify_outcome":"success","summary_outcome":"success","verify_reason":"ok","task_lint_outcome":"success"}' \
+  --task-lint success --json success success success ok
+run_lint "O-008: lint failure with wrong arg count is still failure" failure --task-lint failure success success
 
 if [[ "$FAIL" -ne 0 ]]; then
   echo "run-task-outcome-test: FAILED"

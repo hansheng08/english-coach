@@ -2,19 +2,26 @@
 # Compute the webhook outcome for claude-run-task Notify.
 #
 # Usage:
-#   bash run-task-outcome.sh <claude> <verify> <summary>
+#   bash run-task-outcome.sh [--task-lint <outcome>] <claude> <verify> <summary>
 #       -> prints one word (the overall outcome)
-#   bash run-task-outcome.sh --json <claude> <verify> <summary> <verify_reason>
+#   bash run-task-outcome.sh [--task-lint <outcome>] --json <claude> <verify> <summary> <verify_reason>
 #       -> prints one JSON object with the overall outcome AND each
 #          normalized step outcome, for the claude-task-finished webhook:
 #          {"outcome":…,"claude_outcome":…,"verify_outcome":…,
-#           "summary_outcome":…,"verify_reason":…}
+#           "summary_outcome":…,"verify_reason":…,"task_lint_outcome":…}
+#       task_lint_outcome is "none" when --task-lint is not given (callers
+#       before O-008); claude-run-task.yml always passes it.
 #
 # Step outcomes from GitHub are success | failure | cancelled | skipped.
 # Every input is normalized first; anything else (empty, whitespace, other
 # case, unknown string) becomes "invalid" (O-005 / B-003).
 #
-# Overall outcome (O-007 separates Claude/product failure from Verify):
+# Overall outcome (O-007 separates Claude/product failure from Verify;
+# O-008 adds the Task lint gate that runs before Claude):
+#   task_lint_failed  --task-lint failure: the task file broke charter v6
+#                  §13 and Claude was never started (0 turns)
+#   (a --task-lint value other than success/failure gives failure, or
+#    cancelled when it is cancelled; it is checked before everything else)
 #   success        claude, verify and summary are all success
 #   verify_failed  claude success + summary success + verify failure:
 #                  Claude finished; the "Verify push triggered CI" step
@@ -50,6 +57,19 @@ normalize_verify_reason() {
   esac
 }
 
+lint_given=0
+lint="none"
+if [[ "${1-}" == "--task-lint" ]]; then
+  lint_given=1
+  if [[ "$#" -lt 2 ]]; then
+    lint="invalid"
+    shift
+  else
+    lint="$(normalize_step_outcome "${2-}")"
+    shift 2
+  fi
+fi
+
 mode="word"
 want=3
 if [[ "${1-}" == "--json" ]]; then
@@ -69,7 +89,13 @@ summary="$(normalize_step_outcome "${3-}")"
 reason="$(normalize_verify_reason "${4-}")"
 
 result="failure"
-if [[ "$argc_ok" -eq 1 ]]; then
+if [[ "$argc_ok" -eq 1 && "$lint_given" -eq 1 && "$lint" != "success" ]]; then
+  case "$lint" in
+    failure) result="task_lint_failed" ;;
+    cancelled) result="cancelled" ;;
+    *) result="failure" ;;
+  esac
+elif [[ "$argc_ok" -eq 1 ]]; then
   case "$claude" in
     success)
       if [[ "$verify" == "success" && "$summary" == "success" ]]; then
@@ -85,12 +111,12 @@ if [[ "$argc_ok" -eq 1 ]]; then
   esac
 fi
 if [[ "$result" != "success" ]]; then
-  echo "run-task-outcome: claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
+  echo "run-task-outcome: task_lint=${lint} claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
 fi
 if [[ "$mode" == "json" ]]; then
   # Every value is one of the fixed literals above, so no escaping is needed.
-  printf '{"outcome":"%s","claude_outcome":"%s","verify_outcome":"%s","summary_outcome":"%s","verify_reason":"%s"}\n' \
-    "$result" "$claude" "$verify" "$summary" "$reason"
+  printf '{"outcome":"%s","claude_outcome":"%s","verify_outcome":"%s","summary_outcome":"%s","verify_reason":"%s","task_lint_outcome":"%s"}\n' \
+    "$result" "$claude" "$verify" "$summary" "$reason" "$lint"
 else
   printf '%s\n' "$result"
 fi

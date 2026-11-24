@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { evaluateNeeds, renderSummary } from './ci-ok.mjs';
 
 const SCRIPT = fileURLToPath(new URL('./ci-ok.mjs', import.meta.url));
-const ALL = ['detect', 'actionlint', 'pushguard', 'secrets', 'check', 'bundle', 'db', 'e2e'];
+const ALL = ['detect', 'actionlint', 'pushguard', 'secrets', 'check', 'bundle', 'db', 'e2e', 'taskcheck'];
 const needs = (over = {}) => Object.fromEntries(ALL.map((n) => [n, { result: over[n] ?? 'success' }]));
 
 test('all success → ok', () => {
@@ -100,4 +100,19 @@ test('CLI: push + skipped db writes 未驗證', () => {
   rmSync(dir, { recursive: true, force: true });
   assert.equal(r.status, 0);
   assert.match(text, /db: 未驗證/);
+});
+
+test('O-008: taskcheck missing from needs → not ok (wiring removed)', () => {
+  const n = needs();
+  delete n.taskcheck;
+  const r = evaluateNeeds(n);
+  assert.equal(r.ok, false);
+  assert.deepEqual(r.failures, ['taskcheck: missing']);
+});
+test('O-008: taskcheck failure → not ok; skipped → ok but listed as not verified', () => {
+  assert.equal(evaluateNeeds(needs({ taskcheck: 'failure' })).ok, false);
+  const r = evaluateNeeds(needs({ taskcheck: 'skipped' }));
+  assert.equal(r.ok, true);
+  assert.deepEqual(r.skippedConditional, ['taskcheck']);
+  assert.match(renderSummary(r), /Skipped \(not verified\): taskcheck/);
 });

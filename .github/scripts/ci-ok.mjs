@@ -3,7 +3,8 @@ import { appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const REQUIRED = ['detect', 'actionlint', 'pushguard', 'secrets'];
-export const CONDITIONAL = ['check', 'bundle', 'db', 'e2e'];
+// taskcheck (O-008): skipped on docs/**, fix/** and workflow_dispatch runs.
+export const CONDITIONAL = ['check', 'bundle', 'db', 'e2e', 'taskcheck'];
 
 /** @param {Record<string, {result?: string}>} needs  `toJSON(needs)` 的內容 */
 export function evaluateNeeds(needs) {

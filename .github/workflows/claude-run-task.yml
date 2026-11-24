@@ -57,6 +57,17 @@ jobs:
           node-version: '24'
           cache: pnpm
 
+      # O-008: reject a task file that breaks charter v6 §13 before Claude
+      # starts (0 turns spent). tooling/task-lint.mjs uses Node built-ins only,
+      # so no pnpm install is needed. Fail-closed: any lint error exits 1, the
+      # Claude step is skipped (default success() condition) and Notify sends
+      # outcome=task_lint_failed.
+      - name: Task lint
+        id: task_lint
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+        run: node tooling/task-lint.mjs "docs/tasks/${TASK}.md"
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@eb56b6666facdbd501035f4a0269d8caee2e7a8b # v1 (v1.0.289)
@@ -137,6 +148,7 @@ jobs:
           WEBHOOK_URL: ${{ secrets.GROK_CHIEF_WEBHOOK_URL }}
           WEBHOOK_KEY: ${{ secrets.GROK_CHIEF_WEBHOOK_KEY }}
           TASK: ${{ github.event.client_payload.task }}
+          TASK_LINT_OUTCOME: ${{ steps.task_lint.outcome }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify_push.outcome }}
           VERIFY_REASON: ${{ steps.verify_push.outputs.verify_reason }}
@@ -150,7 +162,9 @@ jobs:
           # outcome=verify_failed instead of the same `failure` as a failed
           # Claude run. Not fail-open: only all-success inputs give success,
           # and this job still fails when Verify fails (O-004 B3 / P12).
-          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
+          # O-008: --task-lint adds task_lint_outcome; a failed Task lint
+          # gives outcome=task_lint_failed (Claude never started).
+          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
           echo "notify ${OUTCOME_JSON}"
           if [ -z "${WEBHOOK_URL:-}" ]; then echo "Webhook not configured, skip."; exit 0; fi
           jq -n --arg task "$TASK" --arg run "$RUN_URL" --argjson o "$OUTCOME_JSON" \
