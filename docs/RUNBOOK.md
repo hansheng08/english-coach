@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.7（2026-11-24，O-006：`--max-turns` 調為 200；依 T-003 run 45314135320 更新 lockfile、`.env.example` Write／Edit、C3 commit comment 實測）
+- 版本：v0.8（2026-11-24，O-007：Verify 改用 `gh api`＋`gh run list`、不再 `git fetch`；Notify 區分 `verify_failed`；`claude-code-action` 釘 SHA。v0.7：O-006 `--max-turns` 200 與 T-003 run 45314135320 實測）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -25,7 +25,7 @@ T-900 試跑（2026-11-23 21:01–21:03 台北時間，run [45179784919](https:/
 
 `anthropics/claude-code-action` **不要**傳 `github_token` 輸入（尤其不要傳 `${{ secrets.GITHUB_TOKEN }}`），讓它繼續用既有的 OIDC → Claude GitHub App token 設定 git 認證。
 
-O-002 合併進 main 之後，Claude 推 `task/*` 或 `fix/*` 時，應出現 `event=push` 的 `ci.yml` run，而且 `headSha` 等於該分支先端。若當時已經有 PR，也應出現 `pull_request` 的 synchronize run。workflow 裡的「Verify push triggered CI」步驟會查這件事；若約 3 分鐘內沒有對應的 push run，該步驟會失敗，方便回報幕僚長。O-003 起：通知幕僚長的 `outcome` 不再只看 `steps.claude.outcome`；若「Verify push triggered CI」失敗，webhook 的 `outcome` 會是 `failure`（以前仍會回 success）。
+O-002 合併進 main 之後，Claude 推 `task/*` 或 `fix/*` 時，應出現 `event=push` 的 `ci.yml` run，而且 `headSha` 等於該分支先端。若當時已經有 PR，也應出現 `pull_request` 的 synchronize run。workflow 裡的「Verify push triggered CI」步驟會查這件事；若約 3 分鐘內沒有對應的 push run，該步驟會失敗，方便回報幕僚長。（O-007 起這一步不再 `git fetch`，改用 `gh api`；見 §1.5。）O-003 起：通知幕僚長的 `outcome` 不再只看 `steps.claude.outcome`；若「Verify push triggered CI」失敗，webhook 的 `outcome` 會是 `failure`（以前仍會回 success）。
 
 `ci.yml` 的 `db`、`e2e` job 只在事件為 `pull_request` 時執行。若只有 `push`、沒有 PR，這兩個 job 會被略過，這是既有設計，不是回歸錯誤。
 
@@ -46,6 +46,46 @@ O-002 之後，在該次 **Claude Run Task** 的 run 頁：
 
 **任何人不得自行新增這個密鑰。** 要走方案 A 必須先問幕僚長，再由 Hansheng 核准後才設定。本文件不記載任何 token 或金鑰的值。
 
+
+### 1.5 Verify 步驟在 `persist-credentials: false` 下的憑證限制（O-007）
+
+**現象（假紅燈）**：T-003 重派 run [45323782247](https://github.com/hansheng08/english-coach/actions/runs/45323782247)（2026-11-24 12:04:09–12:10:39 Asia/Taipei，job `138208314360`）Step 7「Run Claude Code」success，Step 10「Verify push triggered CI」failure，Notify 把整次當成 failure。job log 原文（`gh run view 45323782247 --log --job 138208314360`，去掉 ANSI 色碼）：
+
+```
+2026-11-24T04:04:28.1226158Z App token successfully obtained
+2026-11-24T04:04:28.4557801Z ✓ Updated remote URL with authentication token
+2026-11-24T04:10:32.3551765Z ##[start-action display=Revoke app token;id=claude.__run_8]
+2026-11-24T04:10:33.9848372Z fetching origin/task/T-003
+2026-11-24T04:10:34.1898796Z remote: Invalid username or token. Password authentication is not supported for Git operations.
+2026-11-24T04:10:34.1899836Z fatal: Authentication failed for 'https://github.com/hansheng08/english-coach.git/'
+2026-11-24T04:10:34.1930578Z ##[error]Process completed with exit code 128.
+2026-11-24T04:10:35.5361880Z notify outcome=failure (claude=success verify=failure summary=success)
+```
+
+**已驗證的事實**：
+- 同一次 run 裡 Claude App 的推送**有**觸發 CI：push run [45324530991](https://github.com/hansheng08/english-coach/actions/runs/45324530991)（`event=push`、`headBranch=task/T-003`、`headSha=1a2ef4c4ded3241f9583f1e9d7a55e63080af29d`、`createdAt=2026-11-24T04:10:29Z`＝12:10:29 Asia/Taipei，早於 Verify 開始的 12:10:33；conclusion=success）。這證明 §1.1／§1.2 的 `persist-credentials: false` 保護在真實 run 有效，**不得**為了讓 `git fetch` 通過而改回 `true`。
+- `claude-code-action` 在 Step 7 開頭把 App token 寫進 remote URL（`✓ Updated remote URL with authentication token`），在 Step 7 結束前執行 `Revoke app token`。之後的 `git fetch` 帶著已撤銷的 token，所以 GitHub 回 `Invalid username or token`。（機制依上方 log 順序推得；沒有另做「注入新憑證重跑」的對照實驗。）
+
+**修正（O-007）**：`.github/scripts/verify-push.sh` 完全不跑 `git fetch`，改用 Verify 步驟注入的 `GH_TOKEN: ${{ github.token }}`（本 job 的 `GITHUB_TOKEN`，整個 job 期間有效，與 Claude App token 無關）：
+1. `gh api repos/<owner>/<repo>/git/ref/heads/<branch>` 取遠端分支先端（需 `contents` 讀取；workflow 已有 `contents: write`）。回應必須是**單一** JSON 物件、`.ref == "refs/heads/<branch>"`、`.object.type == "commit"`、`.object.sha` 為 40 位小寫十六進位；JSON 陣列（舊 `git/refs` 端點的前綴比對會回陣列）或其他形狀一律失敗。box 實測：單數 `git/ref/heads/<前綴>` 對不存在的完整名稱回 `gh: Not Found (HTTP 404)`，不做前綴比對。
+2. `gh run list --repo <repo> --workflow ci.yml --branch <branch> --event push --json …` 輪詢（預設 12 次、每次間隔 15 s，可用 `VERIFY_PUSH_ATTEMPTS`／`VERIFY_PUSH_SLEEP` 調整），必須找到 `event=push`、`headBranch=<branch>`、`headSha=<步驟 1 的 SHA>` 的 run（需 `actions: read`）。
+3. 失敗一律 exit 1，並把原因碼寫進 `GITHUB_OUTPUT` 的 `verify_reason`：`bad_input`（缺 `GH_TOKEN`／`GITHUB_REPOSITORY`、分支名不合法、輪詢參數不合法）、`branch_missing`（HTTP 404：推送沒到 GitHub）、`api_auth`（HTTP 401／403）、`api_error`（其他 `gh api` 錯誤）、`bad_ref_json`、`run_list_error`（`gh run list` 失敗，含 401／403）、`bad_run_json`、`no_push_run`（分支在、但找不到對應的 push run）。成功為 `ok`。`GH_TOKEN` 的值不會印出。
+
+**Notify 區分 Claude 與 Verify（O-007）**：`run-task-outcome.sh --json` 產生 webhook 的 outcome 欄位，`claude-task-finished` payload 保留 `event`、`task`、`run`、`outcome`，另加 `claude_outcome`、`verify_outcome`、`summary_outcome`、`verify_reason`：
+
+| `outcome` | 條件 | 怎麼看 |
+|---|---|---|
+| `success` | Claude、Verify、summary 三步都是 success | 唯一的綠燈 |
+| `verify_failed` | Claude success、summary success、Verify failure | Claude 已完成；看 `verify_reason`：`branch_missing` 代表分支沒推上去（當成任務問題處理），`api_auth`／`api_error`／`run_list_error`／`bad_*` 是基礎設施，`no_push_run` 是分支在但沒有 push CI |
+| `summary_failed` | Claude success、Verify success、summary failure | 偵測到拆開重送，或 PR／commit 摘要留言失敗 |
+| `cancelled` | Claude cancelled | |
+| `failure` | 其他所有組合：Claude failure／skipped／不合法值、Verify 與 summary 同時失敗、Claude success 但 Verify／summary 為 skipped／cancelled／不合法值、參數個數不對 | 預設失敗 |
+
+這**不是** fail-open：`verify_failed`／`summary_failed` 都不是 success，而且 Verify 失敗時該步驟本身仍失敗，整個 job 仍是紅燈。
+
+**本機測試（2026-11-24，box；原始輸出見 `docs/reports/O-007.md`）**：`verify-push-test.sh` 31 個案例（假的 `gh`／`git` 放在 PATH 前面，零網路、不等待；假的 `git fetch` 一被呼叫就 exit 97）、`run-task-outcome-test.sh`、`claude-permission-check.test.mjs`（M19～M25：checkout 必須 `persist-credentials: false`、verify-push 不得 `git fetch`、Verify 必須帶 `GH_TOKEN`、`claude-code-action` 必須釘 SHA）全部 exit 0；對 `verify-push.sh`、`run-task-outcome.sh`、`claude-permission-check.mjs` 各做的暫時突變都讓對應測試 exit 1。box 上以 box 的 `gh` 權杖實跑 `verify-push.sh task/O-001` → `exit=0 verify_reason=ok`；`task/O-999` → `gh: Not Found (HTTP 404)`、`exit=1 verify_reason=branch_missing`。
+
+**待下次真實 `run-task` 實測驗證**：在 Actions 上用 `github.token` 跑新的 Verify（`gh api git/ref` 與 `gh run list`）、`verify_reason` 在步驟失敗時仍寫進 `steps.verify_push.outputs`、Notify 送出的新 payload 欄位、以及釘 SHA 後的 `claude-code-action`。在那之前這幾項標未驗證。
 
 ## 2. CI `db` job：本機 Supabase 與 health／ADR-009 檢查
 
@@ -132,6 +172,7 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | Read 真實環境檔（`.env`、`.env.local`、`.env.*.local`、`.env.dev*`、`.env.prod*`、`.env.stag*`、`.env.test*`、`.env.preview*`、`.env.secret*`、`.env.keys`、`.env.ci*`、備份檔 `.env.bak*` 等；根目錄與子資料夾） | 不能做（設定 deny）；真實 run-task 的比對行為**未驗證** | `.claude/settings.json` 對每種各列 `Read(./…)` 與 `Read(**/…)`；檢查輸出例如 `Read apps/web/.env.local: deny (Read(**/.env.local))`。未列名的變體（例如 `.env.foo`）不會被擋——repo 的 `.gitignore` 忽略 `.env*`，Actions 的 checkout 本來就沒有真實環境檔 |
 | Write／Edit `supabase/functions/.env.example` | 能做（已驗證：真實 run-task） | T-003 run 45314135320 execution artifact：Write 一次（tool-use step 34）結果 `File created successfully at: /home/runner/work/english-coach/english-coach/supabase/functions/.env.example (file state is current in your context — no need to Read it back)`；Edit 兩次（steps 97、99）結果均為 `The file /home/runner/work/english-coach/english-coach/supabase/functions/.env.example has been updated successfully. (file state is current in your context — no need to Read it back)` |
 | Read `.env.example`（根目錄、`apps/web/`、`supabase/functions/`） | 設定不擋（靜態規則檢查通過）；真實 run-task 的 Read **未實測** | T-003 run 45314135320 的 15 次 Read 的 `file_path` 都不含 `.env.example`（Write／Edit 成功後的回傳也寫「no need to Read it back」）。O-005 拿掉會連帶擋住 `.env.example` 的 `Read(./.env.*)`、`Read(**/.env.*)`；靜態檢查仍輸出 `Read .env.example: not denied`。根目錄與 `apps/web/.env.example` 的 Write／Edit／Read 在該次都未出現 |
+| Verify 步驟用 `git fetch` 讀遠端分支 | 不能做（已在真實 run-task 失敗） | run 45323782247 Step 10：`remote: Invalid username or token. Password authentication is not supported for Git operations.`、`##[error]Process completed with exit code 128.`（App token 已在 Step 7 結束前撤銷）。O-007 改用 `gh api`＋`gh run list`（見 §1.5）；新做法在 Actions 上**待下次真實 `run-task` 實測驗證** |
 | 指令被擋後拆開重送（例如複合 `git push` 被拒後再送單獨 `git push`） | 不能做；被偵測到則 `run_task_summary` 失敗 | `detect-resplit.mjs`；憲章 v5 §13 第 12 條。`git status` 等附帶允許指令不當作拆送 |
 
 **權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `pushguard` job 每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
@@ -176,8 +217,8 @@ gh version 2.103.0 (2026-10-21)
 | 權杖 | 已驗證能做 | 限制／不能做 | 未驗證 |
 |---|---|---|---|
 | **`ci.yml` 的 `GITHUB_TOKEN`** | 讀 repo、checkout（workflow 設 `persist-credentials: false`）、跑測試、彙總 `ci-ok` | workflow 宣告 `permissions: contents: read`。用這個 token 做的 `git push` **不會**觸發新的 workflow（見 §1.1）。本環境觀察：`gh pr checks`／`statusCheckRollup` 曾 403（沒有 checks 讀取權） | 是否另有未寫在 workflow 的隱藏權限 |
-| **`claude-run-task.yml` 的 `GITHUB_TOKEN`** | 無 PR 時，C3 會在 head commit 留言：T-003 run 45314135320 步驟「Detect denied-command resplit and post run-task summary」原始輸出 `Posted run-task summary as commit (1743021f5f96051d5683c58fe558c820142b55f2)`，GitHub commit comment `id` 211531977（建立於 2026-11-24 10:51:10 Asia/Taipei），開頭為 `## run-task summary (T-003)`。workflow 另宣告 `contents: write`、`id-token: write`、`actions: read`、`pull-requests: write` | 不應用來開新 PR 或合併。該次 `CLAUDE_OUTCOME=failure`、`VERIFY_OUTCOME=skipped`、`SUMMARY_OUTCOME=success`，Notify 輸出 `run-task-outcome: claude=failure verify=skipped summary=success -> failure` | 既有 PR 上的 `gh pr comment`、以及 `gh pr comment` 回 403 時改留 commit comment 的 fallback：該次是 `repository_dispatch` 打在 `main`、沒有 PR，走的是「無 PR → commit comment」路徑，**不是** 403 fallback，故這兩項仍標未驗證 |
-| **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/` 且可觸發 `ci.yml` 的 `push` run（O-002 修正後的既有 run） | 不應用來合併或改 repo secrets；依憲章不能改 `.github/workflows/` | action 是否偶爾仍用 `GITHUB_TOKEN` 寫入（故仍保留 `contents: write`）；workflow 推送被拒的一次實測 |
+| **`claude-run-task.yml` 的 `GITHUB_TOKEN`** | O-007 起 Verify 用它跑 `gh api …/git/ref/heads/<branch>`（`contents`）與 `gh run list`（`actions: read`），Actions 上**待下次真實 `run-task` 實測驗證**（run 45323782247 的 Verify 在 `git fetch` 就結束，沒有跑到 `gh run list`）。無 PR 時，C3 會在 head commit 留言：T-003 run 45314135320 步驟「Detect denied-command resplit and post run-task summary」原始輸出 `Posted run-task summary as commit (1743021f5f96051d5683c58fe558c820142b55f2)`，GitHub commit comment `id` 211531977（建立於 2026-11-24 10:51:10 Asia/Taipei），開頭為 `## run-task summary (T-003)`。workflow 另宣告 `contents: write`、`id-token: write`、`actions: read`、`pull-requests: write` | 不應用來開新 PR 或合併。該次 `CLAUDE_OUTCOME=failure`、`VERIFY_OUTCOME=skipped`、`SUMMARY_OUTCOME=success`，Notify 輸出 `run-task-outcome: claude=failure verify=skipped summary=success -> failure` | 既有 PR 上的 `gh pr comment`、以及 `gh pr comment` 回 403 時改留 commit comment 的 fallback：該次是 `repository_dispatch` 打在 `main`、沒有 PR，走的是「無 PR → commit comment」路徑，**不是** 403 fallback，故這兩項仍標未驗證 |
+| **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/` 且可觸發 `ci.yml` 的 `push` run（O-002 修正後的既有 run；T-003 run 45323782247 的推送觸發 push run 45324530991，`event=push`、`headSha=1a2ef4c…`、success） | 不應用來合併或改 repo secrets；依憲章不能改 `.github/workflows/`。**只在 Step 7 內有效**：action 在步驟結束前 `Revoke app token`，之後的步驟不能用 remote URL 裡的 token 做 `git fetch`／`git push`（§1.5） | action 是否偶爾仍用 `GITHUB_TOKEN` 寫入（故仍保留 `contents: write`）；workflow 推送被拒的一次實測 |
 | **box 上 SRE 使用的 GitHub 權杖** | 細項 PAT（`gh auth status` 顯示 `github_pat_`，API 無 `X-OAuth-Scopes` 標頭；到期 2026-12-21 23:30 Asia/Taipei）。已驗證：推送含 `.github/workflows/` 的分支（等同需要 workflow 寫入）、開／編輯 PR、讀 Actions log 與 issue comment | 本輪未用它合併、未設 secret、未推 `main`、未 force push | 細項 PAT 的完整權限矩陣無法從 API 標頭列完，除上述已觀察項外皆標未驗證 |
 
 ### 3.4 `poc-spike.yml`（手動 `workflow_dispatch`）

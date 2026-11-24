@@ -15,7 +15,14 @@
 //      then failed because 170 exceeded the previous limit of 120);
 //   5. run-task SKILL.md requires explicit-path `git add` (forbids
 //      `-A` / `--all` / `.` / `-u`) and tells the model to use built-in
-//      Read/Edit/Write/Grep/Glob instead of Bash `sed` or `head`.
+//      Read/Edit/Write/Grep/Glob instead of Bash `sed` or `head`;
+//   6. (O-007) every `actions/checkout` step in claude-run-task.yml sets
+//      `persist-credentials: false` (RUNBOOK §1.1) and no step sets it true;
+//   7. (O-007) `.github/scripts/verify-push.sh` runs no `git fetch` (it
+//      failed with the revoked App token in run 45323782247) and reads the
+//      branch with `gh api .../git/ref/heads/`; the Verify step passes
+//      `GH_TOKEN: ${{ github.token }}`;
+//   8. (O-007) `anthropics/claude-code-action` is pinned to a 40-hex SHA.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -196,6 +203,72 @@ export function parseWorkflowMaxTurns(yml) {
   return values[0];
 }
 
+// O-007: every actions/checkout step must set persist-credentials: false.
+// A step is the block from its "- " line to the next "- " at the same indent
+// (or a line with less indent). Returns a list of problems (empty = OK).
+export function checkoutPersistProblems(yml) {
+  const lines = yml.split(/\r?\n/);
+  const problems = [];
+  let checkouts = 0;
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^\s*(-\s+)?uses:\s*actions\/checkout@/.test(lines[i])) continue;
+    checkouts++;
+    let start = i;
+    while (start > 0 && !/^\s*-\s/.test(lines[start])) start--;
+    const indent = lines[start].search(/\S/);
+    let end = start + 1;
+    while (end < lines.length) {
+      const l = lines[end];
+      if (l.trim() !== '' && l.search(/\S/) <= indent) break;
+      end++;
+    }
+    const block = lines.slice(start, end).join('\n');
+    if (!/^\s*persist-credentials:\s*false\s*(#.*)?$/m.test(block)) {
+      problems.push(`actions/checkout step at line ${i + 1} does not set persist-credentials: false`);
+    }
+  }
+  if (checkouts === 0) problems.push('no actions/checkout step found');
+  lines.forEach((l, i) => {
+    if (/^\s*persist-credentials:\s*(true|['"]?true['"]?)\s*(#.*)?$/.test(l)) {
+      problems.push(`persist-credentials: true at line ${i + 1}`);
+    }
+  });
+  return problems;
+}
+
+// O-007: verify-push.sh must not git fetch (non-comment lines) and must read
+// the ref via gh api; the Verify step must pass GH_TOKEN from github.token.
+export function verifyPushProblems(verifySh, yml) {
+  const problems = [];
+  verifySh.split(/\r?\n/).forEach((l, i) => {
+    if (/^\s*#/.test(l)) return;
+    if (/\bgit\s+fetch\b/.test(l)) problems.push(`verify-push.sh line ${i + 1} runs git fetch: ${l.trim()}`);
+  });
+  if (!/gh api "repos\/\$\{REPO\}\/git\/ref\/heads\/\$\{BRANCH\}"/.test(verifySh)) {
+    problems.push('verify-push.sh does not read the branch with gh api "repos/${REPO}/git/ref/heads/${BRANCH}"');
+  }
+  const m = /- name: Verify push triggered CI\n([\s\S]*?)(?=\n\s*- name:|$)/.exec(yml);
+  if (!m) {
+    problems.push('claude-run-task.yml: "Verify push triggered CI" step not found');
+  } else {
+    if (!/^\s*GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}\s*$/m.test(m[1])) {
+      problems.push('claude-run-task.yml: Verify step does not set GH_TOKEN: ${{ github.token }}');
+    }
+    if (!/run:\s*bash \.github\/scripts\/verify-push\.sh/.test(m[1])) {
+      problems.push('claude-run-task.yml: Verify step does not run .github/scripts/verify-push.sh');
+    }
+  }
+  return problems;
+}
+
+export function claudeActionPinProblems(yml) {
+  const uses = [...yml.matchAll(/uses:\s*anthropics\/claude-code-action@(\S+)/g)].map((m) => m[1]);
+  if (!uses.length) return ['claude-run-task.yml: anthropics/claude-code-action step not found'];
+  return uses
+    .filter((ref) => !/^[0-9a-f]{40}$/.test(ref))
+    .map((ref) => `anthropics/claude-code-action@${ref} is not pinned to a 40-hex commit SHA`);
+}
+
 export function missingSkillSnippets(md) {
   return REQUIRED_SKILL_SNIPPETS.filter((s) => !md.includes(s));
 }
@@ -216,7 +289,8 @@ export function loadInputs(root) {
   const workflowTools = parseWorkflowAllowedTools(workflowYml);
   const skillTools = parseSkillAllowedTools(skillMd);
   const maxTurns = parseWorkflowMaxTurns(workflowYml);
-  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns };
+  const verifySh = readFileSync(join(root, '.github/scripts/verify-push.sh'), 'utf8');
+  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns, workflowYml, verifySh };
 }
 
 export function checkPermissions(inputs) {
@@ -274,6 +348,23 @@ export function checkPermissions(inputs) {
   } else {
     report.push('run-task SKILL.md: git add explicit-path rule and built-in tool reminder present');
   }
+
+  // O-007 checks. Missing inputs are errors (fail-closed), not skips.
+  const yml = inputs.workflowYml;
+  const verifySh = inputs.verifySh;
+  if (typeof yml !== 'string' || typeof verifySh !== 'string') {
+    errors.push('O-007 inputs missing: claude-run-task.yml and verify-push.sh text are required');
+  } else {
+    const persist = checkoutPersistProblems(yml);
+    errors.push(...persist);
+    if (!persist.length) report.push('claude-run-task.yml checkout: persist-credentials: false');
+    const vp = verifyPushProblems(verifySh, yml);
+    errors.push(...vp);
+    if (!vp.length) report.push('verify-push.sh: no git fetch, gh api git/ref/heads, Verify step GH_TOKEN=github.token');
+    const pin = claudeActionPinProblems(yml);
+    errors.push(...pin);
+    if (!pin.length) report.push('claude-run-task.yml: anthropics/claude-code-action pinned to a commit SHA');
+  }
   return { errors, report };
 }
 
@@ -293,7 +384,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add and built-in tool rules present)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned)\n');
   process.exitCode = 0;
 }
 
