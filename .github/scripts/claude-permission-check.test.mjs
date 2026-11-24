@@ -22,6 +22,7 @@ const FILES = [
   '.claude/settings.json',
   '.claude/skills/run-task/SKILL.md',
   '.github/workflows/claude-run-task.yml',
+  '.github/scripts/verify-push.sh',
 ];
 
 function run(root) {
@@ -58,6 +59,9 @@ test('real repo passes with exit 0', () => {
   assert.match(r.out, /claude-permission-check: OK/);
   assert.match(r.out, /claude-run-task\.yml --max-turns: 200/);
   assert.match(r.out, /run-task SKILL\.md: git add explicit-path rule and built-in tool reminder present/);
+  assert.match(r.out, /claude-run-task\.yml checkout: persist-credentials: false/);
+  assert.match(r.out, /verify-push\.sh: no git fetch, gh api git\/ref\/heads, Verify step GH_TOKEN=github\.token/);
+  assert.match(r.out, /anthropics\/claude-code-action pinned to a commit SHA/);
 });
 
 test('matcher: ./ is root-only, **/ is any depth including root', () => {
@@ -262,4 +266,92 @@ test('M18 mutation: remove built-in tool / sed／head reminder from SKILL.md -> 
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /run-task SKILL\.md is missing required rule snippet: 讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具/);
   assert.match(r.out, /避免透過 Bash 呼叫 `sed` 或 `head`/);
+});
+
+// O-007: checkout persist-credentials, verify-push without git fetch,
+// claude-code-action SHA pin. Each mutation must make the CLI exit 1.
+const WF = '.github/workflows/claude-run-task.yml';
+const VP = '.github/scripts/verify-push.sh';
+
+test('O-007 unit: checkoutPersistProblems / verifyPushProblems / claudeActionPinProblems', async () => {
+  const m = await import('./claude-permission-check.mjs');
+  assert.deepEqual(m.checkoutPersistProblems('    steps:\n      - uses: actions/checkout@v6\n        with:\n          persist-credentials: false\n      - name: x\n'), []);
+  assert.match(m.checkoutPersistProblems('    steps:\n      - uses: actions/checkout@v6\n        with:\n          fetch-depth: 0\n      - name: x\n        with:\n          persist-credentials: false\n').join(), /does not set persist-credentials: false/);
+  assert.match(m.checkoutPersistProblems('steps:\n  - name: x\n').join(), /no actions\/checkout step found/);
+  assert.deepEqual(m.claudeActionPinProblems('uses: anthropics/claude-code-action@eb56b6666facdbd501035f4a0269d8caee2e7a8b # v1'), []);
+  assert.match(m.claudeActionPinProblems('uses: anthropics/claude-code-action@v1').join(), /@v1 is not pinned/);
+  assert.match(m.claudeActionPinProblems('uses: actions/checkout@v6').join(), /claude-code-action step not found/);
+  assert.match(m.verifyPushProblems('# git fetch in a comment is fine\ngit fetch origin x\n', '').join('\n'), /line 2 runs git fetch/);
+});
+
+test('M19 mutation: checkout persist-credentials false -> true -> exit 1', () => {
+  const r = runMutated((f) => {
+    f[WF] = f[WF].replace('          persist-credentials: false', '          persist-credentials: true');
+    assert.match(f[WF], /persist-credentials: true/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /does not set persist-credentials: false/);
+  assert.match(r.out, /persist-credentials: true at line \d+/);
+});
+
+test('M20 mutation: remove persist-credentials from checkout -> exit 1', () => {
+  const r = runMutated((f) => {
+    f[WF] = f[WF].replace('          persist-credentials: false\n', '');
+    assert.doesNotMatch(f[WF], /^\s*persist-credentials:/m);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /actions\/checkout step at line \d+ does not set persist-credentials: false/);
+});
+
+test('M21 mutation: reintroduce git fetch in verify-push.sh -> exit 1', () => {
+  const r = runMutated((f) => {
+    f[VP] = f[VP].replace('# --- 1. remote branch tip', 'git fetch origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"\n# --- 1. remote branch tip');
+    assert.match(f[VP], /^git fetch origin/m);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /verify-push\.sh line \d+ runs git fetch: git fetch origin/);
+});
+
+test('M22 mutation: verify-push.sh no longer uses gh api git/ref/heads -> exit 1', () => {
+  const r = runMutated((f) => {
+    f[VP] = f[VP].replace('gh api "repos/${REPO}/git/ref/heads/${BRANCH}"', 'gh api "repos/${REPO}/branches/${BRANCH}"');
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /verify-push\.sh does not read the branch with gh api/);
+});
+
+test('M23 mutation: Verify step without GH_TOKEN: github.token -> exit 1', () => {
+  const r = runMutated((f) => {
+    const i = f[WF].indexOf('- name: Verify push triggered CI');
+    const j = f[WF].indexOf('- name: Detect denied-command resplit');
+    assert.ok(i > 0 && j > i);
+    const step = f[WF].slice(i, j).replace('          GH_TOKEN: ${{ github.token }}\n', '');
+    f[WF] = f[WF].slice(0, i) + step + f[WF].slice(j);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /Verify step does not set GH_TOKEN: \$\{\{ github\.token \}\}/);
+});
+
+test('M24 mutation: claude-code-action back to @v1 -> exit 1', () => {
+  const r = runMutated((f) => {
+    f[WF] = f[WF].replace(/anthropics\/claude-code-action@[0-9a-f]{40}/, 'anthropics/claude-code-action@v1');
+    assert.match(f[WF], /claude-code-action@v1\b/);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /anthropics\/claude-code-action@v1 is not pinned to a 40-hex commit SHA/);
+});
+
+test('M25 mutation: verify-push.sh missing -> exit 1 (fail-closed)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'perm-check-'));
+  try {
+    for (const f of FILES.filter((x) => x !== VP)) {
+      mkdirSync(join(root, f, '..'), { recursive: true });
+      writeFileSync(join(root, f), readFileSync(join(REPO, f), 'utf8'));
+    }
+    const r = run(root);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /ERROR: claude-permission-check: .*verify-push\.sh/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
