@@ -1,6 +1,6 @@
 # ADR-006：每日新聞來源、類別輪替與取得方式（Q-11、Q-16）
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准；來源依 Q-16 的新決定重新提名）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：AC-01、AC-02、Q-11、Q-16、Q-31～Q-33；ARCHITECTURE §11｜修訂：修訂 1（2026-11-24，ARCHITECTURE v1.6；見文末）
+- 相關：AC-01、AC-02、Q-11、Q-16、Q-31～Q-33；ARCHITECTURE §11｜修訂：修訂 1（2026-11-24，ARCHITECTURE v1.6）、修訂 2（2026-11-25，ARCHITECTURE v1.8）；見文末
 - v0.1 提名的 IEEE Spectrum、NIST News（以及 GitHub Blog）已依 Q-16 撤下（G2 決定不用學術／機構來源）。
 
 ## 背景
@@ -89,3 +89,16 @@
 
   - 如果 Hansheng 選擇用套件：建議 `htmlparser2`。照 ADR-001 的「依賴清單」補理由，加進 `deno.json`（`npm:htmlparser2@^12.0.0`）和 `supabase/functions/package.json`，lockfile 跟著改。這需要 **Hansheng 核准**。
 - 不變：來源、優先順序、條款風險、User-Agent、robots.txt 必查、不存原文。
+
+## 修訂 2（2026-11-25，Architect；ARCHITECTURE v1.8 §11.3，隨 ADR-013）
+- 狀態：**已接受**（送 G2 PR `[G2] T-023 news rewrite`，Hansheng Merge 即核准）
+- 起因：TechLead 在 T-023 寫單前提出 Q1～Q5。T-022 已合併的 `judge` 只回傳 `boolean`，和第 3 點「在改寫時回傳 `category_match`」接不起來。
+- **「取得與處理流程」第 3 點**：「LLM 在改寫時回傳 `category_match=true`」改成「**LLM 判定**回傳 `category_match=true`」。
+  - 判定是另一個小呼叫，只送標題和正文前 300 字。
+  - 每個來源最多判定 3 篇；`false` 不重試。
+- **第 4 點**：改成「只對通過判定的那一篇，用 Gemini 改寫成 250～300 字＋5 個語塊（含中文）＋『/』斷句」。
+  - 標題沿用原文。
+  - `rewritten_text` 由句子去掉「/」接成。
+  - 格式不合格時，adapter 用同模型重試 1 次，T-023 不另外重試。
+  - schema 與數字見 ARCHITECTURE §11.3。
+- 不變：來源、優先順序、篩選條件、原文只在記憶體、資料庫只存改寫、標題、來源、類別、原文連結、雜湊。
