@@ -142,6 +142,26 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      # O-014: Claude usage limit (result is_error + api_error=usage_limit_reached
+      # + api_error_status 429; T-023 run 45545848159). tooling/usage-limit.mjs
+      # reads the execution file (reset time = last rejected rate_limit_event
+      # resetsAt); on a usage limit the previous result of the same task comes
+      # from the newest artifact run-task-outcome-<task> of another run
+      # (gh api …/actions/artifacts?name=, actions: read). Fail-closed: an
+      # unreadable execution file fails this step and Notify keeps
+      # outcome=failure; an unknown previous result gives streak unknown +
+      # action stop. Runs even when Claude is skipped (then not a usage limit).
+      - name: Detect Claude usage limit
+        id: usage_limit
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          TASK: ${{ github.event.client_payload.task }}
+          LOG: ${{ steps.claude.outputs.execution_file }}
+        run: bash .github/scripts/run-task-usage-limit.sh detect
+
       - name: Verify push triggered CI
         id: verify_push
         # Independent of run_task_summary: a resplit/comment failure must not
@@ -173,6 +193,10 @@ jobs:
           LOG: ${{ steps.claude.outputs.execution_file }}
           PRE_HEAD: ${{ steps.pre_head.outputs.pre_head }}
           BRANCH: ${{ steps.pre_head.outputs.branch }}
+          # O-014: post-check fetches main afresh (this token, contents read)
+          # and leaves out every commit already on main from scope-check.
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           pnpm install --frozen-lockfile
@@ -201,6 +225,12 @@ jobs:
           VERIFY_REASON: ${{ steps.verify_push.outputs.verify_reason }}
           SUMMARY_OUTCOME: ${{ steps.run_task_summary.outcome }}
           POST_CHECK_OUTCOME: ${{ steps.post_check.outcome }}
+          USAGE_LIMIT: ${{ steps.usage_limit.outputs.usage_limit }}
+          UL_RESET_AT: ${{ steps.usage_limit.outputs.usage_limit_reset_at }}
+          UL_TYPE: ${{ steps.usage_limit.outputs.usage_limit_type }}
+          UL_STREAK: ${{ steps.usage_limit.outputs.usage_limit_streak }}
+          UL_ACTION: ${{ steps.usage_limit.outputs.usage_limit_action }}
+          OUTCOME_FILE: ${{ runner.temp }}/run-task-outcome.json
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -215,7 +245,16 @@ jobs:
           # O-009: --post-check adds post_check_outcome; a failed report-lint /
           # verification summary after an otherwise good run gives
           # outcome=post_check_failed.
-          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --post-check "${POST_CHECK_OUTCOME:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
+          # O-014: --usage-limit gives outcome=usage_limit (Claude failure +
+          # usage limit); the payload always carries usage_limit_reset_at /
+          # usage_limit_type / usage_limit_streak / usage_limit_action
+          # (none / none / 0 / none unless outcome=usage_limit). The same JSON
+          # is written to OUTCOME_FILE first and uploaded as
+          # run-task-outcome-<task>: the next run's "previous result".
+          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --post-check "${POST_CHECK_OUTCOME:-}" --usage-limit "${USAGE_LIMIT:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
+          UL_FIELDS="$(bash .github/scripts/run-task-usage-limit.sh fields "$(jq -r '.outcome' <<<"$OUTCOME_JSON")")"
+          OUTCOME_JSON="$(jq -cn --argjson o "$OUTCOME_JSON" --argjson u "$UL_FIELDS" '$o + $u')"
+          printf '%s\n' "$OUTCOME_JSON" > "$OUTCOME_FILE"
           echo "notify ${OUTCOME_JSON}"
           if [ -z "${WEBHOOK_URL:-}" ]; then echo "Webhook not configured, skip."; exit 0; fi
           jq -n --arg task "$TASK" --arg run "$RUN_URL" --argjson o "$OUTCOME_JSON" \
@@ -224,3 +263,15 @@ jobs:
               -H "Authorization: Bearer $WEBHOOK_KEY" \
               -H "Content-Type: application/json" \
               --data @-
+
+      # O-014: this run's notify JSON (outcome + usage_limit_*) for the next
+      # run of the same task (Detect Claude usage limit reads the newest one
+      # from another run). A missing file fails the job.
+      - name: Upload run-task outcome
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: run-task-outcome-${{ github.event.client_payload.task }}
+          path: ${{ runner.temp }}/run-task-outcome.json
+          if-no-files-found: error
+          retention-days: 30

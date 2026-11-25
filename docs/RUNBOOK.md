@@ -1,6 +1,6 @@
 # RUNBOOK
 
-- 版本：v0.9（2026-11-24，O-008：`taskcheck` job 與 run-task 的 Task lint 接線，見 §4。v0.8：O-007：Verify 改用 `gh api`＋`gh run list`、不再 `git fetch`；Notify 區分 `verify_failed`；`claude-code-action` 釘 SHA。v0.7：O-006 `--max-turns` 200 與 T-003 run 45314135320 實測）
+- 版本：v0.10（2026-11-25，O-014：Claude 用量上限 `outcome=usage_limit` 與 `usage_limit_*` 欄位（§1.5）、post-check 從 GitHub 重抓 main 並排除 main 上的 commit（§6.2）、假金鑰寫法（§6.1）。v0.9：2026-11-24，O-008：`taskcheck` job 與 run-task 的 Task lint 接線，見 §4。v0.8：O-007：Verify 改用 `gh api`＋`gh run list`、不再 `git fetch`；Notify 區分 `verify_failed`；`claude-code-action` 釘 SHA。v0.7：O-006 `--max-turns` 200 與 T-003 run 45314135320 實測）
 - 擁有者：SRE
 - 專案：hansheng08/english-coach
 - 本文件記錄維運時怎麼查、怎麼排除問題。關卡文件與發佈清單不在這裡。
@@ -78,10 +78,13 @@ O-002 之後，在該次 **Claude Run Task** 的 run 頁：
 | `success` | Claude、Verify、summary 三步都是 success | 唯一的綠燈 |
 | `verify_failed` | Claude success、summary success、Verify failure | Claude 已完成；看 `verify_reason`：`branch_missing` 代表分支沒推上去（當成任務問題處理），`api_auth`／`api_error`／`run_list_error`／`bad_*` 是基礎設施，`no_push_run` 是分支在但沒有 push CI |
 | `summary_failed` | Claude success、Verify success、summary failure | 偵測到拆開重送，或 PR／commit 摘要留言失敗 |
+| `usage_limit` | （O-014）Task lint success、Claude failure，且 execution file 最後一個 result 是 `is_error: true`＋`api_error: "usage_limit_reached"`＋`api_error_status: 429` | Claude 帳號撞到用量上限，不是任務問題：看 `usage_limit_action`，`reschedule` 排程重派（不寫修正單），`stop` 停下回報 |
 | `cancelled` | Claude cancelled | |
 | `failure` | 其他所有組合：Claude failure／skipped／不合法值、Verify 與 summary 同時失敗、Claude success 但 Verify／summary 為 skipped／cancelled／不合法值、參數個數不對 | 預設失敗 |
 
 這**不是** fail-open：`verify_failed`／`summary_failed` 都不是 success，而且 Verify 失敗時該步驟本身仍失敗，整個 job 仍是紅燈。
+
+**用量上限欄位（O-014）**：`claude-task-finished` 一律附 4 個欄位；`outcome` 不是 `usage_limit` 時為 `none`／`none`／`0`／`none`。`usage_limit_reset_at`：最後一個 `status: "rejected"` 的 `rate_limit_event` 的 `resetsAt` 轉成 UTC ISO（例：T-023 run 45545848159 → `2026-11-25T05:20:00Z`＝台北 13:20），沒有就是 `unknown`（`result` 文字只有時刻沒有日期，不解析）。`usage_limit_type`：同一事件的 `rateLimitType`（例 `five_hour`）或 `unknown`。`usage_limit_streak`／`usage_limit_action`：上一次同任務 run（artifact `run-task-outcome-<task>` 最新一筆，排除本 run；`gh api "repos/<repo>/actions/artifacts?name=run-task-outcome-<task>&per_page=100"`）不是 `usage_limit` 或沒有 → `1`／`reschedule`；是 `usage_limit` 且次數 n → `n+1`／`stop`；查詢失敗、過期、超過一頁、zip 或 JSON 壞掉 → `unknown`／`stop`。偵測：`run-task-usage-limit.sh detect`（呼叫 `tooling/usage-limit.mjs`；execution file 讀不到或不是 JSON → 步驟失敗、`outcome` 維持 `failure`）。每次 run 都上傳 `run-task-outcome-<task>`（通知 JSON，保留 30 天）。O-014 合併前的 run 沒有這個 artifact，下一次算第 1 次。測試：`run-task-usage-limit-test.sh`（假 `gh`）、`run-task-outcome-test.sh` 的 O-014 案例與突變。
 
 **本機測試（2026-11-24，box；原始輸出見 `docs/reports/O-007.md`）**：`verify-push-test.sh` 31 個案例（假的 `gh`／`git` 放在 PATH 前面，零網路、不等待；假的 `git fetch` 一被呼叫就 exit 97）、`run-task-outcome-test.sh`、`claude-permission-check.test.mjs`（M19～M25：checkout 必須 `persist-credentials: false`、verify-push 不得 `git fetch`、Verify 必須帶 `GH_TOKEN`、`claude-code-action` 必須釘 SHA）全部 exit 0；對 `verify-push.sh`、`run-task-outcome.sh`、`claude-permission-check.mjs` 各做的暫時突變都讓對應測試 exit 1。box 上以 box 的 `gh` 權杖實跑 `verify-push.sh task/O-001` → `exit=0 verify_reason=ok`；`task/O-999` → `gh: Not Found (HTTP 404)`、`exit=1 verify_reason=branch_missing`。
 
@@ -169,6 +172,8 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | Write／Edit QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`；O-012；`docs/qa/mutants/*.json`；O-013） | 不能做（設定 deny）；真實被拒**待下次真實 run-task 實測驗證** | `.claude/settings.json` deny `Write(**/*.qa.test.ts)`、`Edit(**/*.qa.test.ts)`、`Write(./supabase/tests/qa_*.sql)`、`Edit(./supabase/tests/qa_*.sql)`、`Write(./docs/qa/mutants/*.json)`、`Edit(./docs/qa/mutants/*.json)`（O-013，突變 M49～M53）；`claude-permission-check` 以本表的路徑比對模型靜態檢查（一般 `*.test.ts`、其他 `.sql` 仍可寫，突變 M38～M41）。`Bash(git rm …)`／`git mv` 不受這條 deny 擋，由下一列的 post-check 抓 |
 | run-task 內 Claude 的 commit 碰 QA 擁有檔（O-012） | 會被判 `post_check_failed`（box 測試已驗證；Actions 上**待下次真實 run-task 實測驗證**） | Claude 之前 `run-task-pre-head.sh` 記下任務單分支當時的 head（不存在用 origin/main）；post-check 以 `<pre_head>..HEAD` 的 commit 清單跑 `scope-check --all-non-qa`，不看前綴與作者。O-013：任務單從 `BASE_REF`（main）的 `docs/tasks` 取（`--tasks-dir`），不是分支樹 |
 | run-task post-check 跑 QA 的突變（O-013） | `docs/qa/mutants/<基礎編號>.json` 存在就跑 `run-mutants`；存活或沒產出報告 → `post_check_failed`（box 測試已驗證；Actions 上**待下次真實 run-task 實測驗證**） | 基礎編號＝`tooling/task-file.mjs` 的 `baseTaskId`（`T-015-fix1`→`T-015`）；`fix0` 等無效編號 → post-check 失敗 |
+| run-task 偵測 Claude 用量上限（O-014） | `outcome=usage_limit`＋`usage_limit_*`（box 測試已驗證；Actions 上**待下次真實撞到 429 時實測驗證**） | `Detect Claude usage limit` 步驟；`?name=` 查詢在 box 以真實 repo API 實測（存在的 artifact 回 1 筆、不存在的名稱回 `total_count: 0`），artifact zip 下載後的檔名為上傳檔的檔名 |
+| post-check 用本 job 權杖從 GitHub 重抓 main（O-014） | 能做（box 以同一個 `git -c credential.helper= -c credential.helper=!gh auth git-credential fetch` 指令對真實 repo 實測成功；只重設 helper、不給 gh helper 時 `could not read Username`）；Actions 上以 `GH_TOKEN` 走 gh helper **待下次真實 run-task 實測驗證** | 失敗 → `main-fetch`、步驟 exit 1（`post_check_failed`），見 §6.2 |
 | `gh`（含唯讀）、`curl`／`wget`／`sudo`、任意 `supabase` CLI、`docker` | 不能做（設定已列） | `--allowedTools` 未開放；不得當作任務單裡的驗證手段 |
 | 開 PR、合併 PR、推 `main`、force push | 不能做 | pushguard + 任務單強制工作規則；本表不把這些寫成可做之事 |
 | 已核准的 lockfile 更新：單獨一條 `pnpm install --no-frozen-lockfile`（先用 Edit 改 `package.json`，再跑這條） | 能做（已驗證：真實 run-task） | T-003 run [45314135320](https://github.com/hansheng08/english-coach/actions/runs/45314135320)（2026-11-24 10:40–10:51 Asia/Taipei；head `1743021f5f96051d5683c58fe558c820142b55f2`）execution artifact 出現一次、且僅一次，指令原文為 `pnpm install --no-frozen-lockfile`（tool-use step 18，`is_error=False`）。原始輸出：`Scope: all 4 workspace projects`／`✓ Lockfile passes supply-chain policies (verified 55s ago)`／`Packages: +9`／`Done in 1.6s using pnpm v12.21.0`。加上參數（例如 `… 2>&1`、`… zod`）仍不符精確規則（O-005 靜態檢查） |
@@ -286,4 +291,13 @@ gh version 2.103.0 (2026-10-21)
 - `docs/qa/mutants/*.json` 是 QA 擁有檔（`QA_GLOBS`）：只有 `[QA]` commit 能改；run-task 內一律 `SC-QA-OWNER`。Claude 端另有 settings deny 與 SKILL 第 3 步。只有任務本身、基礎編號、分支編號的 mutants 檔在範圍內，其他編號仍 `SC-OUT`。
 - post-check 失敗原因（post-check 步驟 log 的 `run-task-post-check: FAILED: <原因>`；`post_check_outcome` 仍是 `failure`）：`pre-head-invalid`、`tasks-from-main`、`scope-check:<規則，逗號分隔>`（例如 `scope-check:SC-OUT`、`scope-check:SC-QA-OWNER`）、`run-mutants`（有存活或錯誤）、`run-mutants-report`（沒產出報告），以及原有的 `report-lint`、`verify-summary`。
 - gitleaks：QA commit 1cf0fda 的測試假金鑰（`gemini.qa.test.ts` 第 13 行）讓 `secrets` job 掃全部 ref 時判紅。`.gitleaksignore` 只加這一個指紋 `1cf0fdab9bc5fd0519c175cf32126bde00533950:supabase/functions/_shared/providers/gemini/gemini.qa.test.ts:generic-api-key:13`；SRE 已確認值是明顯的測試值（未印出）。不改寫歷史。之後 QA 測試的假金鑰請用不會被規則抓到的寫法，不要再加指紋。
+- 測試用的假金鑰一律用明顯低熵的字串（例如重複字元 `AAAAAAAAAAAAAAAAAAAA`、`test-key-xxxx`），不要用看起來像真金鑰的亂數，以免 gitleaks 判紅；不再新增 `.gitleaksignore` 指紋（O-014）。
 - 實測狀態：box 上已跑 `taskcheck-test.sh`（修正輪案例 T-953）、`run-task-post-check-test.sh`（事件拓樸 T-971／T-971-fix1：通過、存活、沒報告、分支樹任務單重現 `SC-OUT`、Claude 改 QA 檔、偽造 `[QA]` 改 mutants、main 無任務單、`fix0`）、`claude-permission-check` 與突變 M47、M49～M54。Actions 上 post-check 的 mutants 執行與 `--tasks-dir`，**待下次真實 run-task 實測驗證**。
+
+### 6.2 O-014：post-check 範圍排除 main 上的 commit
+
+- 事故：T-009 run 45575460457 `post_check_failed`，`scope-check: FAIL docs/tasks/O-014.md:2: SC-OUT`。`task/T-009` 當時不存在，pre-head 記 `origin/main` 20c206c（16:20:55 台北時間 checkout）；SRE 在 16:21:36 把 755c7d4（O-014 任務單）推上 main；Claude 依 SKILL 第 2 步單獨執行 `git fetch origin`、`git switch -c task/T-009 origin/main`（artifact 的 Bash 指令只有這兩條加 add／commit／push，沒有 merge、rebase、pull），分支直接從 755c7d4 長出來，`PRE_HEAD..HEAD` 就把那個 main commit 算成本次 run 的變更。
+- 修正：post-check 在 Claude 之後用本 job 權杖、明確 URL 從 GitHub 抓 main 到 `refs/run-task/fresh-main`，本次 run 的 commit ＝ `git rev-list <PRE_HEAD>..HEAD --not <fresh main>`；變更清單由這些 commit 的 name-status 路徑組成（含改名來源），不再用 `git diff PRE_HEAD HEAD`。`--all-non-qa`、QA 擁有檔、`--tasks-dir` 不變。fresh main 同時是預設 `BASE_REF`（任務單來源與摘要的變更檔案）。
+- 為什麼不用 `merge-base(HEAD, origin/main)..HEAD`：那會丟掉 `PRE_HEAD` 下界，分支上 QA 先前的 `[QA]` commit（碰 QA 擁有檔）會被 `--all-non-qa` 當成 Claude 的而誤判 `SC-QA-OWNER`；而且本機 `refs/remotes/origin/main` 是 Claude 可以 `git fetch`／`update-ref` 移動的 ref，用它排除等於讓 Claude 決定檢查範圍。保留下界、只減去「GitHub 上的 main 已有的 commit」兩邊都顧到，也涵蓋分支從新 main 長出、fast-forward、merge main 三種情況。
+- 失敗原因：`main-fetch`（抓不到 main、`GITHUB_REPOSITORY` 不合法）→ 步驟 exit 1，不跑 scope-check、不印 OK。
+- 測試（`run-task-post-check-test.sh`）：(a) 執行中被帶進來的 main commit 不算 → exit 0、範圍 1 個 commit；(a2) 既有分支 `merge --no-ff main` → exit 0；拿掉排除的突變讓 (a)、(a2) 都變成 `SC-OUT`；(b) Claude 自己改範圍外（同一個 main 也改過的檔）→ `SC-OUT`；(d) Claude 把本機 `origin/main` 移到 HEAD 仍 `SC-OUT`；(c) 抓 main 失敗 → `main-fetch` exit 1；排除 main 後 Claude 碰 QA 檔仍 `SC-QA-OWNER`。

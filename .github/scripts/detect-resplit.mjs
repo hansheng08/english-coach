@@ -162,7 +162,7 @@ export function formatReport(hits) {
   if (hits.length === 0) return 'detect-resplit: no bypass found\n';
   const lines = [
     'ERROR: detect-resplit: a later Bash call retried a fragment of a denied command.',
-    'Denied commands must not be split and resent (charter v5 §13 rule #12: do not work around a permission denial).',
+    'Denied commands must not be split and resent (charter v6 §13 rule #12: do not work around a permission denial).',
   ];
   for (const h of hits) {
     lines.push(`- denied: ${h.denied}`);

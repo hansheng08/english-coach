@@ -15,6 +15,9 @@
 #       docs/reports/<task>.md + automatic verification summary after
 #       Claude); "none" when not given. The two options may come in either
 #       order but each at most once.
+#       O-014 adds --usage-limit <true|false> (from run-task-usage-limit.sh
+#       detect: Claude's result is is_error + api_error=usage_limit_reached
+#       + api_error_status 429). Same option rules (any order, at most once).
 #
 # Step outcomes from GitHub are success | failure | cancelled | skipped.
 # Every input is normalized first; anything else (empty, whitespace, other
@@ -44,6 +47,13 @@
 #                  means the branch is there but no push CI run was found.
 #   summary_failed claude success + verify success + summary failure
 #                  (resplit detected or the summary comment failed)
+#   usage_limit    (O-014) task lint passed, claude failure and
+#                  --usage-limit true: the Claude account hit its usage
+#                  limit; Notify adds usage_limit_* fields so the routine
+#                  reschedules instead of writing a fix task. Any other
+#                  --usage-limit value (false, missing, invalid) leaves the
+#                  outcome as failure; it is ignored when claude is
+#                  success / cancelled / skipped.
 #   cancelled      claude was cancelled
 #   failure        everything else: claude failure/skipped/invalid, both
 #                  verify and summary failed, any skipped/cancelled/invalid
@@ -74,16 +84,31 @@ lint_given=0
 lint="none"
 post_given=0
 post="none"
-while [[ "${1-}" == "--task-lint" || "${1-}" == "--post-check" ]]; do
+ul_given=0
+ul="none"
+normalize_usage_limit() {
+  case "${1-}" in
+    true | false) printf '%s' "$1" ;;
+    *) printf '%s' "invalid" ;;
+  esac
+}
+while [[ "${1-}" == "--task-lint" || "${1-}" == "--post-check" || "${1-}" == "--usage-limit" ]]; do
   opt="$1"
   if [[ "$#" -lt 2 ]]; then
     val="invalid"
     shift
+  elif [[ "$opt" == "--usage-limit" ]]; then
+    val="$(normalize_usage_limit "${2-}")"
+    shift 2
   else
     val="$(normalize_step_outcome "${2-}")"
     shift 2
   fi
-  if [[ "$opt" == "--task-lint" ]]; then
+  if [[ "$opt" == "--usage-limit" ]]; then
+    if [[ "$ul_given" -eq 1 ]]; then val="invalid"; fi
+    ul_given=1
+    ul="$val"
+  elif [[ "$opt" == "--task-lint" ]]; then
     if [[ "$lint_given" -eq 1 ]]; then val="invalid"; fi
     lint_given=1
     lint="$val"
@@ -131,6 +156,11 @@ elif [[ "$argc_ok" -eq 1 ]]; then
       fi
       ;;
     cancelled) result="cancelled" ;;
+    failure)
+      result="failure"
+      # O-014-USAGE-LIMIT
+      if [[ "$ul_given" -eq 1 && "$ul" == "true" ]]; then result="usage_limit"; fi
+      ;;
     *) result="failure" ;;
   esac
   if [[ "$result" == "success" && "$post_given" -eq 1 && "$post" != "success" ]]; then
@@ -142,7 +172,7 @@ elif [[ "$argc_ok" -eq 1 ]]; then
   fi
 fi
 if [[ "$result" != "success" ]]; then
-  echo "run-task-outcome: task_lint=${lint} post_check=${post} claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
+  echo "run-task-outcome: task_lint=${lint} post_check=${post} usage_limit=${ul} claude=${claude} verify=${verify} summary=${summary} -> ${result}" >&2
 fi
 if [[ "$mode" == "json" ]]; then
   # Every value is one of the fixed literals above, so no escaping is needed.
