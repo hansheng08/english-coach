@@ -77,7 +77,9 @@ function isDailyQuota(e: GeminiErrorBody | null): boolean {
   return ids.some((id) => id.includes('PerDay') || id.includes('Daily')) || (e.message ?? '').includes('limit: 0');
 }
 
-const oneLine = (text: string): string => text.replace(/\s+/g, ' ').trim().slice(0, 200);
+// 順序固定：壓空白 → 遮蔽金鑰 → 截斷（先截斷會留下被切開的金鑰前段，AC-T15-13）。
+const oneLine = (text: string, apiKey: string): string =>
+  redact(text.replace(/\s+/g, ' ').trim(), apiKey).slice(0, 200);
 
 /**
  * ARCHITECTURE §5.4.4 的對應表，由上往下取第一列符合的（純函式）。
@@ -96,7 +98,7 @@ export function classifyGeminiError(input: {
   const googleStatus = e?.status;
   const googleMessage = e?.message ?? '';
   const label = `HTTP ${String(status)}${googleStatus === undefined ? '' : ` ${googleStatus}`}`;
-  const text = googleMessage.length === 0 ? label : `${label}: ${oneLine(googleMessage)}`;
+  const text = googleMessage.length === 0 ? label : `${label}: ${oneLine(googleMessage, input.apiKey)}`;
 
   if (status === 408 || status === 504) return plainError(ctx, 'timeout', text);
   if (status === 429) {

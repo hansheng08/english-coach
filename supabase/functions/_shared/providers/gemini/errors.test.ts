@@ -145,3 +145,81 @@ describe('classifyGeminiError：金鑰保護', () => {
     expect(e.provider).toBe('gemini-paid');
   });
 });
+
+// 先遮蔽再截斷（AC-T15-13、AC-T15-14）。假金鑰，不是真的。
+const LONG_KEY = 'AIzaFAKE0123456789abcdefghijklmnopqrst';
+const classifyLong = (status: number, body: string): ProviderError =>
+  classifyGeminiError({ status, body, id: 'gemini', model: MODEL, apiKey: LONG_KEY });
+const keyFragments = (key: string): string[] =>
+  Array.from({ length: key.length - 7 }, (_, i) => key.slice(i, i + 8));
+const expectNoKeyLeak = (message: string): void => {
+  for (const fragment of keyFragments(LONG_KEY)) expect(message).not.toContain(fragment);
+};
+const googlePart = (message: string): string => message.slice(message.indexOf(': ') + 2);
+
+describe('classifyGeminiError：先遮蔽金鑰再截斷', () => {
+  it('(AC-T15-13) (TC-26) 金鑰起點從 200 之前掃到 200 之後 → 都不外洩', () => {
+    for (let n = 100; n <= 260; n += 1) {
+      const message = `${'x'.repeat(n)} ${LONG_KEY} tail`;
+      expectNoKeyLeak(classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', message)).message);
+    }
+  });
+
+  it('(AC-T15-13) (AC-T15-14) (TC-27) 金鑰在前 200 字內 → 看得到 [redacted]', () => {
+    const e = classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', `key ${LONG_KEY} bad`));
+    expect(e.message).toContain('[redacted]');
+    expectNoKeyLeak(e.message);
+  });
+
+  it('(AC-T15-13) (AC-T15-14) (TC-28) 金鑰在 200 字之後 → 不含片段，Google message 最多 200 字', () => {
+    const e = classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', `${'x'.repeat(250)}${LONG_KEY}`));
+    expectNoKeyLeak(e.message);
+    expect(googlePart(e.message).length).toBeLessThanOrEqual(200);
+  });
+
+  it('(AC-T15-13) (TC-29) 金鑰出現 3 次（前段、跨截斷處、截斷後）', () => {
+    const message = `${LONG_KEY} ${'x'.repeat(150)} ${LONG_KEY} ${'y'.repeat(50)} ${LONG_KEY}`;
+    const e = classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', message));
+    expectNoKeyLeak(e.message);
+    expect(googlePart(e.message).startsWith('[redacted]')).toBe(true);
+  });
+
+  it('(AC-T15-13) (TC-30) 換行、tab、連續空白壓縮後金鑰起點移動 → 不外洩', () => {
+    for (let n = 120; n <= 200; n += 5) {
+      const message = `${'x'.repeat(n)}\n\n\t   \n${LONG_KEY}\t\ttail`;
+      expectNoKeyLeak(classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', message)).message);
+    }
+  });
+
+  it('(AC-T15-13) (TC-31) 每一種會帶 Google message 的結果都遮蔽，kind 不變', () => {
+    const message = `${'x'.repeat(180)} ${LONG_KEY} tail`;
+    const daily = [quotaFailure('GenerateRequestsPerDayPerProjectPerModel')];
+    const rows: readonly [number, string, readonly Record<string, unknown>[] | undefined, string][] = [
+      [408, 'DEADLINE_EXCEEDED', undefined, 'timeout'],
+      [429, 'RESOURCE_EXHAUSTED', daily, 'quota_exhausted'],
+      [429, 'RESOURCE_EXHAUSTED', undefined, 'rate_limited'],
+      [402, 'FAILED', undefined, 'quota_exhausted'],
+      [401, 'UNAUTHENTICATED', undefined, 'auth'],
+      [404, 'NOT_FOUND', undefined, 'not_configured'],
+      [500, 'INTERNAL', undefined, 'unavailable'],
+      [418, 'TEAPOT', undefined, 'unavailable'],
+    ];
+    for (const [status, googleStatus, details, kind] of rows) {
+      const e = classifyLong(status, errorBody(status, googleStatus, message, details));
+      expect(e.kind).toBe(kind);
+      expectNoKeyLeak(e.message);
+    }
+    const region = `location is not supported ${'x'.repeat(160)} ${LONG_KEY} tail`;
+    const r = classifyLong(400, errorBody(400, 'FAILED_PRECONDITION', region));
+    expect(r.kind).toBe('region_blocked');
+    expectNoKeyLeak(r.message);
+  });
+
+  it('(AC-T15-14) (TC-32) 不含金鑰：超過 200 字剛好 200 字；短訊息不變；05 仍是 auth', () => {
+    const long = classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', 'z'.repeat(300)));
+    expect(googlePart(long.message)).toBe('z'.repeat(200));
+    const short = classifyLong(400, errorBody(400, 'INVALID_ARGUMENT', 'bad  field\n here'));
+    expect(short.message).toBe('HTTP 400 INVALID_ARGUMENT: bad field here');
+    expect(classifyLong(400, ERR_FAKE_KEY).kind).toBe('auth');
+  });
+});
