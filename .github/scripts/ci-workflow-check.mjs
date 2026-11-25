@@ -132,7 +132,12 @@ export function checkRepo(root) {
   const wfDir = join(root, '.github/workflows');
   const workflows = new Map();
   for (const f of readdirSync(wfDir).filter((n) => /\.ya?ml$/.test(n)).sort()) {
-    const wf = parseWorkflow(readFileSync(join(wfDir, f), 'utf8'));
+    const text = readFileSync(join(wfDir, f), 'utf8');
+    // `${ x }` (one brace) is a plain string to Actions, not an expression (O-015 push run 45628097971).
+    text.split(/\r?\n/).forEach((l, n) => {
+      if (/\$\{\s+[A-Za-z!]/.test(l)) add(`${f}:${String(n + 1)}: single-brace \${ … } is not an expression: ${l.trim()}`);
+    });
+    const wf = parseWorkflow(text);
     for (const p of wf.problems) add(`${f}: ${p}`);
     workflows.set(f, wf);
   }
