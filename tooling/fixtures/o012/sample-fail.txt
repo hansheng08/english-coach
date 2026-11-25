@@ -1,0 +1,3 @@
+test('o12 deliberately failing sample', () => {
+  expect(1).toBe(2);
+});

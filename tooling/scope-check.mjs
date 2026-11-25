@@ -12,10 +12,11 @@ import {
   tasksForBranch,
   usageFailure,
 } from './task-file.mjs';
+import { checkQaOwnership, isQaOwned, parseCommitLog } from './qa-owner.mjs';
 
 const TOOL = 'scope-check';
 
-export function checkScope({ branch, tasks, changed }) {
+export function checkScope({ branch, tasks, changed, commits = null, allNonQa = false }) {
   const set = tasksForBranch(branch, tasks);
   if (set.length === 0) return [{ file: branch, line: 0, rule: 'SC-NOTASK', message: `找不到分支 ${branch} 對應的任務單` }];
 
@@ -39,6 +40,7 @@ export function checkScope({ branch, tasks, changed }) {
 
   const findings = [];
   files.forEach((f, i) => {
+    if (isQaOwned(f)) return;
     const denied = deny.find((p) => matchGlob(p, f));
     if (denied !== undefined) {
       findings.push({ file: f, line: i + 1, rule: 'SC-DENY', message: `符合範圍外 ${denied}` });
@@ -46,21 +48,45 @@ export function checkScope({ branch, tasks, changed }) {
       findings.push({ file: f, line: i + 1, rule: 'SC-OUT', message: '不在任務單允許的檔案範圍內' });
     }
   });
+  findings.push(...checkQaOwnership({ changed: files, commits, allNonQa }));
   return findings;
 }
 
 export function run(argv) {
-  const args = parseArgs(argv, { options: ['branch', 'changed', 'tasks-dir'], positional: false });
+  const rest = argv.filter((a) => a !== '--all-non-qa');
+  if (argv.length - rest.length > 1) return usageFailure(TOOL, 'USAGE', 'duplicate option --all-non-qa');
+  const args = parseArgs(rest, { options: ['branch', 'changed', 'commits', 'tasks-dir'], positional: false });
   if (!args.ok) return usageFailure(TOOL, 'USAGE', args.message);
   const { branch, changed } = args.values;
   if (branch === undefined || changed === undefined) {
-    return usageFailure(TOOL, 'USAGE', 'usage: scope-check.mjs --branch <name> --changed <file-list.txt> [--tasks-dir <dir>]');
+    return usageFailure(
+      TOOL,
+      'USAGE',
+      'usage: scope-check.mjs --branch <name> --changed <file-list.txt> [--commits <log.txt>] [--all-non-qa] [--tasks-dir <dir>]',
+    );
   }
   const list = readText(changed);
   if (!list.ok) return usageFailure(TOOL, 'INPUT', list.message);
+  let commits = null;
+  const commitsPath = args.values.commits;
+  if (commitsPath !== undefined) {
+    const log = readText(commitsPath);
+    if (!log.ok) return usageFailure(TOOL, 'INPUT', log.message);
+    const parsed = parseCommitLog(log.text, commitsPath);
+    if (parsed.errors.length > 0) {
+      return failure(TOOL, parsed.errors.map((e) => ({ ...e, rule: 'INPUT', message: `${e.rule}: ${e.message}` })));
+    }
+    commits = parsed.commits;
+  }
   const loaded = loadTasks(args.values['tasks-dir'] ?? 'docs/tasks');
   if (!loaded.ok) return usageFailure(TOOL, 'INPUT', loaded.message);
-  const findings = checkScope({ branch, tasks: loaded.tasks, changed: list.text.split(/\r?\n/) });
+  const findings = checkScope({
+    branch,
+    tasks: loaded.tasks,
+    changed: list.text.split(/\r?\n/),
+    commits,
+    allNonQa: rest.length !== argv.length,
+  });
   return findings.length > 0 ? failure(TOOL, findings) : success(TOOL, [branch]);
 }
 
