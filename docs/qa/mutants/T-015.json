@@ -1,0 +1,25 @@
+{
+  "task": "T-015",
+  "mutants": [
+    { "id": "M1", "file": "supabase/functions/_shared/config/provider-keys.ts", "before": "value === undefined || value.trim().length === 0", "after": "value === undefined || value.length === 0", "expectFail": ["(TC-1)"] },
+    { "id": "M2", "file": "supabase/functions/_shared/config/paid.ts", "before": "value === undefined || value.trim().length === 0", "after": "value === undefined || value.length === 0", "expectFail": ["(TC-2)"] },
+    { "id": "M3", "file": "supabase/functions/_shared/providers/gemini/index.ts", "before": "const tier: Tier = paid ? 'paid' : 'free';", "after": "const tier: Tier = 'free';", "expectFail": ["(TC-3)"] },
+    { "id": "M4", "file": "supabase/functions/_shared/providers/gemini/transport.ts", "before": "{ maxOutputTokens: req.maxOutputTokens, responseMimeType: 'application/json' }", "after": "{ maxOutputTokens: req.maxOutputTokens }", "expectFail": ["(TC-4)"] },
+    { "id": "M5", "file": "supabase/functions/_shared/providers/gemini/transport.ts", "before": ":streamGenerateContent?alt=sse`", "after": ":streamGenerateContent`", "expectFail": ["(TC-5)"] },
+    { "id": "M6", "file": "supabase/functions/_shared/providers/gemini/generate.ts", "before": "if (!result.ok && result.error.retry) result = await once();", "after": "", "expectFail": ["(TC-8)"] },
+    { "id": "M7", "file": "supabase/functions/_shared/providers/gemini/response.ts", "before": "return fail('model output is not JSON', true);", "after": "return fail('model output is not JSON');", "expectFail": ["(TC-8) STOP 但文字不是 JSON", "(QA-8)"] },
+    { "id": "M8", "file": "supabase/functions/_shared/providers/gemini/response.ts", "before": "p.thought !== true && ", "after": "", "expectFail": ["(TC-7)", "(QA-11)"] },
+    { "id": "M9", "file": "supabase/functions/_shared/providers/gemini/errors.ts", "before": "if (status === 408 || status === 504) return plainError(ctx, 'timeout', text);", "after": "", "expectFail": ["(TC-13)"] },
+    { "id": "M10", "file": "supabase/functions/_shared/providers/gemini/errors.ts", "before": "id.includes('PerDay') || id.includes('Daily')", "after": "id.includes('PerDay')", "expectFail": ["(TC-12) 未驗證：quotaId 含 Daily"] },
+    { "id": "M11", "file": "supabase/functions/_shared/providers/gemini/errors.ts", "before": "Math.ceil(Number.parseFloat(delay))", "after": "Math.floor(Number.parseFloat(delay))", "expectFail": ["(TC-12)", "(QA-3)"] },
+    { "id": "M12", "file": "supabase/functions/_shared/providers/gemini/errors.ts", "before": "text.split(apiKey).join('[redacted]')", "after": "text", "expectFail": ["(TC-23)", "(QA-2)"] },
+    { "id": "M13", "file": "supabase/functions/_shared/providers/gemini/errors.ts", "before": "if (status === 404) return plainError(ctx, 'not_configured'", "after": "if (status === 404) return plainError(ctx, 'unavailable'", "expectFail": ["(TC-11)", "(TC-18)"] },
+    { "id": "M14", "file": "supabase/functions/_shared/providers/gemini/response.ts", "before": "case 'CONTINUATION':", "after": "", "expectFail": ["CONTINUATION"] },
+    { "id": "M15", "file": "supabase/functions/_shared/providers/gemini/response.ts", "before": "usage: usageOf(parsed.data.usageMetadata)", "after": "usage: null", "expectFail": ["(TC-16)", "(QA-15)"] },
+    { "id": "M16", "file": "supabase/functions/_shared/providers/gemini/sse.ts", "before": "buffer = (buffer + text).replace(/\\r\\n/g, '\\n');", "after": "buffer = buffer + text;", "expectFail": ["(TC-16)"] },
+    { "id": "M17", "file": "supabase/functions/_shared/providers/gemini/stream.ts", "before": "yield err(plainError(ctx, 'invalid_response', 'stream ended without finishReason'));", "after": "", "expectFail": ["整段沒有 finishReason", "(QA-18)"] },
+    { "id": "M18", "file": "supabase/functions/_shared/providers/gemini/transport.ts", "before": "expired = true;", "after": "expired = false;", "expectFail": ["(TC-20)", "(QA-10)"] },
+    { "id": "M19", "file": "supabase/functions/_shared/providers/gemini/stream.ts", "before": "call.abort();", "after": "call.finish();", "expectFail": ["(TC-22)"] },
+    { "id": "M20", "file": "supabase/functions/_shared/providers/gemini/response.ts", "before": "if (blocked !== undefined && blocked.length > 0) return fail(`blocked: ${blocked}`);", "after": "", "expectFail": ["(TC-15) 未驗證：promptFeedback.blockReason"] }
+  ]
+}
