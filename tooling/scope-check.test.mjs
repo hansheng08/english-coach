@@ -21,7 +21,9 @@ const rules = (fs) => fs.map((f) => f.rule);
 describe('scope-check', () => {
   it('(AC-O8-5) (TC-18) files inside the allow list (including implicit report) pass', () => {
     const t = task('O-901', 'task/O-901', ['tooling/*.mjs']);
-    expect(check([t], ['tooling/a.mjs', 'docs/reports/O-901.md', 'docs/qa/mutants/O-901.json'])).toEqual([]);
+    const qa = [{ sha: 'a'.repeat(40), authorEmail: 'qa@example.com', committerEmail: 'qa@example.com', subject: '[QA] O-901 mutants', files: [{ status: 'M', paths: ['docs/qa/mutants/O-901.json'] }] }];
+    const changed = ['tooling/a.mjs', 'docs/reports/O-901.md', 'docs/qa/mutants/O-901.json'];
+    expect(checkScope({ branch: 'task/O-901', tasks: [t], changed, commits: qa })).toEqual([]);
   });
 
   it('(AC-O8-5) (TC-19) file outside the allow list -> SC-OUT; deny list wins -> SC-DENY', () => {
