@@ -1,0 +1,41 @@
+{
+  "schema": "actions-usage/v1",
+  "repo": "o/r",
+  "date": "2026-11-25",
+  "tz_offset": "+08:00",
+  "cycle_start": "2026-11-24",
+  "method": "sum of ceil(job seconds / 60) from actions runs/jobs API (estimate)",
+  "day": {
+    "billed_minutes": 43,
+    "raw_minutes": 41.5,
+    "runs": 3,
+    "jobs": 4,
+    "in_progress_jobs": 1,
+    "by_workflow": [
+      { "workflow": "Claude Run Task", "runs": 1, "jobs": 1, "billed_minutes": 30, "raw_minutes": 30 },
+      { "workflow": "CI", "runs": 1, "jobs": 2, "billed_minutes": 12, "raw_minutes": 11.5 },
+      { "workflow": "Notify", "runs": 1, "jobs": 1, "billed_minutes": 1, "raw_minutes": 0 }
+    ]
+  },
+  "cycle": {
+    "billed_minutes": 48,
+    "days_elapsed": 2,
+    "daily_average": 24,
+    "by_workflow": [
+      { "workflow": "Claude Run Task", "runs": 1, "jobs": 1, "billed_minutes": 30, "raw_minutes": 30 },
+      { "workflow": "CI", "runs": 1, "jobs": 3, "billed_minutes": 17, "raw_minutes": 16 },
+      { "workflow": "Notify", "runs": 1, "jobs": 1, "billed_minutes": 1, "raw_minutes": 0 }
+    ]
+  },
+  "allowance": {
+    "included_minutes": 2000,
+    "used_minutes": 48,
+    "remaining_minutes": 1952,
+    "used_pct": 2.4,
+    "days_of_allowance_left": 81.3,
+    "projected_cycle_minutes": 720
+  },
+  "thresholds": { "daily_warn": 100, "daily_stop": 200, "month_warn_pct": 75, "month_stop_pct": 90 },
+  "status": "ok",
+  "reasons": []
+}

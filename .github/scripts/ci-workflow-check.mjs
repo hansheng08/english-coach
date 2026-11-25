@@ -1,4 +1,7 @@
 // O-015 static workflow check (retro §3.7 C4, C6, C7; task W-5, W-6). Only node: built-ins.
+// O-016 adds the CI cost lint (CL-1 timeout-minutes 1-60 on every job, CL-2 a top-level
+// concurrency group on every workflow, CL-3 job count <= .github/ci-budget.json), the
+// --no-renames check on the taskcheck / post-check diffs, and the PR-description step.
 // Usage: node ci-workflow-check.mjs <repo root>   -> exit 0 "ci-workflow-check: OK", else exit 1 with findings.
 // The workflows are parsed line by line (2-space YAML as written in this repo); anything the
 // parser does not understand is a finding (fail-closed), never a pass.
@@ -14,6 +17,20 @@ const FULL_GUARD = "needs.ci-guard.outputs.mode == 'full' && ";
 const DOCS_TASKS = "(needs.ci-guard.outputs.mode == 'docs' && needs.ci-guard.outputs.tasks_changed == 'true')";
 const CI_OK_NEEDS = ['ci-guard', 'check', 'bundle', 'db', 'e2e', 'taskcheck'];
 const REMOVED_JOBS = ['detect', 'actionlint', 'pushguard', 'secrets', 'guard'];
+export const BUDGET_FILE = '.github/ci-budget.json';
+const TIMEOUT_MAX = 60;
+// O-016 (retro M5): every `git diff` in these scripts must use --no-renames, otherwise a
+// rename lists only the new path (scope-check misses the old one; --diff-filter=AM drops R).
+export const NO_RENAMES_SCRIPTS = { '.github/scripts/taskcheck.sh': 3, '.github/scripts/run-task-post-check.sh': 1 };
+export const PR_BODY_STEP = 'PR description: Actions 分鐘數影響';
+const PR_BODY_IF = "${{ !cancelled() && github.event_name == 'pull_request' }}";
+const PR_BODY_ENV = {
+  GH_TOKEN: '${{ github.token }}',
+  REPO: '${{ github.repository }}',
+  PR_NUMBER: '${{ github.event.pull_request.number }}',
+  BASE_SHA: '${{ github.event.pull_request.base.sha }}',
+  HEAD_SHA: '${{ github.event.pull_request.head.sha }}',
+};
 
 const indentOf = (l) => l.length - l.trimStart().length;
 const unquote = (v) => {
@@ -33,7 +50,7 @@ function scalarAt(lines, i, value) {
 
 export function parseWorkflow(text) {
   const lines = text.split(/\r?\n/);
-  const wf = { events: [], onLines: [], jobs: new Map(), problems: [] };
+  const wf = { events: [], onLines: [], jobs: new Map(), problems: [], concurrency: null };
   let i = 0;
   while (i < lines.length) {
     const l = lines[i];
@@ -47,6 +64,17 @@ export function parseWorkflow(text) {
       continue;
     }
     if (/^on:/.test(l)) wf.problems.push('`on:` must be a block (inline forms are not understood)');
+    const cm = /^concurrency:\s*(.*)$/.exec(l);
+    if (cm) {
+      // CL-2: only the block form (group: / cancel-in-progress:) is understood.
+      wf.concurrency = { inline: cm[1].replace(/\s+#.*$/, '').trim(), group: null, cancel: null };
+      i += 1;
+      for (; i < lines.length && (lines[i].trim() === '' || indentOf(lines[i]) > 0); i += 1) {
+        const km = /^ {2}(group|cancel-in-progress):\s*(.*)$/.exec(lines[i]);
+        if (km) wf.concurrency[km[1] === 'group' ? 'group' : 'cancel'] = unquote(km[2]);
+      }
+      continue;
+    }
     if (/^jobs:\s*$/.test(l)) {
       i += 1;
       let job = null;
@@ -59,7 +87,7 @@ export function parseWorkflow(text) {
         if (t === '' || t.startsWith('#')) { i += 1; continue; }
         const jm = /^ {2}([A-Za-z0-9_-]+):\s*$/.exec(line);
         if (jm) {
-          job = { id: jm[1], name: null, if: null, needs: null, permissions: null, steps: [] };
+          job = { id: jm[1], name: null, if: null, needs: null, permissions: null, timeout: null, steps: [] };
           wf.jobs.set(job.id, job);
           section = null; step = null; i += 1; continue;
         }
@@ -77,6 +105,7 @@ export function parseWorkflow(text) {
             job.needs = rest.startsWith('[') ? rest.replace(/[[\]]/g, '').split(',').map((x) => x.trim()).filter(Boolean) : [rest.trim()];
           }
           if (key === 'permissions') job.permissions = rest.trim() === '' ? {} : rest.trim();
+          if (key === 'timeout-minutes') job.timeout = rest.replace(/\s+#.*$/, '').trim();
           i += 1; continue;
         }
         if (section === 'permissions' && ind === 6 && typeof job.permissions === 'object') {
@@ -233,6 +262,69 @@ export function checkRepo(root) {
     if (ev !== 'pull_request' && okCount !== 0) add(`event ${ev}: no job may be named ci-ok (C4: only the pull_request run produces the required check)`);
   }
   if (!byEvent.has('pull_request')) add('no workflow runs on pull_request');
+
+  // O-016 CL-1: every job of every workflow has timeout-minutes, an integer 1..60
+  // (GitHub's default is 360 minutes; a hung job bills all of it).
+  for (const [f, wf] of workflows) {
+    for (const job of wf.jobs.values()) {
+      const t = job.timeout;
+      if (t === null) { add(`${f}: job ${job.id} has no timeout-minutes (CL-1)`); continue; }
+      if (!/^[0-9]+$/.test(t) || Number(t) < 1 || Number(t) > TIMEOUT_MAX) add(`${f}: job ${job.id} timeout-minutes must be an integer 1..${String(TIMEOUT_MAX)} (CL-1), got ${t}`);
+    }
+    // CL-2: top-level concurrency with a group.
+    const c = wf.concurrency;
+    if (c === null) add(`${f}: no top-level concurrency (CL-2)`);
+    else if (c.inline !== '') add(`${f}: concurrency must be a block with group: (CL-2), got inline ${c.inline}`);
+    else if (!c.group) add(`${f}: concurrency has no group (CL-2)`);
+  }
+  // CL-3: job count per workflow <= .github/ci-budget.json (every workflow listed, nothing stale).
+  let budget = null;
+  try {
+    budget = JSON.parse(readFileSync(join(root, BUDGET_FILE), 'utf8'));
+  } catch (e) {
+    add(`${BUDGET_FILE}: cannot read or parse (CL-3): ${e instanceof Error ? e.message : String(e)}`);
+  }
+  if (budget !== null) {
+    const max = budget && typeof budget === 'object' ? budget.max_jobs : undefined;
+    if (!max || typeof max !== 'object' || Array.isArray(max)) add(`${BUDGET_FILE}: must be { "max_jobs": { "<workflow file>": <n> } } (CL-3)`);
+    else {
+      for (const [f, wf] of workflows) {
+        const n = max[f];
+        if (n === undefined) { add(`${BUDGET_FILE}: workflow ${f} is not listed (CL-3)`); continue; }
+        if (!Number.isInteger(n) || n < 1) { add(`${BUDGET_FILE}: ${f} limit must be a positive integer (CL-3), got ${JSON.stringify(n)}`); continue; }
+        if (wf.jobs.size > n) add(`${f}: ${String(wf.jobs.size)} jobs exceed the budget of ${String(n)} in ${BUDGET_FILE} (CL-3)`);
+      }
+      for (const f of Object.keys(max)) if (!workflows.has(f)) add(`${BUDGET_FILE}: ${f} is not a workflow (stale entry, CL-3)`);
+    }
+  }
+
+  // O-016 (retro M5): --no-renames on every git diff of taskcheck.sh / run-task-post-check.sh.
+  for (const [rel, want] of Object.entries(NO_RENAMES_SCRIPTS)) {
+    let text;
+    try { text = readFileSync(join(root, rel), 'utf8'); } catch { add(`${rel}: missing`); continue; }
+    const diffs = text.split(/\r?\n/).map((l, n) => ({ l, n: n + 1 })).filter(({ l }) => !/^\s*#/.test(l) && /\bgit diff\b/.test(l));
+    if (diffs.length !== want) add(`${rel}: expected ${String(want)} git diff call(s), found ${String(diffs.length)} (update NO_RENAMES_SCRIPTS with the new call)`);
+    for (const { l, n } of diffs) if (!l.includes('git diff --no-renames ')) add(`${rel}:${String(n)}: git diff without --no-renames (a rename would hide the old path)`);
+  }
+
+  // O-016: the PR-description step (pr-body-lint on the CURRENT description) runs on pull_request only.
+  const guard = ci.jobs.get('ci-guard');
+  if (guard) {
+    const s = guard.steps.find((x) => x.name === PR_BODY_STEP);
+    if (!s) add(`ci.yml: ci-guard step "${PR_BODY_STEP}" missing (O-016)`);
+    else {
+      if (s.if !== PR_BODY_IF) add(`ci.yml: "${PR_BODY_STEP}" must have exactly if: ${PR_BODY_IF}, got ${String(s.if)}`);
+      if (s.run !== 'bash .github/scripts/pr-body-check.sh') add(`ci.yml: "${PR_BODY_STEP}" must run bash .github/scripts/pr-body-check.sh`);
+      for (const [k, v] of Object.entries(PR_BODY_ENV)) if (s.env[k] !== v) add(`ci.yml: "${PR_BODY_STEP}" env ${k} must be ${v}`);
+    }
+  }
+  const prOn = [];
+  let inPr = false;
+  for (const l of ci.onLines) {
+    if (/^ {2}[A-Za-z_]+:/.test(l)) inPr = /^ {2}pull_request:/.test(l);
+    else if (inPr) prOn.push(l);
+  }
+  if (prOn.some((l) => /\btypes\s*:/.test(l))) add('ci.yml: pull_request must keep the default types (no edited: a description edit would re-run all of CI)');
   return findings;
 }
 

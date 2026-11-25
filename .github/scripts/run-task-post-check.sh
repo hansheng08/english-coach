@@ -63,8 +63,10 @@ elif ! node "$TOOLING_DIR/report-lint.mjs" "$REPORT"; then
   FAILED+=(report-lint)
 fi
 
+# O-016 (retro M5): --no-renames so the summary's changed-file list shows a
+# rename as the old (deleted) and the new path, never only the new one.
 CHANGED="$OUT_DIR/run-task-changed.txt"
-git diff --name-only "${BASE_REF}...${HEAD_SHA}" > "$CHANGED" || die "git diff --name-only ${BASE_REF}...${HEAD_SHA} failed"
+git diff --no-renames --name-only "${BASE_REF}...${HEAD_SHA}" > "$CHANGED" || die "git diff --name-only ${BASE_REF}...${HEAD_SHA} failed"
 
 # O-012: every commit this run created (PRE_HEAD..HEAD, PRE_HEAD recorded by
 # run-task-pre-head.sh before Claude) is checked with scope-check

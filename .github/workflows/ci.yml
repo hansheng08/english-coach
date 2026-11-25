@@ -117,6 +117,7 @@ jobs:
           bash .github/scripts/run-task-pre-head-test.sh
           bash .github/scripts/run-task-usage-limit-test.sh
           bash .github/scripts/ci-guard-mode-test.sh
+          bash .github/scripts/pr-body-check-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
           node .github/scripts/ci-workflow-check.mjs .
@@ -137,6 +138,18 @@ jobs:
       - name: secret scanner self-test
         if: ${{ !cancelled() }}
         run: PATH="$RUNNER_TEMP/gitleaks:$PATH" node .github/scripts/secret-selftest.mjs
+      # O-016: a PR that changes .github/workflows/** must fill in「Actions 分鐘數影響」.
+      # Reads the CURRENT description via the API (pull-requests: read); ci.yml does
+      # not run on `edited`, so after editing the description push or rerun.
+      - name: 'PR description: Actions 分鐘數影響'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/pr-body-check.sh
 
   check:
     needs: ci-guard
