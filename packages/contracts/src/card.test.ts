@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { CardScheduleSchema, IntervalStepSchema, ReviewRequestSchema } from './card.ts';
+import { CardScheduleSchema, ChunkTextSchema, IntervalStepSchema, ReviewRequestSchema } from './card.ts';
+
+describe('ChunkTextSchema', () => {
+  it('(AC-T13-1) (TC-1) accepts valid chunk formats', () => {
+    for (const v of ['get buy-in from sb', 'take ownership of', "one's call", 'leverage']) {
+      expect(ChunkTextSchema.safeParse(v).success).toBe(true);
+    }
+  });
+
+  it('(AC-T13-1) (TC-2) rejects forbidden characters', () => {
+    for (const v of ['take (the) lead', 'and/or', 'wait…', '2 cents', 'one’s call']) {
+      expect(ChunkTextSchema.safeParse(v).success).toBe(false);
+    }
+  });
+
+  it('(AC-T13-1) (TC-3) rejects bad whitespace and empty words', () => {
+    for (const v of [' leading space', 'trailing ', 'double  space', 'tab\there', '-', '']) {
+      expect(ChunkTextSchema.safeParse(v).success).toBe(false);
+    }
+  });
+
+  it('(AC-T13-2) (TC-4) accepts chunks that satisfy the C2 format', () => {
+    const c2 = /^[A-Za-z]+(?:['-][A-Za-z]+)*(?: [A-Za-z]+(?:['-][A-Za-z]+)*)*$/;
+    for (const v of ['get buy-in', "one's call", 'take ownership of the roadmap']) {
+      const n = v.split(' ').length;
+      expect(c2.test(v) && n >= 2 && n <= 6).toBe(true);
+      expect(ChunkTextSchema.safeParse(v).success).toBe(true);
+    }
+  });
+});
 
 const CARD_ID = '123e4567-e89b-42d3-a456-426614174000';
 
