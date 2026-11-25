@@ -15,6 +15,11 @@ on:
 permissions:
   contents: read
 
+# O-016 CL-2: one spike per poc branch at a time, none cancelled.
+concurrency:
+  group: poc-spike-${{ inputs.ref }}
+  cancel-in-progress: false
+
 jobs:
   spike:
     runs-on: ubuntu-latest

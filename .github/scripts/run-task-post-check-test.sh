@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Asserted cases for run-task-post-check.sh (O-009, O-012, O-013, O-014). Uses the REAL
+# Asserted cases for run-task-post-check.sh (O-009, O-012, O-013, O-014, O-016). Uses the REAL
 # tooling/report-lint.mjs and tooling/verify-summary.mjs on a throwaway git
 # repo; only Vitest is replaced (VITEST_JSON_CMD). Each case asserts the exact
 # exit code and whether verify-summary.md was produced. Zero network.
@@ -228,6 +228,42 @@ git add tooling/x.qa.test.ts
 git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[QA] O-905 spoofed"
 run_case "O-014: after main is excluded, Claude touching a QA file is still SC-QA-OWNER" 1 yes TASK=O-905 BRANCH=task/O-905 PRE_HEAD="$QA14"
 grep -q 'FAILED: scope-check:SC-QA-OWNER$' "$WORK/out" || { echo "CASE FAIL: expected scope-check:SC-QA-OWNER"; cat "$WORK/out"; FAIL=1; }
+
+# O-016 (retro M5): Claude `git mv`s an out-of-scope file into scope. scope-check
+# (git log --name-status -M, every path incl. the rename source, O-014) must say
+# SC-OUT on the old path; the summary's changed-file list (git diff --no-renames)
+# must list the old path too.
+RNREPO="$WORK/rnrepo"
+git init -q -b main "$RNREPO"
+cd "$RNREPO"
+git config user.email t@example.invalid
+git config user.name t
+mkdir -p docs/tasks packages/a
+printf '# O-904：x\n\n## 分支\n`task/O-904`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n' > docs/tasks/O-904.md
+printf 'export const moved = "an out-of-scope file that is renamed into scope";\n' > packages/a/moved.ts
+git add -A && git commit -qm "M0: O-904 task and an out-of-scope file"
+RN0="$(git rev-parse HEAD)"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q -c task/O-904
+mkdir -p tooling docs/reports
+git mv packages/a/moved.ts tooling/moved.mjs
+printf '# O-904 報告\n\n## 完成摘要\n完成。\n\n## 未完成事項\n無。\n\n## 需要人類決定的問題\n無。\n\n## 權限被拒\n- 次數：0 次\n' > docs/reports/O-904.md
+git add docs/reports/O-904.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] O-904 move an out-of-scope file into scope"
+C16=(TASK=O-904 BRANCH=task/O-904 PRE_HEAD="$RN0")
+run_case "O-016: git mv out-of-scope file into scope -> exit 1, SC-OUT on the old path" 1 yes "${C16[@]}"
+grep -q 'packages/a/moved.ts:[0-9]*: SC-OUT' "$WORK/out" || { echo "CASE FAIL: expected SC-OUT on packages/a/moved.ts"; cat "$WORK/out"; FAIL=1; }
+grep -qF -- '- `packages/a/moved.ts`' "$WORK/rt/verify-summary.md" && echo "CASE OK: summary lists the rename source packages/a/moved.ts" || { echo "CASE FAIL: summary lacks packages/a/moved.ts"; cat "$WORK/rt/verify-summary.md"; FAIL=1; }
+# Mutant NR-P1: the summary diff without --no-renames must lose the old path.
+MUT_NR="$WORK/post-check-mutant-nr.sh"
+sed -e 's/git diff --no-renames --name-only "${BASE_REF}...${HEAD_SHA}"/git diff --name-only "${BASE_REF}...${HEAD_SHA}"/' "$SCRIPT" > "$MUT_NR"
+if cmp -s "$MUT_NR" "$SCRIPT"; then echo "CASE FAIL: mutation NR-P1 did not change the script"; FAIL=1; fi
+REAL_SCRIPT="$SCRIPT"; SCRIPT="$MUT_NR"
+run_case "O-016 mutant NR-P1 (summary diff without --no-renames): scope-check still SC-OUT" 1 yes "${C16[@]}"
+if [[ ! -s "$WORK/rt/verify-summary.md" ]]; then echo "CASE FAIL: mutant NR-P1 wrote no summary (cannot judge)"; FAIL=1
+elif grep -qF -- '- `packages/a/moved.ts`' "$WORK/rt/verify-summary.md"; then echo "CASE FAIL: mutant NR-P1 survived (summary still lists packages/a/moved.ts)"; FAIL=1
+else echo "MUTANT KILLED: NR-P1 summary diff without --no-renames -> packages/a/moved.ts missing from the summary"; fi
+SCRIPT="$REAL_SCRIPT"
 cd "$REPO"
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-post-check-test: FAILED"; exit 1; fi

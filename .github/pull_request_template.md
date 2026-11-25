@@ -7,6 +7,9 @@
 ## 風險
 -
 
+## Actions 分鐘數影響
+（改到 .github/workflows/** 時必填：預估每月增減的分鐘數與算法，或「無影響：理由」）
+
 ## 自動驗證摘要
 （workflow 產生，這裡只放連結：run-task 留言（或 commit comment）與 PR 觸發 CI 的 `taskcheck` job summary（測試數、突變結果、權限被拒、變更檔案）。O-009 前的分支寫「O-009 前無自動摘要」。不手貼測試輸出、不手打數字。）
 

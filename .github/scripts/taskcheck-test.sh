@@ -127,6 +127,47 @@ run_case "unsupported event is fail-closed" 1 "" \
   EVENT_NAME=workflow_dispatch REF_NAME=task/T-901 SHA="$BRANCH_SHA"
 run_case "empty event is fail-closed" 1 ""
 
+# O-016 (retro M5): renames must list the old path too (git diff --no-renames).
+# expect_killed <mutant name> <line pattern> <run_case args...>: the case must FAIL
+# on a copy of taskcheck.sh whose matching git diff line lost --no-renames.
+expect_killed() {
+  local mname="$1" pat="$2"; shift 2
+  local mut="$WORK/taskcheck-mutant.sh" saved_fail="$FAIL" saved_script="$SCRIPT"
+  awk -v pat="$pat" 'index($0, pat) { sub(/git diff --no-renames /, "git diff ") } { print }' "$SCRIPT" > "$mut"
+  if cmp -s "$mut" "$SCRIPT"; then echo "ERROR: mutant ${mname} did not change the script"; FAIL=1; return; fi
+  echo "----- MUTANT ${mname} (the next case must NOT match) -----"
+  FAIL=0; SCRIPT="$mut"
+  "$@"
+  local got="$FAIL"
+  FAIL="$saved_fail"; SCRIPT="$saved_script"
+  if [[ "$got" -eq 1 ]]; then echo "MUTANT KILLED: ${mname}"; else echo "ERROR: mutant ${mname} survived"; FAIL=1; fi
+  echo
+}
+git switch -q --detach "$TASK_SHA"
+git mv docs/tasks/T-901.md docs/tasks/T-902.md
+git commit -qm "rename a task file"
+RENAMED_TASK_SHA="$(git rev-parse HEAD)"
+git switch -q --detach "$TASK_SHA"
+mkdir -p docs/reports
+echo "# T-904 報告" > docs/reports/T-904.md
+git add docs/reports/T-904.md && git commit -qm "report on the base"
+REPORT_BASE_SHA="$(git rev-parse HEAD)"
+git mv docs/reports/T-904.md docs/reports/T-904-fix1.md
+git commit -qm "rename the report"
+RENAMED_REPORT_SHA="$(git rev-parse HEAD)"
+git switch -q task/T-901
+run_case "main push renaming a task file still task-lints the new path (--no-renames)" 0 "task-lint docs/tasks/T-902.md" \
+  EVENT_NAME=push REF_NAME=main BEFORE_SHA="$TASK_SHA" SHA="$RENAMED_TASK_SHA"
+expect_killed "NR-T1 main-push task-lint diff without --no-renames" "-- 'docs/tasks/*.md'" \
+  run_case "main push renaming a task file still task-lints the new path (--no-renames)" 0 "task-lint docs/tasks/T-902.md" \
+  EVENT_NAME=push REF_NAME=main BEFORE_SHA="$TASK_SHA" SHA="$RENAMED_TASK_SHA"
+RN_CALLS="scope-check --branch task/T-904 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-904 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/T-904-fix1.md|verify-summary --task T-904 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt"
+run_case "renamed report is still report-linted (--no-renames)" 0 "$RN_CALLS" \
+  EVENT_NAME=pull_request HEAD_REF=task/T-904 BASE_SHA="$REPORT_BASE_SHA" PR_HEAD_SHA="$RENAMED_REPORT_SHA"
+expect_killed "NR-T3 report-lint diff without --no-renames" "-- 'docs/reports/*.md'" \
+  run_case "renamed report is still report-linted (--no-renames)" 0 "$RN_CALLS" \
+  EVENT_NAME=pull_request HEAD_REF=task/T-904 BASE_SHA="$REPORT_BASE_SHA" PR_HEAD_SHA="$RENAMED_REPORT_SHA"
+
 # O-009 fix/Q-901 cases need that branch checked out (mutants file is read from the tree).
 git switch -q fix/Q-901
 run_case "fix/Q-901 push: scope, coverage, report-lint, run-mutants, summary" 0 \
@@ -287,6 +328,28 @@ qa_case "Claude commit modifying docs/qa/mutants/T-953.json -> SC-QA-OWNER" 1 ta
 EMPTY_BASE="$(git commit-tree "$(git hash-object -t tree /dev/null)" -m empty)"
 git update-ref refs/remotes/origin/main "$EMPTY_BASE"
 qa_case "main without docs/tasks -> fail-closed" 1 task/T-953 "$Q_FIX" 'taskcheck: ERROR'
+# O-016 (retro M5): `git mv` an out-of-scope file into scope -> SC-OUT on the old
+# path (real scope-check). Without --no-renames only the new path is listed.
+git switch -q main
+printf '# T-955：x\n\n## 分支\n`task/T-955`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n' > docs/tasks/T-955.md
+mkdir -p packages/a
+printf 'export const moved = "an out-of-scope file that is renamed into scope";\n' > packages/a/moved.ts
+git add docs/tasks/T-955.md packages/a/moved.ts && git commit -qm "T-955 task and an out-of-scope file"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q -c task/T-955
+mkdir -p tooling
+git mv packages/a/moved.ts tooling/moved.mjs
+git -c user.email="$CLAUDE_EMAIL" commit -qm "[Claude] T-955 move an out-of-scope file into scope"
+qa_case "git mv out-of-scope file into scope -> SC-OUT on the old path" 1 task/T-955 "$(git rev-parse HEAD)" 'packages/a/moved.ts:[0-9]*: SC-OUT'
+MIXED_SCRIPT="$SCRIPT"
+awk 'index($0, "> \"$CHANGED\"") { sub(/git diff --no-renames /, "git diff ") } { print }' "$SCRIPT" > "$WORK/taskcheck-mutant.sh"
+if cmp -s "$WORK/taskcheck-mutant.sh" "$SCRIPT"; then echo "ERROR: mutant NR-T2 did not change the script"; FAIL=1; fi
+SCRIPT="$WORK/taskcheck-mutant.sh"
+SAVED_FAIL="$FAIL"; FAIL=0
+echo "----- MUTANT NR-T2 scope-check diff without --no-renames (the next case must NOT match) -----"
+qa_case "git mv out-of-scope file into scope -> SC-OUT on the old path" 1 task/T-955 "$(git rev-parse HEAD)" 'packages/a/moved.ts:[0-9]*: SC-OUT'
+if [[ "$FAIL" -eq 1 ]]; then echo "MUTANT KILLED: NR-T2 scope-check diff without --no-renames"; FAIL="$SAVED_FAIL"; else echo "ERROR: mutant NR-T2 survived"; FAIL=1; fi
+SCRIPT="$MIXED_SCRIPT"
 cd "$REPO"
 
 if [[ "$FAIL" -ne 0 ]]; then

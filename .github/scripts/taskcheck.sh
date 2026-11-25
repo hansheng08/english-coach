@@ -5,7 +5,7 @@
 #   push to main            -> task-lint every docs/tasks/*.md added or
 #                              modified in this push (BEFORE_SHA..SHA).
 #                              No such file -> pass with an explicit line.
-#   push/PR on task/<id>    -> scope-check (git diff --name-only BASE...HEAD,
+#   push/PR on task/<id>    -> scope-check (git diff --no-renames --name-only BASE...HEAD,
 #                              O-012: --commits from git log BASE..HEAD;
 #                              O-013: --tasks-dir = docs/tasks of BASE (main)),
 #   and fix/Q-<nnn> (O-009)    Vitest JSON, ac-coverage, report-lint on the
@@ -24,6 +24,9 @@
 #   anything else           -> exit 1 (the job-level `if` must not route
 #                              other refs here; reaching this is a wiring bug).
 # Fail-closed: every missing input, git error or tool failure exits non-zero.
+# O-016 (retro M5): every git diff uses --no-renames, so a rename lists both
+# the old (deleted) and the new path: renaming an out-of-scope file into scope
+# is SC-OUT, and a renamed task file / report is still an A for --diff-filter=AM.
 # Env: EVENT_NAME REF_NAME HEAD_REF BEFORE_SHA SHA BASE_SHA PR_HEAD_SHA
 #      RUNNER_TEMP; optional GITHUB_STEP_SUMMARY; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests),
 #      DB_TEST_CMD (tests; gets the TAP dir as $1).
@@ -41,7 +44,7 @@ if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == "main" ]]; then
   [[ -n "${BEFORE_SHA:-}" && "${BEFORE_SHA}" != "$ZERO_SHA" ]] || die "push to main without a usable BEFORE_SHA ('${BEFORE_SHA:-}')"
   [[ -n "${SHA:-}" ]] || die "SHA is empty"
   MAIN_LIST="$OUT_DIR/taskcheck-main-tasks.txt"
-  git diff --name-only --diff-filter=AM "$BEFORE_SHA" "$SHA" -- 'docs/tasks/*.md' > "$MAIN_LIST" || die "git diff ${BEFORE_SHA} ${SHA} failed"
+  git diff --no-renames --name-only --diff-filter=AM "$BEFORE_SHA" "$SHA" -- 'docs/tasks/*.md' > "$MAIN_LIST" || die "git diff ${BEFORE_SHA} ${SHA} failed"
   mapfile -t files < "$MAIN_LIST"
   if [[ "${#files[@]}" -eq 0 ]]; then
     echo "taskcheck: main push has no added or modified docs/tasks/*.md; nothing to lint"
@@ -84,7 +87,7 @@ TASKS_DIR="$MAIN_TASKS/docs/tasks"
 compgen -G "$TASKS_DIR/*.md" > /dev/null || die "no docs/tasks/*.md in ${BASE}"
 
 CHANGED="$OUT_DIR/taskcheck-changed.txt"
-git diff --name-only "${BASE}...${HEAD}" > "$CHANGED" || die "git diff --name-only ${BASE}...${HEAD} failed"
+git diff --no-renames --name-only "${BASE}...${HEAD}" > "$CHANGED" || die "git diff --name-only ${BASE}...${HEAD} failed"
 echo "taskcheck: changed files (${BASE}...${HEAD}):"
 cat "$CHANGED"
 # O-012: the commit list (BASE..HEAD, merges as dense-combined diffs) lets
@@ -121,7 +124,7 @@ fi
 if ! node "$TOOLING_DIR/ac-coverage.mjs" "${cov_args[@]}"; then FAILED+=(ac-coverage); fi
 
 REPORTS="$OUT_DIR/taskcheck-reports.txt"
-git diff --name-only --diff-filter=AM "${BASE}...${HEAD}" -- 'docs/reports/*.md' > "$REPORTS" || die "git diff for docs/reports failed"
+git diff --no-renames --name-only --diff-filter=AM "${BASE}...${HEAD}" -- 'docs/reports/*.md' > "$REPORTS" || die "git diff for docs/reports failed"
 mapfile -t reports < "$REPORTS"
 if [[ "${#reports[@]}" -eq 0 ]]; then
   echo "taskcheck: report-lint: no added or modified docs/reports/*.md on this branch"

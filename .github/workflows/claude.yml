@@ -10,6 +10,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+# O-016 CL-2: one Claude run per issue / PR at a time, none cancelled. Events
+# that do not mention @claude (the job is skipped) go to a separate "-false"
+# group, so they never queue behind, or replace, a real @claude run.
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}-${{ ((github.event_name == 'issue_comment' || github.event_name == 'pull_request_review_comment') && contains(github.event.comment.body, '@claude')) || (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) || (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude'))) }}
+  cancel-in-progress: false
+
 jobs:
   claude:
     if: |
@@ -18,6 +25,8 @@ jobs:
       (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude')) ||
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')))
     runs-on: ubuntu-latest
+    # O-016 CL-1: GitHub's default is 360 minutes.
+    timeout-minutes: 30
     permissions:
       contents: read
       pull-requests: read

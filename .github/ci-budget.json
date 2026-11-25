@@ -1,0 +1,12 @@
+{
+  "_comment": "O-016 CL-3: maximum number of jobs per workflow, checked by .github/scripts/ci-workflow-check.mjs. Every workflow must be listed; raising a limit is a reviewed change (each job bills at least one minute per run).",
+  "max_jobs": {
+    "ci.yml": 7,
+    "claude-code-review.yml": 1,
+    "claude-run-task.yml": 1,
+    "claude.yml": 1,
+    "g3-comment-guard.yml": 1,
+    "notify-grok.yml": 1,
+    "poc-spike.yml": 1
+  }
+}

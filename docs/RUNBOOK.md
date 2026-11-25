@@ -320,3 +320,24 @@ gh version 2.103.0 (2026-10-21)
 - 必過檢查（C4）：`ci-ok` 的顯示名稱是 `${{ github.event_name == 'pull_request' && 'ci-ok' || format('ci-ok ({0})', github.event_name) }}`。只有 pull_request run 會產生名為 `ci-ok` 的 check run；push run 是 `ci-ok (push)`，手動是 `ci-ok (workflow_dispatch)`，不會被 main 分支保護的 `ci-ok` 讀到（略過的同名檢查也算通過，所以 push run 連略過的 `ci-ok` 都不能有）。
 - `ci-ok.mjs`（C5）：`ci-guard` 必須 success；依模式該跑的 job 必須 success，不能是 skipped：full 且 `has_node` → `check`；full 且 `has_web` → `bundle`；full PR 且 `has_supabase` → `db`；full PR 且 `has_e2e` → `e2e`；`has_node` 且（full 的 main／task／fix push 或 task／fix 的 PR，或 docs 且改到 `docs/tasks/`）→ `taskcheck`。模式不是 full／docs／light、PR 或手動觸發卻不是 full、docs 不在 main、light 不在 task／fix 或沒有 PR 編號 → 失敗。
 - 測試：`ci-guard-mode-test.sh`（真的 git repo＋假 `gh`：28 個案例、5 個突變）、`ci-ok.test.mjs`（C5 表、context 檢查、9 個突變）、`ci-workflow-check.mjs`＋`.test.mjs`（C4 名稱跨 workflow 依事件唯一、C6、C7、W-5、單大括號 `${ … }`；17 個突變）。全部在 `ci-guard` 的 `pushguard tests` 步驟跑。
+
+### 6.4 O-016：CI 成本 lint、PR 說明「Actions 分鐘數影響」、`--no-renames`
+
+- CI 成本 lint 併在 `.github/scripts/ci-workflow-check.mjs`（`ci-guard` 的 `pushguard tests` 步驟跑），任何一條不符就讓 `ci-guard` 失敗：
+  - CL-1：每個 workflow 的每個 job 都有 `timeout-minutes`，值是 1～60 的整數（GitHub 預設 360 分鐘；卡住的 job 會整段計費）。
+  - CL-2：每個 workflow 都有頂層 `concurrency`（區塊寫法，含 `group:`）。
+  - CL-3：每個 workflow 的 job 數 ≤ `.github/ci-budget.json` 的 `max_jobs`；每個 workflow 都要列，列了不存在的 workflow（例如刪檔後沒同步）也算失敗。要加 job 就要在同一個 PR 改 budget，改動會出現在 diff 裡。
+- 目前的值：`claude.yml` 30 分（concurrency 依 issue／PR 編號＋「有沒有 @claude」分組、不取消；沒有 @claude 的事件 job 會略過，分到 `-false` 組，不會排在真的 Claude run 後面或把它換掉）、`notify-grok.yml` 5 分（依 PR 編號、不取消）、`claude-code-review.yml` 15 分（依 PR 編號、取消舊的；workflow 目前 `disabled_manually`，O-016 任務單建議移除，待 Hansheng 核准）、`poc-spike.yml` 補 concurrency（依 `inputs.ref`、不取消）。
+- PR 說明檢查：`.github/pull_request_template.md` 在「風險」後有 `## Actions 分鐘數影響`。`ci.yml` 的 `ci-guard` 在 `pull_request` 事件跑「PR description: Actions 分鐘數影響」步驟（`.github/scripts/pr-body-check.sh`）：`git diff --no-renames --name-only <base>...<head>` 取變更檔，`gh api repos/<repo>/pulls/<n> --jq '.body // ""'` 取**目前**的 PR 說明（不用事件 payload），交給 `tooling/pr-body-lint.mjs`。改到 `.github/workflows/**`（含把 workflow 搬出去）時，該節必須有「數字＋分鐘」或「無影響：理由」；缺節 `PB-MISSING`、佔位文字 `PB-PLACEHOLDER`、空的 `PB-EMPTY`、沒有數字 `PB-VAGUE`。`gh` 失敗也判失敗。
+- `ci.yml` 不在 `edited` 觸發（每改一次說明就重跑整套 CI 太貴；`ci-workflow-check` 會擋 `pull_request` 加 `types:`）。**改完說明後要推新 commit，或由 Hansheng 在 GitHub 按重跑**（box 的權杖不能 rerun）。
+- `--no-renames`（retro M5）：`taskcheck.sh` 的三處 `git diff`（main push 的 task-lint 清單、scope-check 的變更清單、report-lint 清單）與 `run-task-post-check.sh` 的摘要變更清單。改名會同時列出舊路徑（刪除）與新路徑：把範圍外檔案 `git mv` 進範圍 → `SC-OUT`；改名的任務單、報告仍是 `A`，不會被 `--diff-filter=AM` 漏掉。post-check 的 scope-check 從 O-014 起就讀 `git log --name-status -M` 的每個路徑，不受影響（只加回歸測試）。`ci-workflow-check` 也檢查這兩支腳本的每個 `git diff` 都有 `--no-renames`，且呼叫數符合登記（新增一處要同步登記）。
+- 測試：`ci-workflow-check.test.mjs`（CL-M1～CL-M13、NR-M1～NR-M5、PB-W1～PB-W5）、`pr-body-check-test.sh`（真的 `pr-body-lint.mjs`＋假 `gh`：13 個案例、2 個突變）、`taskcheck-test.sh`（改名任務單、改名報告、`git mv` 進範圍 → `SC-OUT`；突變 NR-T1～NR-T3）、`run-task-post-check-test.sh`（`git mv` 進範圍 → `SC-OUT`＋摘要列出舊路徑；突變 NR-P1）。
+
+### 6.5 O-016：每日 Actions 用量（`tooling/actions-usage.mjs`，routine 用）
+
+- 不接進任何 workflow（避免 CI 再花分鐘）；在 box 由幕僚長的 routine 執行。只呼叫 `gh api`（Actions 的 runs／jobs API），box 的 `gh` 登入權杖即可（要能讀 Actions；check-runs 與 billing API 對這個權杖是 403，所以不用）。測試用 `GH_BIN` 指向假 gh。
+- 指令（台北時間每天早上跑前一天）：`node tooling/actions-usage.mjs --repo hansheng08/english-coach --date <前一天 YYYY-MM-DD> --included 2000`。`--included` 必填：免費方案 2000，升級 Pro 後改 3000。其他選項：`--cycle-start`（預設 `--date` 所在月份 1 日）、`--tz-offset`（預設 `+08:00`）、`--daily-warn`（100）、`--daily-stop`（200）、`--month-warn-pct`（75）、`--month-stop-pct`（90）。
+- 算法：每個 job ⌈(completed_at − started_at) ÷ 60 秒⌉ 加總（GitHub 對每個 job 各自進位；被略過的 job 是 0 分）。這是**估計值**，不是帳單；非 ubuntu runner 直接失敗（倍率未知）。
+- 輸出：一行 JSON（`schema: "actions-usage/v1"`）：`day`（當天計費分鐘、各 workflow 明細）、`cycle`（週期累計、日平均）、`allowance`（`used_minutes`、`remaining_minutes`、`used_pct`、`days_of_allowance_left`、`projected_cycle_minutes`）、`thresholds`、`status`（`ok`／`warn`／`stop`）、`reasons`（`daily-stop`、`month-stop`、`exhausted`、`daily-warn`、`month-warn`、`projected-over`）。
+- exit code：0 ＝ stdout 恰為一行 JSON；1 ＝ 失敗，stdout 是空的，stderr 是 `usage: <RULE> …`（`API`、`DATA`、`COUNT`、`RUNNER`、`USAGE`）。**exit 1 時 routine 要回報「用量查詢失敗」與 stderr，不能當成 0 分鐘或 ok。**
+- 實測（2026-11-25 22:40～23:10 台北時間，box）：3 次都 exit 1、stdout 空（fail-closed 正確），每次都是某一個 run 的 jobs 查詢失敗（`usage: API gh api repos/…/actions/runs/<id>/jobs?… 失敗（exit 1）`；其中一個手動重查是 `HTTP 502 Server Error`，三個 run 事後重查都正常）。週期從 11/1 起算跑了 10 分 30 秒才失敗；只查 3 天也要 2～5 分鐘。腳本目前沒有重試，每個 run 各查一次 jobs，月底 run 數多時也要注意 API 每小時 5,000 次的上限。**在補上重試之前，routine 很可能天天回報「用量查詢失敗」**。

@@ -4,10 +4,16 @@ on:
   pull_request:
     types: [closed]
 
+# O-016 CL-2: one notification per PR at a time, none cancelled.
+concurrency:
+  group: notify-grok-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   notify:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions: {}
     steps:
       - name: Notify Grok chief of staff
