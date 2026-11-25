@@ -150,7 +150,7 @@ test('settings deny list: cat/grep/head/ls/sed are denied, including compounds',
     const r = evaluate({ command, getBranch: () => T });
     assert.equal(r?.decision, 'deny', command);
     assert.match(r.reason, /settings\.json deny list/);
-    assert.match(r.reason, /charter v5 §13 rule #12/);
+    assert.match(r.reason, /charter v6 §13 rule #12/);
   }
 });
 

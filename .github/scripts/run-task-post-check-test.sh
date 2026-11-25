@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Asserted cases for run-task-post-check.sh (O-009, O-012, O-013). Uses the REAL
+# Asserted cases for run-task-post-check.sh (O-009, O-012, O-013, O-014). Uses the REAL
 # tooling/report-lint.mjs and tooling/verify-summary.mjs on a throwaway git
 # repo; only Vitest is replaced (VITEST_JSON_CMD). Each case asserts the exact
 # exit code and whether verify-summary.md was produced. Zero network.
@@ -44,11 +44,11 @@ run_case() {
   local ec
   set +e
   env -i PATH="$PATH" HOME="$HOME" RUNNER_TEMP="$WORK/rt" GITHUB_STEP_SUMMARY="$WORK/rt/step" TOOLING_DIR="$TOOLING" \
-    TASK=O-902 LOG="$WORK/exec.json" VITEST_JSON_CMD="$GOOD_VITEST" PRE_HEAD="$BASE_SHA" BRANCH=task/O-902 "$@" bash "$SCRIPT" > "$WORK/out" 2>&1
+    MAIN_URL="$PWD" TASK=O-902 LOG="$WORK/exec.json" VITEST_JSON_CMD="$GOOD_VITEST" PRE_HEAD="$BASE_SHA" BRANCH=task/O-902 "$@" bash "$SCRIPT" > "$WORK/out" 2>&1
   ec=$?
   set -e
   local got_sum=no
-  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -qE '^## 自動驗證摘要（(O-90[23]|T-971-fix[01]) @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
+  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -qE '^## 自動驗證摘要（(O-90[2-5]|T-971-fix[01]) @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
   if [[ "$ec" -ne "$want" || "$got_sum" != "$want_sum" ]]; then
     echo "CASE FAIL: ${name}: exit=${ec} (want ${want}) summary=${got_sum} (want ${want_sum})"; cat "$WORK/out"; FAIL=1
   else
@@ -151,6 +151,83 @@ grep -q 'scope-check:SC-QA-OWNER' "$WORK/out" || { echo "CASE FAIL: expected sco
 run_case "BASE_REF without docs/tasks -> exit 1, tasks-from-main" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK" BASE_REF="$(git commit-tree "$(git hash-object -t tree /dev/null)" -p "$(git rev-list --max-parents=0 HEAD)" -m "no docs/tasks")"
 grep -q 'FAILED:.*tasks-from-main' "$WORK/out" || { echo "CASE FAIL: expected tasks-from-main"; cat "$WORK/out"; FAIL=1; }
 run_case "fix0 task id -> exit 1 (baseTaskId null)" 1 no TASK=T-971-fix0 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK"
+
+# O-014: T-009 run 45575460457 topology. PRE_HEAD = main M0 (branch did not
+# exist yet); main gets M1 (another task file + README) during the run;
+# Claude's `git fetch origin` + `git switch -c task/O-905 origin/main` bases
+# the branch on M1 (no merge, no rebase). M1 must not be checked as Claude's.
+CREPO="$WORK/crepo"
+git init -q -b main "$CREPO"
+cd "$CREPO"
+git config user.email t@example.invalid
+git config user.name t
+mkdir -p docs/tasks
+echo a > README.md
+printf '# O-905：x\n\n## 分支\n`task/O-905`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n### 範圍外\n- `packages/**`\n' > docs/tasks/O-905.md
+git add README.md docs/tasks/O-905.md && git commit -qm "M0: O-905 task"
+M0="$(git rev-parse HEAD)"
+git update-ref refs/remotes/origin/main HEAD
+printf '# O-906：y\n\n## 分支\n`task/O-906`\n\n## 檔案範圍\n### 要做\n- `x/*`\n' > docs/tasks/O-906.md
+echo b >> README.md
+git add docs/tasks/O-906.md README.md && git commit -qm "M1: O-906 task pushed to main during the run"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q -c task/O-905 main
+mkdir -p tooling docs/reports
+echo x > tooling/x.mjs
+printf '# O-905 報告\n\n## 完成摘要\n完成。\n\n## 未完成事項\n無。\n\n## 需要人類決定的問題\n無。\n\n## 權限被拒\n- 次數：0 次\n' > docs/reports/O-905.md
+git add tooling/x.mjs docs/reports/O-905.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] O-905 work"
+C14=(TASK=O-905 BRANCH=task/O-905 PRE_HEAD="$M0")
+run_case "O-014 (a): main commit pulled in during the run is not Claude's -> exit 0" 0 yes "${C14[@]}"
+grep -q 'scope-check on 1 commit(s) of this run' "$WORK/out" || { echo "CASE FAIL: expected exactly 1 commit in range"; cat "$WORK/out"; FAIL=1; }
+# Mutation: without the main exclusion, (a) must fail with SC-OUT on M1's files.
+MUT_SCRIPT="$WORK/post-check-mutant.sh"
+sed -e 's/ "^${FRESH_MAIN}"//' "$SCRIPT" > "$MUT_SCRIPT"
+if cmp -s "$MUT_SCRIPT" "$SCRIPT"; then echo "CASE FAIL: mutation did not change the script"; FAIL=1; fi
+REAL_SCRIPT="$SCRIPT"; SCRIPT="$MUT_SCRIPT"
+run_case "O-014 mutant (exclusion removed): (a) now fails" 1 yes "${C14[@]}"
+grep -q 'docs/tasks/O-906.md:[0-9]*: SC-OUT' "$WORK/out" && echo "MUTANT KILLED: exclusion removed -> SC-OUT docs/tasks/O-906.md" || { echo "CASE FAIL: mutant did not flag docs/tasks/O-906.md"; cat "$WORK/out"; FAIL=1; }
+SCRIPT="$REAL_SCRIPT"
+echo c >> README.md
+git add README.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] O-905 out of scope"
+run_case "O-014 (b): Claude's own out-of-scope commit (same file main also changed) -> SC-OUT" 1 yes "${C14[@]}"
+grep -q 'README.md:[0-9]*: SC-OUT' "$WORK/out" || { echo "CASE FAIL: expected SC-OUT README.md"; cat "$WORK/out"; FAIL=1; }
+grep -q 'O-906' "$WORK/out" && { echo "CASE FAIL: main's O-906 task file flagged"; FAIL=1; }
+git update-ref refs/remotes/origin/main HEAD
+run_case "O-014 (d): Claude moved refs/remotes/origin/main to HEAD -> still SC-OUT (fresh main used)" 1 yes "${C14[@]}"
+grep -q 'README.md:[0-9]*: SC-OUT' "$WORK/out" || { echo "CASE FAIL: local origin/main tampering hid SC-OUT"; cat "$WORK/out"; FAIL=1; }
+git update-ref refs/remotes/origin/main main
+run_case "O-014 (c): fetching main fails -> exit 1 (main-fetch), no summary" 1 no "${C14[@]}" MAIN_URL="$WORK/no-such-repo"
+grep -q 'main-fetch' "$WORK/out" || { echo "CASE FAIL: expected main-fetch"; cat "$WORK/out"; FAIL=1; }
+grep -q 'run-task-post-check: OK' "$WORK/out" && { echo "CASE FAIL: OK printed after a failed fetch"; FAIL=1; }
+run_case "O-014 (c2): no MAIN_URL and no GITHUB_REPOSITORY -> exit 1 (main-fetch)" 1 no "${C14[@]}" MAIN_URL=
+grep -q 'main-fetch: GITHUB_REPOSITORY' "$WORK/out" || { echo "CASE FAIL: expected main-fetch: GITHUB_REPOSITORY"; cat "$WORK/out"; FAIL=1; }
+git reset -q --hard HEAD~1  # throwaway test repo: drop the out-of-scope commit
+# Existing branch + merge of main during the run: QA commit = PRE_HEAD, main
+# gets M2, Claude merges main (--no-ff) and makes an in-scope commit.
+echo q > tooling/x.qa.test.ts
+git add tooling/x.qa.test.ts
+git -c user.email='63729823+hansheng08@users.noreply.github.com' commit -qm "[QA] O-905 qa test"
+QA14="$(git rev-parse HEAD)"
+git switch -q main
+printf '# O-907：z\n\n## 分支\n`task/O-907`\n\n## 檔案範圍\n### 要做\n- `z/*`\n' > docs/tasks/O-907.md
+git add docs/tasks/O-907.md && git commit -qm "M2: O-907 task"
+git switch -q task/O-905
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' merge -q --no-ff -m "[Claude] O-905 merge main" main
+echo y > tooling/y.mjs
+git add tooling/y.mjs
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] O-905 more"
+run_case "O-014 (a2): main merged into an existing branch during the run -> exit 0" 0 yes TASK=O-905 BRANCH=task/O-905 PRE_HEAD="$QA14"
+SCRIPT="$MUT_SCRIPT"
+run_case "O-014 mutant (exclusion removed): (a2) now fails" 1 yes TASK=O-905 BRANCH=task/O-905 PRE_HEAD="$QA14"
+grep -q 'docs/tasks/O-907.md:[0-9]*: SC-OUT' "$WORK/out" && echo "MUTANT KILLED: exclusion removed -> SC-OUT docs/tasks/O-907.md" || { echo "CASE FAIL: mutant did not flag docs/tasks/O-907.md"; cat "$WORK/out"; FAIL=1; }
+SCRIPT="$REAL_SCRIPT"
+echo loosen >> tooling/x.qa.test.ts
+git add tooling/x.qa.test.ts
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[QA] O-905 spoofed"
+run_case "O-014: after main is excluded, Claude touching a QA file is still SC-QA-OWNER" 1 yes TASK=O-905 BRANCH=task/O-905 PRE_HEAD="$QA14"
+grep -q 'FAILED: scope-check:SC-QA-OWNER$' "$WORK/out" || { echo "CASE FAIL: expected scope-check:SC-QA-OWNER"; cat "$WORK/out"; FAIL=1; }
 cd "$REPO"
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-post-check-test: FAILED"; exit 1; fi

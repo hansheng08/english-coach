@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import {
   splitStatements,
+  formatReport,
   normalizeStatement,
   isResplitFragment,
   findResplits,
@@ -95,4 +96,10 @@ test('CLI: clean execution (no denials) exits 0', () => {
   rmSync(dir, { recursive: true, force: true });
   assert.equal(r.status, 0);
   assert.match(r.stdout, /no bypass found/);
+});
+
+test('O-014: the resplit report cites charter v6 §13 rule #12, not v5', () => {
+  const out = formatReport([{ denied: 'git add a && git push origin task/O-901', later: 'git push origin task/O-901' }]);
+  assert.match(out, /charter v6 §13 rule #12/);
+  assert.doesNotMatch(out, /charter v5/);
 });

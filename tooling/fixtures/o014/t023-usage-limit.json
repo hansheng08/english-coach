@@ -1,0 +1,16 @@
+[
+  { "type": "system", "subtype": "init" },
+  { "type": "rate_limit_event", "rate_limit_info": { "status": "allowed_warning", "resetsAt": 1795584000, "rateLimitType": "five_hour" } },
+  { "type": "rate_limit_event", "rate_limit_info": { "status": "allowed_warning", "resetsAt": 1795584000, "rateLimitType": "five_hour" } },
+  { "type": "rate_limit_event", "rate_limit_info": { "status": "rejected", "resetsAt": 1795584000, "rateLimitType": "five_hour" } },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": true,
+    "api_error": "usage_limit_reached",
+    "api_error_status": 429,
+    "api_error_type": "rate_limit_error",
+    "terminal_reason": "api_error",
+    "result": "You've hit your 5-hour limit · resets 5:20am (UTC)"
+  }
+]
