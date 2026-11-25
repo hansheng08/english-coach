@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Asserted cases for run-task-post-check.sh (O-009). Uses the REAL
+# Asserted cases for run-task-post-check.sh (O-009, O-012). Uses the REAL
 # tooling/report-lint.mjs and tooling/verify-summary.mjs on a throwaway git
 # repo; only Vitest is replaced (VITEST_JSON_CMD). Each case asserts the exact
 # exit code and whether verify-summary.md was produced. Zero network.
@@ -17,8 +17,13 @@ cd "$REPO"
 git config user.email t@example.invalid
 git config user.name t
 echo a > README.md
-git add README.md && git commit -qm base
+# O-012: scope-check (run by post-check on PRE_HEAD..HEAD) needs the task file.
+mkdir -p docs/tasks packages/a
+printf '# O-902：x\n\n## 分支\n`task/O-902`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n### 範圍外\n- `packages/**`\n' > docs/tasks/O-902.md
+echo base > packages/a/b.qa.test.ts
+git add README.md docs/tasks/O-902.md packages/a/b.qa.test.ts && git commit -qm base
 git update-ref refs/remotes/origin/main HEAD
+BASE_SHA="$(git rev-parse HEAD)"
 git switch -q -c task/O-902
 mkdir -p docs/reports
 printf '# O-902 報告\n\n## 完成摘要\n完成。\n\n## 未完成事項\n無。\n\n## 需要人類決定的問題\n無。\n\n## 權限被拒\n- 次數：0 次\n' > docs/reports/O-902.md
@@ -39,7 +44,7 @@ run_case() {
   local ec
   set +e
   env -i PATH="$PATH" HOME="$HOME" RUNNER_TEMP="$WORK/rt" GITHUB_STEP_SUMMARY="$WORK/rt/step" TOOLING_DIR="$TOOLING" \
-    TASK=O-902 LOG="$WORK/exec.json" VITEST_JSON_CMD="$GOOD_VITEST" "$@" bash "$SCRIPT" > "$WORK/out" 2>&1
+    TASK=O-902 LOG="$WORK/exec.json" VITEST_JSON_CMD="$GOOD_VITEST" PRE_HEAD="$BASE_SHA" BRANCH=task/O-902 "$@" bash "$SCRIPT" > "$WORK/out" 2>&1
   ec=$?
   set -e
   local got_sum=no
@@ -70,6 +75,24 @@ for i in $(seq 1 80); do echo "- 行 ${i}" >> docs/reports/O-902.md; done
 run_case "report over 80 lines -> exit 1" 1 yes
 git checkout -q -- docs/reports/O-902.md
 run_case "restored report passes again" 0 yes
+
+# O-012: QA ownership of this run's commits (--all-non-qa).
+run_case "PRE_HEAD missing -> exit 1, summary still written" 1 yes PRE_HEAD=
+run_case "PRE_HEAD not 40-hex -> exit 1" 1 yes PRE_HEAD=main
+run_case "BRANCH invalid -> exit 1" 1 yes BRANCH=main
+run_case "PRE_HEAD not an ancestor of HEAD -> exit 1" 1 yes PRE_HEAD=0123456789abcdef0123456789abcdef01234567
+echo b >> README.md
+git add README.md && git commit -qm "[Claude] O-902 out of scope"
+run_case "run commit outside the task scope -> exit 1 (scope rules on the run)" 1 yes
+grep -q 'SC-OUT' "$WORK/out" || { echo "CASE FAIL: output lacks SC-OUT"; cat "$WORK/out"; FAIL=1; }
+AFTER_OUT="$(git rev-parse HEAD)"
+echo loosened >> packages/a/b.qa.test.ts
+git add packages/a/b.qa.test.ts && git commit -qm "[QA] O-902 spoofed prefix inside a Claude run"
+run_case "run commit touching a QA-owned file, even with [QA] prefix -> exit 1" 1 yes PRE_HEAD="$AFTER_OUT"
+grep -q 'SC-QA-OWNER' "$WORK/out" || { echo "CASE FAIL: output lacks SC-QA-OWNER"; cat "$WORK/out"; FAIL=1; }
+grep -q 'SC-OUT' "$WORK/out" && { echo "CASE FAIL: SC-OUT from a commit before PRE_HEAD"; FAIL=1; }
+run_case "PRE_HEAD at HEAD -> no commit of this run -> exit 1 (SC-EMPTY)" 1 yes PRE_HEAD="$(git rev-parse HEAD)"
+grep -q 'SC-EMPTY' "$WORK/out" || { echo "CASE FAIL: output lacks SC-EMPTY"; cat "$WORK/out"; FAIL=1; }
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-post-check-test: FAILED"; exit 1; fi
 echo "run-task-post-check-test: all cases matched"

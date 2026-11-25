@@ -8,6 +8,7 @@ export default defineConfig({
       'packages/**/*.test.{ts,tsx}',
       'apps/**/*.test.{ts,tsx}',
       'supabase/**/*.test.{ts,tsx}',
+      '**/*.qa.test.ts',
     ],
     exclude: ['**/node_modules/**', '**/dist/**', 'tooling/fixtures/**'],
   },

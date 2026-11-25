@@ -23,6 +23,7 @@ const FILES = [
   '.claude/skills/run-task/SKILL.md',
   '.github/workflows/claude-run-task.yml',
   '.github/scripts/verify-push.sh',
+  '.github/scripts/run-task-post-check.sh',
 ];
 
 function run(root) {
@@ -64,6 +65,9 @@ test('real repo passes with exit 0', () => {
   assert.match(r.out, /anthropics\/claude-code-action pinned to a commit SHA/);
   assert.match(r.out, /Bash "pnpm db:test": settings=allow actions=allow skill=listed/);
   assert.match(r.out, /supabase\/setup-cli SHA-pinned and supabase start before Claude/);
+  assert.match(r.out, /Edit supabase\/tests\/qa_probe\.sql: deny/);
+  assert.match(r.out, /Write root\.qa\.test\.ts: deny/);
+  assert.match(r.out, /pre-head before Claude, post-check scope-check --all-non-qa on PRE_HEAD\.\.HEAD/);
 });
 
 test('matcher: ./ is root-only, **/ is any depth including root', () => {
@@ -466,4 +470,96 @@ test('M37 mutation (O-010): Supabase steps moved after Run Claude Code -> exit 1
   });
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /no supabase\/setup-cli step before Run Claude Code/);
+});
+
+const PC = '.github/scripts/run-task-post-check.sh';
+
+test('M38 mutation (O-012): drop Edit(**/*.qa.test.ts) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => {
+    const n = p.deny.length;
+    p.deny = p.deny.filter((x) => x !== 'Edit(**/*.qa.test.ts)');
+    assert.equal(p.deny.length, n - 1);
+  }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /QA-owned file not denied: Edit root\.qa\.test\.ts -> none/);
+});
+
+test('M39 mutation (O-012): drop Write(./supabase/tests/qa_*.sql) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => {
+    const n = p.deny.length;
+    p.deny = p.deny.filter((x) => x !== 'Write(./supabase/tests/qa_*.sql)');
+    assert.equal(p.deny.length, n - 1);
+  }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /QA-owned file not denied: Write supabase\/tests\/qa_probe\.sql -> none/);
+});
+
+test('M40 mutation (O-012): over-broad Edit(**/*.test.ts) deny blocks ordinary tests -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => { p.deny.push('Edit(**/*.test.ts)'); }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /non-QA file is denied: Edit packages\/domain\/src\/a\.test\.ts/);
+});
+
+test('M41 mutation (O-012): over-broad Write(./supabase/tests/**) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => { p.deny.push('Write(./supabase/tests/**)'); }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /non-QA file is denied: Write supabase\/tests\/t004_rls_test\.sql/);
+});
+
+test('M42 mutation (O-012): SKILL loses the QA-owned-files rule -> exit 1', () => {
+  const r = runMutated((f) => mut(f, SK, 'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`）只由 QA 新增或修改', 'QA 檔可改'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /missing required rule snippet: QA 擁有檔/);
+});
+
+test('M43 mutation (O-012): pre-head step removed -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, /      - name: Record branch head before Claude\n[\s\S]*?run: bash \.github\/scripts\/run-task-pre-head\.sh\n/, ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /"Record branch head before Claude" step not found/);
+});
+
+test('M44 mutation (O-012): pre-head step moved after Run Claude Code -> exit 1', () => {
+  const r = runMutated((f) => {
+    const y = f[YML];
+    const a = y.indexOf('      # O-012: record the branch');
+    const b = y.indexOf('      # O-010: start the local Supabase stack');
+    const c = y.indexOf('      - name: Summarize permission denials');
+    assert.ok(a > 0 && b > a && c > b);
+    f[YML] = y.slice(0, a) + y.slice(b, c) + y.slice(a, b) + y.slice(c);
+  });
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /must come before Run Claude Code/);
+});
+
+test('M45 mutation (O-012): post-check without PRE_HEAD env -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, /\n {10}PRE_HEAD: \$\{\{ steps\.pre_head\.outputs\.pre_head \}\}/, ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /post-check step does not set PRE_HEAD/);
+});
+
+test('M46 mutation (O-012): post-check without BRANCH env -> exit 1', () => {
+  const r = runMutated((f) => mut(f, YML, /\n {10}BRANCH: \$\{\{ steps\.pre_head\.outputs\.branch \}\}/, ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /post-check step does not set BRANCH/);
+});
+
+test('M47 mutation (O-012): post-check drops --all-non-qa -> exit 1', () => {
+  const r = runMutated((f) => mut(f, PC, ' --all-non-qa;', ';'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task-post-check\.sh does not run scope-check --commits \.\.\. --all-non-qa/);
+});
+
+test('M48 mutation (O-012): post-check missing -> exit 1 (fail-closed)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'perm-check-'));
+  try {
+    for (const f of FILES.filter((x) => x !== PC)) {
+      mkdirSync(join(root, f, '..'), { recursive: true });
+      writeFileSync(join(root, f), readFileSync(join(REPO, f), 'utf8'));
+    }
+    const r = run(root);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, /run-task-post-check\.sh/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

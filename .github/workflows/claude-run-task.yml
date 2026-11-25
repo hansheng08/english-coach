@@ -68,6 +68,17 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
         run: node tooling/task-lint.mjs "docs/tasks/${TASK}.md"
 
+      # O-012: record the branch the task file names and its current head
+      # BEFORE Claude, so the post-check can run scope-check --all-non-qa on
+      # exactly this run's commits (QA-owned files may not be touched by any
+      # Claude commit, whatever its prefix or author). Fail-closed: an error
+      # skips Claude (default success() condition) and Notify reports failure.
+      - name: Record branch head before Claude
+        id: pre_head
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+        run: bash .github/scripts/run-task-pre-head.sh
+
       # O-010: start the local Supabase stack before Claude so a task whose
       # 驗證方式 lists `pnpm db:test` can run pgTAP (psql) against it.
       # Fail-closed: a failed install/start skips Claude (default success()
@@ -151,7 +162,8 @@ jobs:
       # O-009: workflow-side checks on the tree Claude pushed (Claude cannot
       # skip them): report-lint on docs/reports/$TASK.md and the automatic
       # verification summary (Vitest JSON + changed files + permission
-      # denials) that the next step adds to the run-task comment. Runs only
+      # denials) that the next step adds to the run-task comment; O-012 adds
+      # scope-check --all-non-qa on PRE_HEAD..HEAD. Runs only
       # when Claude succeeded; fails -> Notify outcome=post_check_failed.
       - name: Report lint and automatic verification summary
         id: post_check
@@ -159,6 +171,8 @@ jobs:
         env:
           TASK: ${{ github.event.client_payload.task }}
           LOG: ${{ steps.claude.outputs.execution_file }}
+          PRE_HEAD: ${{ steps.pre_head.outputs.pre_head }}
+          BRANCH: ${{ steps.pre_head.outputs.branch }}
         run: |
           set -euo pipefail
           pnpm install --frozen-lockfile

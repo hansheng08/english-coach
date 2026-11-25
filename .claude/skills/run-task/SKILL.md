@@ -12,7 +12,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --f
 
 1. 讀取 CLAUDE.md 與 docs/tasks/$ARGUMENTS.md。任務單不存在時，輸出「找不到任務單 $ARGUMENTS」後結束，不要做任何修改。
 2. 先單獨執行 `git fetch origin`，再以另一次單獨的 Bash 呼叫依任務單「分支」一節建立或切換分支（例如 `git switch -c task/<編號> origin/main`；不要和 `ls` 等其他指令接在一起）。絕對不要在 main 上 commit。
-3. 讀任務單「背景」列出的文件，只做「範圍：要做」列出的事；「範圍外」的事一律不做。
+3. 讀任務單「背景」列出的文件，只做「範圍：要做」列出的事；「範圍外」的事一律不做。QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`）只由 QA 新增或修改：你不得新增、修改、刪除或改名這些檔案（settings 已拒絕對它們 Write／Edit；workflow 會以 scope-check `--all-non-qa` 檢查你這次的每個 commit，碰到就判 `post_check_failed`）。
 4. 依「驗證方式」執行建置與測試。失敗就修正程式直到通過；不得刪除、跳過或放寬測試來讓它通過。真的無法完成時，停止修改，並在報告中說明原因。workflow 在你結束後會在你推送的版本上再跑一次測試並產生自動驗證摘要，不需要把測試輸出搬進報告。任務單「驗證方式」列出 `pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止（workflow 已在你開始前起好本機 Supabase；psql 在 pgTAP 測試失敗時仍 exit 0，成敗以 db-test 的輸出為準）。
 5. 把結果寫到 docs/reports/$ARGUMENTS.md：第 1 行 `# $ARGUMENTS 報告`；必有 `## 完成摘要`、`## 未完成事項`、`## 需要人類決定的問題` 與固定的 `## 權限被拒`（格式見下方「報告：權限被拒」），可加 `## 設計決定`、`## 變更檔案`、`## 測試結果`；全文 ≤ 80 行。不貼測試輸出、不寫測試或突變的數字（例如「共 N 個測試」）；workflow 在你結束後以 `tooling/report-lint.mjs` 檢查報告，不通過時這次執行判 `post_check_failed`。
 6. commit 與 push 從第一次就分成三次各自獨立的 Bash 呼叫，依序為：`git add <明確檔案路徑…>`、`git commit -m "[Claude] $ARGUMENTS 摘要"`、`git push -u origin <分支名稱>`。每一次都只含那一條指令：不得用 `&&`、`;`、`|`、`2>&1` 或換行接其他指令或管線（複合的 push 會被 pushguard 擋下；擋下後再單獨送 push 會被 detect-resplit 判定為拆開重送，這次執行判 `summary_failed`，O-008 run 45418884942 就是這樣失敗的）。一律使用 `git add <明確檔案路徑>`，嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`（會遭權限擋下並依第 12 條停下）。
