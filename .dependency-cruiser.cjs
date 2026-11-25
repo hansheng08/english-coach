@@ -87,6 +87,29 @@ module.exports = {
       from: { path: '^supabase/functions/_shared/db/' },
       to: { path: '^supabase/functions/_shared/providers/' },
     },
+    {
+      name: 'adr008-18-adapter-imports-contracts-zod-only',
+      comment:
+        'ADR-008 #18 (rev 5): an adapter folder (providers/<adapter>/, production code) may only import contracts, zod and its own folder (no config, db, news, domain, registry/wiring, other adapters)',
+      severity: 'error',
+      from: { path: '^supabase/functions/_shared/providers/([^/]+)/', pathNot: TEST },
+      to: {
+        path: [
+          '^supabase/functions/_shared/(config|db|news)/',
+          '^packages/domain/',
+          '^supabase/functions/_shared/providers/[^/]+\\.ts$',
+          '^supabase/functions/_shared/providers/[^/]+/',
+        ],
+        pathNot: '^supabase/functions/_shared/providers/$1/',
+      },
+    },
+    {
+      name: 'adr008-19-provider-keys-only-wiring',
+      comment: 'ADR-008 #19 (rev 5): only providers/wiring.ts (and tests) may import config/provider-keys.ts',
+      severity: 'error',
+      from: { pathNot: ['^supabase/functions/_shared/providers/wiring\\.ts$', TEST] },
+      to: { path: '^supabase/functions/_shared/config/provider-keys\\.ts$' },
+    },
   ],
   options: {
     // 目錄不存在也不會讓指令失敗：掃描根目錄 "."，只用 exclude 排除非產品程式。
