@@ -52,8 +52,22 @@ const fixTask = [
 const tasksDir = join(tmp, 'tasks');
 mkdirSync(tasksDir);
 writeFileSync(join(tasksDir, 'Q-012.md'), fixTask);
+const qaLog = (files) =>
+  `\x1e${'a'.repeat(40)}\x1fqa@example.com\x1fqa@example.com\x1f[QA] Q-012 mutants\n\n${files
+    .filter((p) => p.startsWith('docs/qa/mutants/'))
+    .map((p) => `M\t${p}`)
+    .join('\n')}\n`;
 const scope = (branch, files) =>
-  exec(S.scope, ['--branch', branch, '--changed', tmpFile('changed.txt', `${files.join('\n')}\n`), '--tasks-dir', tasksDir]);
+  exec(S.scope, [
+    '--branch',
+    branch,
+    '--changed',
+    tmpFile('changed.txt', `${files.join('\n')}\n`),
+    '--commits',
+    tmpFile('log.txt', qaLog(files)),
+    '--tasks-dir',
+    tasksDir,
+  ]);
 
 describe('fix branches', () => {
   it('(AC-O9-7) (TC-23) scope-check on fix/Q-012: implicit mutants file, SC-OUT, SC-NOTASK', () => {

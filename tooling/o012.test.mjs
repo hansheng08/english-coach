@@ -51,7 +51,7 @@ const runScope = (branch, changed, { commits, extra = [] } = {}) => {
 
 describe('o012 qa-owner', () => {
   it('(AC-O12-1) (TC-1) isQaOwned classifies 9 paths', () => {
-    expect(QA_GLOBS).toEqual(['**/*.qa.test.ts', 'supabase/tests/qa_*.sql']);
+    expect(QA_GLOBS).toEqual(['**/*.qa.test.ts', 'supabase/tests/qa_*.sql', 'docs/qa/mutants/*.json']);
     const yes = ['x.qa.test.ts', 'packages/a/b.qa.test.ts', 'supabase/tests/qa_x.sql'];
     const no = ['a.qa.test.tsx', 'a.qa.test.ts.txt', 'a.test.ts', 'supabase/tests/sub/qa_x.sql', 'supabase/tests/t004_rls_test.sql', 'tooling/qa_x.sql'];
     expect(yes.map(isQaOwned)).toEqual([true, true, true]);

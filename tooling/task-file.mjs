@@ -19,6 +19,18 @@ export function acPrefix(id) {
   return `${(m[1] ?? '').toUpperCase()}${String(Number(m[2]))}`;
 }
 
+// "T-015-fix1"→"T-015"、"O-012"→"O-012"、不合格→null
+export function baseTaskId(id) {
+  if (typeof id !== 'string') return null;
+  const m = /^([TQOAP]-\d{3})(?:-fix[1-9]\d*)?$/.exec(id);
+  return m === null ? null : (m[1] ?? null);
+}
+
+export function mutantsPathFor(id) {
+  const base = baseTaskId(id);
+  return base === null ? null : `docs/qa/mutants/${base}.json`;
+}
+
 // "task/T-023"→"T-023"、"fix/Q-012"→"Q-012"、其他→null
 export function branchId(branch) {
   if (typeof branch !== 'string') return null;

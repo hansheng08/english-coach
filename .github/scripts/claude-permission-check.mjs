@@ -32,7 +32,8 @@
 //      allowed-tools; the SKILL tells the model to run it until `db-test: OK`;
 //      claude-run-task.yml installs a SHA-pinned supabase/setup-cli and runs
 //      `supabase start` before the Claude step, with no continue-on-error.
-//  11. (O-012) QA-owned files (**/*.qa.test.ts, supabase/tests/qa_*.sql)
+//  11. (O-012, O-013) QA-owned files (**/*.qa.test.ts,
+//      supabase/tests/qa_*.sql, docs/qa/mutants/*.json)
 //      are denied for Write and Edit in settings.json while ordinary tests
 //      and other SQL stay writable; the SKILL states that only QA changes
 //      them; claude-run-task.yml records the branch head before Claude and
@@ -108,6 +109,8 @@ export const QA_OWNED_PATHS = [
   'packages/domain/src/a.qa.test.ts',
   'apps/web/src/b.qa.test.ts',
   'supabase/tests/qa_probe.sql',
+  // O-013: QA's mutants files.
+  'docs/qa/mutants/T-015.json',
 ];
 export const NOT_QA_PATHS = [
   'packages/domain/src/a.test.ts',
@@ -116,6 +119,10 @@ export const NOT_QA_PATHS = [
   'supabase/tests/t004_rls_test.sql',
   'supabase/tests/sub/qa_x.sql',
   'tooling/fixtures/o012/sample-fail.txt',
+  'docs/qa/mutants/sub/x.json',
+  'docs/qa/T-015.json',
+  'docs/reports/T-015-fix1.md',
+  'tooling/fixtures/o013/tasks/T-915.md',
 ];
 
 // Substrings that must all appear in run-task SKILL.md (O-006).
@@ -133,7 +140,7 @@ export const REQUIRED_SKILL_SNIPPETS = [
   // O-010: pgTAP via pnpm db:test; psql exit code is not the verdict.
   '`pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止',
   // O-012: QA-owned files are QA's alone.
-  'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`）只由 QA 新增或修改',
+  'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`、`docs/qa/mutants/*.json`）只由 QA 新增或修改',
 ];
 
 function escapeRe(s) {
@@ -361,6 +368,10 @@ export function qaOwnerWiringProblems(yml, postCheckSh) {
   }
   const code = postCheckSh.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');
   if (!/scope-check\.mjs"? [^\n]*--commits [^\n]*--all-non-qa/.test(code)) problems.push('run-task-post-check.sh does not run scope-check --commits ... --all-non-qa');
+  // O-013: task files from main (BASE_REF), not the branch tree.
+  if (!/git archive --format=tar "\$BASE_REF" docs\/tasks/.test(code) || !/scope-check\.mjs"? [^\n]*--tasks-dir "\$MAIN_TASKS\/docs\/tasks"/.test(code)) {
+    problems.push("run-task-post-check.sh does not pass --tasks-dir from main's docs/tasks (git archive $BASE_REF) to scope-check");
+  }
   return problems;
 }
 
