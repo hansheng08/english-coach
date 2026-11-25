@@ -27,3 +27,4 @@ export * from './settings.ts';
 export * from './checkin.ts';
 export * from './metrics.ts';
 export * from './news.ts';
+export * from './card.ts';
