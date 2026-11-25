@@ -1,0 +1,3 @@
+# O-013: QA's obvious fake Gemini key in a test fixture (commit 1cf0fda, line 13).
+# Verified as a test value by SRE and 幕僚長 (2026-11-25); history is not rewritten.
+1cf0fdab9bc5fd0519c175cf32126bde00533950:supabase/functions/_shared/providers/gemini/gemini.qa.test.ts:generic-api-key:13

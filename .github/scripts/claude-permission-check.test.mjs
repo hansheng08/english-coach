@@ -67,6 +67,7 @@ test('real repo passes with exit 0', () => {
   assert.match(r.out, /supabase\/setup-cli SHA-pinned and supabase start before Claude/);
   assert.match(r.out, /Edit supabase\/tests\/qa_probe\.sql: deny/);
   assert.match(r.out, /Write root\.qa\.test\.ts: deny/);
+  assert.match(r.out, /Edit docs\/qa\/mutants\/T-015\.json: deny \(Edit\(\.\/docs\/qa\/mutants\/\*\.json\)\)/);
   assert.match(r.out, /pre-head before Claude, post-check scope-check --all-non-qa on PRE_HEAD\.\.HEAD/);
 });
 
@@ -507,7 +508,7 @@ test('M41 mutation (O-012): over-broad Write(./supabase/tests/**) deny -> exit 1
 });
 
 test('M42 mutation (O-012): SKILL loses the QA-owned-files rule -> exit 1', () => {
-  const r = runMutated((f) => mut(f, SK, 'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`）只由 QA 新增或修改', 'QA 檔可改'));
+  const r = runMutated((f) => mut(f, SK, 'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`、`docs/qa/mutants/*.json`）只由 QA 新增或修改', 'QA 檔可改'));
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /missing required rule snippet: QA 擁有檔/);
 });
@@ -544,7 +545,7 @@ test('M46 mutation (O-012): post-check without BRANCH env -> exit 1', () => {
 });
 
 test('M47 mutation (O-012): post-check drops --all-non-qa -> exit 1', () => {
-  const r = runMutated((f) => mut(f, PC, ' --all-non-qa;', ';'));
+  const r = runMutated((f) => mut(f, PC, ' --all-non-qa --tasks-dir', ' --tasks-dir'));
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /run-task-post-check\.sh does not run scope-check --commits \.\.\. --all-non-qa/);
 });
@@ -562,4 +563,48 @@ test('M48 mutation (O-012): post-check missing -> exit 1 (fail-closed)', () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test('M49 mutation (O-013): drop Edit(./docs/qa/mutants/*.json) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => {
+    const n = p.deny.length;
+    p.deny = p.deny.filter((x) => x !== 'Edit(./docs/qa/mutants/*.json)');
+    assert.equal(p.deny.length, n - 1);
+  }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /QA-owned file not denied: Edit docs\/qa\/mutants\/T-015\.json -> none/);
+});
+
+test('M50 mutation (O-013): drop Write(./docs/qa/mutants/*.json) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => {
+    const n = p.deny.length;
+    p.deny = p.deny.filter((x) => x !== 'Write(./docs/qa/mutants/*.json)');
+    assert.equal(p.deny.length, n - 1);
+  }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /QA-owned file not denied: Write docs\/qa\/mutants\/T-015\.json -> none/);
+});
+
+test('M51 mutation (O-013): over-broad Write(./docs/qa/**) deny -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => { p.deny.push('Write(./docs/qa/**)'); }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /non-QA file is denied: Write docs\/qa\/mutants\/sub\/x\.json/);
+});
+
+test('M52 mutation (O-013): over-broad Edit(./docs/**/*.md) deny blocks the fix report -> exit 1', () => {
+  const r = runMutated((f) => editSettings(f, (p) => { p.deny.push('Edit(./docs/**/*.md)'); }));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /non-QA file is denied: Edit docs\/reports\/T-015-fix1\.md/);
+});
+
+test('M53 mutation (O-013): SKILL QA-owned list without docs/qa/mutants -> exit 1', () => {
+  const r = runMutated((f) => mut(f, SK, '、`docs/qa/mutants/*.json`）只由 QA', '）只由 QA'));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /missing required rule snippet: QA 擁有檔/);
+});
+
+test('M54 mutation (O-013): post-check scope-check back to the branch tree tasks (no --tasks-dir) -> exit 1', () => {
+  const r = runMutated((f) => mut(f, PC, ' --tasks-dir "$MAIN_TASKS/docs/tasks"', ''));
+  assert.equal(r.code, 1, r.out);
+  assert.match(r.out, /run-task-post-check\.sh does not pass --tasks-dir from main's docs\/tasks/);
 });
