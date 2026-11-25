@@ -1,0 +1,2 @@
+{"contents":[{"role":"user","parts":[{"text":"Say hi."}]}],
+ "generationConfig":{"maxOutputTokens":64,"thinkingConfig":{"thinkingLevel":"minimal"}}}

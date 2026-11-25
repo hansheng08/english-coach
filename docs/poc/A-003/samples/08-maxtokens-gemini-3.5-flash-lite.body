@@ -1,0 +1,31 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Job",
+            "thoughtSignature": "EpYBCpMBAWkUfRO7HwgZhFVSPxB6Eiq99LIZrpiLmdcPimQm0mSDjY5bcvoQBbQsxe8UfQHG86ZcxtpQWCAvB3R7vmIZztt9ruaX3ZMfiiDdQ+t7/nfi5xO4YqIPogThmgApo3Myy2tP2PCy4yocjuTYl+bH8nGwPMOIxqPYhqZjYgrKk9NkUD5BoyRCZylMnfW2EhWE0oGF"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "MAX_TOKENS",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 14,
+    "candidatesTokenCount": 1,
+    "totalTokenCount": 15,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 14
+      }
+    ],
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.5-flash-lite",
+  "responseId": "_S8Ga6OfHZWA1sgP3cuhWQ"
+}

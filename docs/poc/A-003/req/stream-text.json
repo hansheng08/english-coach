@@ -1,0 +1,3 @@
+{"systemInstruction":{"parts":[{"text":"You are a terse English coach."}]},
+ "contents":[{"role":"user","parts":[{"text":"Write three short example sentences using the word 'versatile'."}]}],
+ "generationConfig":{"maxOutputTokens":200}}

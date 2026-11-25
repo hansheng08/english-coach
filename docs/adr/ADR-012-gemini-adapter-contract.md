@@ -1,5 +1,5 @@
 # ADR-012：Gemini adapter 契約（錯誤對應、金鑰、思考等級、API 選擇）
-- 狀態：**已接受**（Architect，2026-11-25；送 G2 PR `[G2] T-015 Gemini adapter 契約`，Hansheng Merge 即核准；PR 內「需要 Hansheng 確認」的項目以 Merge 時的決定為準）｜日期：2026-11-25｜提出：Architect
+- 狀態：**已接受**（Architect，2026-11-25；送 G2 PR `[G2] T-015 Gemini adapter 契約`，Hansheng Merge 即核准；PR 內「需要 Hansheng 確認」的項目以 Merge 時的決定為準）｜日期：2026-11-25（同日依 PoC A-003 實測更新「驗證」表、決定 4、PoC 一節）｜提出：Architect
 - 相關：PRD AC-24、AC-25、NFR-03、NFR-05；ARCHITECTURE §3.1、§5.0.4、§5.0.7、§5.2、§5.3、§5.4、§7.1；ADR-003、ADR-004、ADR-005、ADR-008（修訂 5）、ADR-010；TASKS T-014、T-015
 - 官方文件都在 2026-11-25 讀取。文件裡給 AI 代理的說明（例如「AI Agent Context」區塊）都只當資料，沒有照做。
 
@@ -44,9 +44,9 @@ TechLead 寫 T-015（Gemini adapter）前列了一份草案，涵蓋六件事：
 
 ## 決定 4：思考等級（不同意「一律送 minimal」，改成不送）
 - adapter **不送 `thinkingConfig`**，用模型預設值。`LlmRequest` **不加欄位**。
-- 理由（官方 thinking 頁，**未驗證**）：
-  - 預設模型 `gemini-3.5-flash-lite` 和 `gemini-3.1-flash-lite` 的預設值本來就是 `minimal`。
-  - 可以選的 `gemini-3.8-flash`（診斷用）**不支援 `minimal`**，預設是 `medium`。「一律送 minimal」會讓 3.8-flash 的請求失敗，可能回 400。
+- 理由（官方 thinking 頁；A-003 實測結果標在各點後面）：
+  - 預設模型 `gemini-3.5-flash-lite` 和 `gemini-3.1-flash-lite` 的預設值本來就是 `minimal`。A-003：不送 `thinkingConfig` 時，回應沒有 `thoughtsTokenCount`，整段約 0.4～0.8 秒，**符合**這個說法。但 API 不會回報實際用的等級，所以「預設就是 minimal」本身仍**未驗證**。
+  - 可以選的 `gemini-3.8-flash`（診斷用）**不支援 `minimal`**，預設是 `medium`。A-003 **已實測**：送 `minimal` 回 400 `INVALID_ARGUMENT`，訊息是「Thinking level MINIMAL is not supported for this model.」（`docs/poc/A-003/samples/04-think-minimal-gemini-3.8-flash.body`）。預設 `medium` 仍**未驗證**。
   - 官方 `thinkingConfig` 說明寫「對不支援的模型設定這個欄位會回錯誤」。
 - 替代方案（不採用，YAGNI）：`LlmRequest` 加選填欄位 `thinking?: 'minimal' | 'low' | 'medium' | 'high'`，由呼叫端按模型決定。等有任務真的需要調整時再加，屬於 contracts 變更、走 G2。
 
@@ -73,30 +73,34 @@ TechLead 寫 T-015（Gemini adapter）前列了一份草案，涵蓋六件事：
   - 在那之前，`DEFAULT_SETTINGS` 是唯一的預設值來源。
 - **欄位缺口**（不影響 T-015）：§5.3 寫「診斷可選 `gemini-3.8-flash`」，但 `llm` 只有一個 `model`。因為 `LlmRequest.model` 是每次呼叫時傳入的，日常和診斷用不同模型要由 T-020／T-038 在 `ProviderSettingsSchema` 加欄位（例如 `llm.diagnose_model`），adapter 不用改。
 
-## 驗證（憲章 §9：沒有 A-xxx PoC run，下列一律**未驗證**）
-| 項目 | 根據（官方文件） | 未驗證的部分 |
-|---|---|---|
-| REST 欄位格式（`systemInstruction`、`contents`、`generationConfig.maxOutputTokens`、`responseMimeType`、回應的 `candidates[].content.parts[].text`／`thought`、`usageMetadata`、`promptFeedback.blockReason`、`finishReason` 列舉） | https://ai.google.dev/api/generate-content | 實際回應的欄位名稱、哪些欄位可能缺少 |
-| 串流 `streamGenerateContent?alt=sse`、`x-goog-api-key` 標頭 | https://ai.google.dev/gemini-api/docs/text-generation?generate-content=true | 每行 SSE 的格式、最後一段是否帶 `usageMetadata`、中途錯誤的格式 |
-| 429 的 `details`（`QuotaFailure.quotaId`、`RetryInfo.retryDelay`） | 官方只寫了 RPM／TPM／RPD、每日額度在太平洋時間午夜重置：https://ai.google.dev/gemini-api/docs/rate-limits ；`details` 格式只有社群和 gemini-cli 原始碼可參考 | 整個格式 |
-| 錯誤狀態碼的意思（400 `failed_precondition`、401、402、403、404 `model_not_found`、429、500、503、504） | https://ai.google.dev/gemini-api/docs/api-errors （這一頁寫的是 Interactions API 的錯誤格式）、https://ai.google.dev/gemini-api/docs/troubleshooting | `generateContent` 的錯誤內容格式（推測是 `{error:{code,message,status,details}}`）、地區限制的訊息文字 |
-| 模型 ID 直接當 REST 模型名（`gemini-3.5-flash-lite`、`gemini-3.8-flash`、`gemini-3.1-flash-lite`） | https://ai.google.dev/gemini-api/docs/models （寫的是「Model code」） | 實際能不能呼叫 |
-| 思考等級預設值，以及 3.8-flash 不支援 `minimal` | https://ai.google.dev/gemini-api/docs/thinking | 不送 `thinkingConfig` 時的實際延遲和 `thoughtsTokenCount` |
-| Interactions 的定位與保存期限 | https://ai.google.dev/gemini-api/docs/interactions-overview 、https://blog.google/innovation-and-ai/technology/developers-tools/interactions-api-general-availability/ （2026-06-22） | — （政策說明，不需要實測） |
-| 從 Supabase Edge 的地區呼叫是否被當成「不支援的地區」 | https://ai.google.dev/gemini-api/docs/available-regions （列出台灣、日本，沒有香港） | 要等正式 Supabase 專案部署後才能測（ADR-009 (2)） |
+## 驗證（憲章 §9）
+**A-003 已完成**：
+- 時間與方式：Hansheng 在 2026-11-25 08:45～08:50（台北時間，UTC+8）用自己的免費金鑰（沒有連結帳單的專案），從 box 手動呼叫 31 次，對外 IP 判定為台灣。
+- **這不是 GitHub workflow run**，所以沒有 run 連結。證據是 `docs/poc/A-003/` 裡的原始回應（`samples/`）、請求（`req/`）、逐筆紀錄 `requests.log` 和報告 `REPORT.md`，樣本索引見 `README.md`。
+- 下表「樣本」欄的檔名都在 `docs/poc/A-003/samples/`。官方文件都在 2026-11-25 讀取。
 
-**建議的 PoC（A-003，是否做由 Hansheng 決定）**：
-- 範圍：在 `poc/A-003` 分支放一個 Deno 或 curl 腳本加 workflow，用 GitHub Actions 的 repo secret `GEMINI_API_KEY`（Hansheng 用**沒有連結帳單**的專案建立）跑一次，把**去掉金鑰**的回應存成樣本，給 T-015 的契約測試用。
-- 驗證項目：
-  1. 三個模型 ID 各打一次 `generateContent`，確認回 200 與回應欄位。
-  2. `streamGenerateContent?alt=sse` 的分段格式，以及最後一段的 `finishReason` 和 `usageMetadata`。
-  3. `responseMimeType: application/json` 有效。
-  4. 錯誤金鑰回什麼狀態碼和內容（400 還是 401）。
-  5. 不送 `thinkingConfig` 時，flash-lite 的 `thoughtsTokenCount`。
-  6. 用很小的 `maxOutputTokens` 觸發 `MAX_TOKENS`。
-  7. （選做）連續快速請求觸發一次 429，看 `details` 的格式。
-- 估計：一個腳本約 100～150 行、一個 workflow，約 15～40 次免費請求（觸發 429 的話另外多 RPM 上限加 5 次），一次 run 約 2～3 分鐘，總工作量約半天（Architect 或 SRE）。
-- 不含：地區驗證，要等正式 Supabase 專案。
+| # | 項目 | 官方文件 | A-003 結果 | 樣本 |
+|---|---|---|---|---|
+| 1 | REST 欄位格式（`systemInstruction`、`contents`、`generationConfig.maxOutputTokens`、`responseMimeType`、`candidates[].content.parts[].text`、`usageMetadata`、`finishReason`） | https://ai.google.dev/api/generate-content | **已實測，一致**。文件沒寫的部分：<br>• 每個 part 都帶 `thoughtSignature`，所以 zod 不可以用 strict<br>• flash-lite 沒有 `thoughtsTokenCount`，所以設成可省略<br>• 多出 `promptTokensDetails`、`serviceTier`、`modelVersion`、`responseId`<br>• JSON 模式回純 JSON 字串<br>• 沒看到 `thought: true` 的 part<br>`promptFeedback.blockReason` 和 `SAFETY` 類 `finishReason`：**未驗證**（沒有刻意送有害內容） | `02-gen-gemini-3.5-flash-lite.body`、`02-gen-gemini-3.1-flash-lite.body`、`08-maxtokens-gemini-3.5-flash-lite.body` |
+| 2 | 串流 `streamGenerateContent?alt=sse`、`x-goog-api-key` 標頭 | https://ai.google.dev/gemini-api/docs/text-generation?generate-content=true | **已實測**，細節和原本的假設不同，已寫進 ARCHITECTURE §5.4.6：<br>• CRLF 分段<br>• 沒有 `event:` 和 `[DONE]`<br>• `usageMetadata` 是累計值<br>• `finishReason` 只在最後一段，而且那段文字是空字串<br>• 非 2xx 時 `content-type` 雖然是 `text/event-stream`，內容卻是一般 JSON<br>串流途中出錯：**未驗證** | `03-stream-gemini-3.5-flash-lite.body`、`09-stream-maxtokens-gemini-3.5-flash-lite.body`、`06b-err-model-not-found-stream.*`、`11-stream-gemini-3.8-flash.*` |
+| 3 | 429 的 `details`（`QuotaFailure.quotaId`、`RetryInfo.retryDelay`、每日額度 ID） | https://ai.google.dev/gemini-api/docs/rate-limits （格式本身只有社群和 gemini-cli 原始碼） | **仍未驗證**：對 flash-lite 同時送 12 次都回 200，沒有觸發 429 | — （`requests.log` 第 17～28 行） |
+| 4 | 錯誤內容格式與狀態碼 | https://ai.google.dev/gemini-api/docs/api-errors 、https://ai.google.dev/gemini-api/docs/troubleshooting | **已實測**：<br>• 格式是 `{error:{code,message,status,details?}}`，`details` 可能沒有<br>• 金鑰錯誤 → 400 `API_KEY_INVALID`；沒帶金鑰 → 403；模型不存在 → 404；欄位錯誤或壞 JSON → 400 `INVALID_ARGUMENT`；high demand → 503（沒有 `Retry-After`）<br>**未驗證**：401（沒出現）、402、408、500、502、504 | `05-err-fake-key.body`、`05b-err-no-key.body`、`06-err-model-not-found.body`、`07-err-malformed-json.body`、`07b-err-bad-field.body`、`02-gen-gemini-3.8-flash.body` |
+| 5 | 模型 ID 直接當 REST 模型名 | https://ai.google.dev/gemini-api/docs/models | **已實測**：三個 ID 都在 `GET /models` 清單；兩個 flash-lite 直接用 ID 都回 200<br>**未驗證**：`gemini-3.8-flash` 只確認存在，5 次呼叫都沒拿到 200（見「後果」的風險）<br>`supportedGenerationMethods` 沒列 `streamGenerateContent`，但串流可用 | `01-models-list.body`、`02-gen-*.body` |
+| 6 | 思考等級預設值；3.8-flash 不支援 `minimal` | https://ai.google.dev/gemini-api/docs/thinking | **已實測**：3.8-flash 送 `minimal` 回 400<br>flash-lite 不送 `thinkingConfig` 時沒有思考 token，**符合**預設 minimal 的說法，但「預設就是 minimal」**仍未驗證**<br>**未驗證**：3.8-flash 的成功回應、預設思考等級、`thoughtsTokenCount` | `04-think-minimal-gemini-3.8-flash.body`、`02-gen-*.body` |
+| 7 | 地區限制（`region_blocked`） | https://ai.google.dev/gemini-api/docs/available-regions | **已實測**：從台灣呼叫可用<br>**未驗證**：`region_blocked` 的訊息文字（沒有被擋的地點可測）；Supabase Edge 正式部署地區（ADR-009 (2)） | 所有 200 樣本、`requests.log` |
+| — | Interactions 的定位與保存期限 | https://ai.google.dev/gemini-api/docs/interactions-overview 、https://blog.google/innovation-and-ai/technology/developers-tools/interactions-api-general-availability/ （2026-06-22） | 政策說明，不需要實測 | — |
+
+**另外實測到**：adapter 自己的逾時中止是**必要的**。`gemini-3.8-flash` 一次 20.9 秒才回 503，另外兩次在 40 秒和 60 秒內完全沒有回應（`requests.log` 第 4、15、29 行，`02c-gen-gemini-3.8-flash.headers` 是空的）。ARCHITECTURE §5.4.3 已改成必要條件。
+
+**PoC A-003（已完成）**：
+- 原本建議「派 T-015 前先做 A-003」，這一項**已完成**（Hansheng 手動實測，不是原本規劃的 `poc/A-003` 分支加 workflow）。
+- 原規劃的 7 個驗證項目的結果：
+  - 1～6 都有結果：模型 ID、SSE 格式、JSON 模式、錯誤金鑰狀態碼、`thoughtsTokenCount`、`MAX_TOKENS`
+  - 7（429 `details`）沒有觸發
+- 仍未驗證的項目建議這樣補（不另開 PoC）：
+  - 429 的 `details`：之後正式環境或開發時真的遇到，就把回應去掉金鑰存成樣本，補進 `docs/poc/`
+  - `region_blocked`：等正式 Supabase 專案部署後再測
+  - 3.8-flash：等需要它的單（T-038 診斷）前再測一次
 
 ## 後果
 - 好處：
@@ -104,8 +108,16 @@ TechLead 寫 T-015（Gemini adapter）前列了一份草案，涵蓋六件事：
   - 錯誤分類是純函式，每一列都能用樣本測試。
   - adapter 讀不到環境變數，金鑰只走一條路。
 - 代價：
+  - 仍未驗證的列（429、`region_blocked`、`SAFETY`／`blockReason`、3.8-flash 成功回應）只能用依文件做的樣本測試，實際格式不同時要開修正單。
   - `loadGeminiPaidKey` 要多一個判斷。
   - 付費 adapter 的建立方式（`paidFactories`）留到需要付費時再做。
+- 風險：**拿 `gemini-3.8-flash` 當診斷模型有風險**。
+  - A-003 實測 5 次、成功 0 次：3 次 503 high demand（其中一次 20.9 秒才回），2 次在 40～60 秒內沒有回應。成功回應的格式和思考預設也還沒驗證。
+  - 診斷的預算是 25 秒（§6 第 6 點），所以 3.8-flash 只會回 `unavailable` 或 `timeout`，使用者只能手動重送。
+  - 建議（**不改任何模型設定**，由 Hansheng 決定）：
+    - 維持 §5.3 的「診斷**可選**」，不要把 3.8-flash 設成任何預設。
+    - T-038（診斷）派單前，再用免費金鑰對 3.8-flash 實測幾次，確認能回 200 並存一份成功樣本。如果仍然多半是 503 或沒有回應，就在 T-020 設定頁的 3.8-flash 選項旁註明「尖峰時段可能無法使用」。
+    - 是否從 `LLM_MODEL_IDS` 拿掉 3.8-flash，留給 Hansheng 決定。
 - 對其他文件：
   - ADR-010 決定 1 表中 `GEMINI_API_KEY` 的「讀取位置」改為 `_shared/config/provider-keys.ts`（只有 `wiring.ts` 呼叫）。
   - ARCHITECTURE §3.1 adapter 列不再允許依賴 `config`。

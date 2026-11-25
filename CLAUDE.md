@@ -1,5 +1,5 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.7（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.7.1（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
@@ -66,7 +66,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 14. 不在 `_shared/db/paid-consent.ts` 以外的地方用 secret 金鑰改 `settings.paid_consent_at`／`monthly_paid_cap_ntd`，只能呼叫 `set_paid_consent()`。secret 金鑰只給 `daily-prep`、`purge-audio` 和這個檔案用（ARCHITECTURE §4.9、ADR-010 修訂 1）。
 15. 用 secret 金鑰的查詢（會繞過 RLS）一定要自己帶 `user_id` 條件（例如 T-025 選卡）；刪除履歷要先把題目 `retired = true`，再刪履歷（§4.9）。
 16. `config.toml` 新增函式時，`[functions.<slug>]` 一定要寫 `verify_jwt = false` 和 `import_map = "./functions/deno.json"`（ADR-009 修訂 2、ADR-010）。新增 view 一定要寫 `with (security_invoker = true)`。
-17. 供應商金鑰只放請求標頭（Gemini 是 `x-goog-api-key`），不放網址；任何錯誤訊息或 log 回傳前，都要把金鑰字串換成 `[redacted]`。Gemini adapter 不送 `thinkingConfig`，只有「STOP 但 JSON／zod 失敗」會自動重試 1 次，其他錯誤（含 429、5xx、逾時）都不自動重試（ARCHITECTURE §5.4、ADR-012）。
+17. 供應商金鑰只放請求標頭（Gemini 是 `x-goog-api-key`），不放網址；任何錯誤訊息或 log 回傳前，都要把金鑰字串換成 `[redacted]`。Gemini adapter 不送 `thinkingConfig`，只有「STOP 但 JSON／zod 失敗」會自動重試 1 次，其他錯誤（含 429、5xx、逾時）都不自動重試。adapter **一定要**自己用 `AbortController` 在 `timeoutMs` 時中止請求（實測 Gemini 可能 60 秒都不回）。外部 API 回應的 zod schema 不可以用 strict（Gemini 會多帶 `thoughtSignature` 等欄位）。實測樣本在 `docs/poc/A-003/`（ARCHITECTURE §5.4、ADR-012）。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。

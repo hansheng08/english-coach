@@ -1,0 +1,3 @@
+{"systemInstruction":{"parts":[{"text":"You are a terse English coach. Reply with JSON only: {\"word\": string, \"meaning_zh\": string}."}]},
+ "contents":[{"role":"user","parts":[{"text":"Give one useful English word for a job interview."}]}],
+ "generationConfig":{"maxOutputTokens":256,"responseMimeType":"application/json"}}
