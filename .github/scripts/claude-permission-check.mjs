@@ -32,9 +32,16 @@
 //      allowed-tools; the SKILL tells the model to run it until `db-test: OK`;
 //      claude-run-task.yml installs a SHA-pinned supabase/setup-cli and runs
 //      `supabase start` before the Claude step, with no continue-on-error.
+//  11. (O-012) QA-owned files (**/*.qa.test.ts, supabase/tests/qa_*.sql)
+//      are denied for Write and Edit in settings.json while ordinary tests
+//      and other SQL stay writable; the SKILL states that only QA changes
+//      them; claude-run-task.yml records the branch head before Claude and
+//      passes PRE_HEAD/BRANCH to the post-check, and run-task-post-check.sh
+//      runs scope-check --all-non-qa on that range.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
+//   - Read/Write/Edit share the path rules below
 //   - Read(./x)  -> path x relative to the repo root only
 //   - Read(**/x) -> x at any depth, including the repo root
 //   - Read(/x)   -> relative to the settings file's project root (same as ./)
@@ -95,6 +102,22 @@ export const EXPECTED_MAX_TURNS = 200;
 // O-010: pgTAP runner the model may call on Actions.
 export const DB_TEST_COMMANDS = ['pnpm db:test', 'pnpm db:test --tap-dir .tmp/pgtap'];
 
+// O-012: QA-owned files Claude must not Write/Edit, and look-alikes it may.
+export const QA_OWNED_PATHS = [
+  'root.qa.test.ts',
+  'packages/domain/src/a.qa.test.ts',
+  'apps/web/src/b.qa.test.ts',
+  'supabase/tests/qa_probe.sql',
+];
+export const NOT_QA_PATHS = [
+  'packages/domain/src/a.test.ts',
+  'packages/domain/src/a.qa.test.tsx',
+  'tooling/o012.test.mjs',
+  'supabase/tests/t004_rls_test.sql',
+  'supabase/tests/sub/qa_x.sql',
+  'tooling/fixtures/o012/sample-fail.txt',
+];
+
 // Substrings that must all appear in run-task SKILL.md (O-006).
 export const REQUIRED_SKILL_SNIPPETS = [
   '一律使用 `git add <明確檔案路徑>`',
@@ -109,6 +132,8 @@ export const REQUIRED_SKILL_SNIPPETS = [
   '憲章 v6 §13 第 9 條',
   // O-010: pgTAP via pnpm db:test; psql exit code is not the verdict.
   '`pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止',
+  // O-012: QA-owned files are QA's alone.
+  'QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`）只由 QA 新增或修改',
 ];
 
 function escapeRe(s) {
@@ -156,6 +181,8 @@ export function bashRuleMatches(pattern, command) {
   return re.test(command);
 }
 
+const PATH_TOOLS = new Set(['Read', 'Write', 'Edit']);
+
 function parseRule(rule) {
   const m = /^(\w+)\((.*)\)$/s.exec(rule.trim());
   if (!m) return { tool: rule.trim(), pattern: null };
@@ -167,7 +194,7 @@ function matchesAny(rules, tool, value) {
     const { tool: t, pattern } = parseRule(r);
     if (t !== tool) return false;
     if (pattern === null) return true;
-    return tool === 'Read' ? readRuleMatches(pattern, value) : bashRuleMatches(pattern, value);
+    return PATH_TOOLS.has(tool) ? readRuleMatches(pattern, value) : bashRuleMatches(pattern, value);
   });
 }
 
@@ -315,6 +342,28 @@ export function supabaseStartProblems(yml) {
   return problems;
 }
 
+// O-012: pre-head step before Claude, PRE_HEAD/BRANCH into the post-check,
+// and the post-check running scope-check --all-non-qa on that range.
+export function qaOwnerWiringProblems(yml, postCheckSh) {
+  const problems = [];
+  const claudeIdx = yml.indexOf('- name: Run Claude Code');
+  const preIdx = yml.indexOf('- name: Record branch head before Claude');
+  if (preIdx < 0) problems.push('claude-run-task.yml: "Record branch head before Claude" step not found');
+  else if (claudeIdx < 0 || preIdx > claudeIdx) problems.push('claude-run-task.yml: "Record branch head before Claude" must come before Run Claude Code');
+  else if (!/- name: Record branch head before Claude\n\s+id: pre_head\n[\s\S]*?run: bash \.github\/scripts\/run-task-pre-head\.sh/.test(yml.slice(preIdx, claudeIdx))) {
+    problems.push('claude-run-task.yml: pre-head step must have id pre_head and run .github/scripts/run-task-pre-head.sh');
+  }
+  const m = /- name: Report lint and automatic verification summary\n([\s\S]*?)(?=\n\s*- name:|$)/.exec(yml);
+  if (!m) problems.push('claude-run-task.yml: post-check step not found');
+  else {
+    if (!/^\s*PRE_HEAD:\s*\$\{\{\s*steps\.pre_head\.outputs\.pre_head\s*\}\}\s*$/m.test(m[1])) problems.push('claude-run-task.yml: post-check step does not set PRE_HEAD from steps.pre_head.outputs.pre_head');
+    if (!/^\s*BRANCH:\s*\$\{\{\s*steps\.pre_head\.outputs\.branch\s*\}\}\s*$/m.test(m[1])) problems.push('claude-run-task.yml: post-check step does not set BRANCH from steps.pre_head.outputs.branch');
+  }
+  const code = postCheckSh.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');
+  if (!/scope-check\.mjs"? [^\n]*--commits [^\n]*--all-non-qa/.test(code)) problems.push('run-task-post-check.sh does not run scope-check --commits ... --all-non-qa');
+  return problems;
+}
+
 export function loadInputs(root) {
   const settings = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   if (!settings.permissions) throw new Error('.claude/settings.json: permissions missing');
@@ -324,7 +373,8 @@ export function loadInputs(root) {
   const skillTools = parseSkillAllowedTools(skillMd);
   const maxTurns = parseWorkflowMaxTurns(workflowYml);
   const verifySh = readFileSync(join(root, '.github/scripts/verify-push.sh'), 'utf8');
-  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns, workflowYml, verifySh };
+  const postCheckSh = readFileSync(join(root, '.github/scripts/run-task-post-check.sh'), 'utf8');
+  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns, workflowYml, verifySh, postCheckSh };
 }
 
 export function checkPermissions(inputs) {
@@ -379,6 +429,19 @@ export function checkPermissions(inputs) {
     if (!skill.length) errors.push(`run-task SKILL allowed-tools does not list "${cmd}"`);
   }
 
+  // O-012: QA-owned files denied for Write/Edit; look-alikes stay writable.
+  for (const tool of ['Write', 'Edit']) {
+    for (const p of QA_OWNED_PATHS) {
+      const d = decide(perms, tool, p);
+      report.push(`${tool} ${p}: ${d.decision}${d.rules.length ? ` (${d.rules[0]})` : ''}`);
+      if (d.decision !== 'deny') errors.push(`QA-owned file not denied: ${tool} ${p} -> ${d.decision}`);
+    }
+    for (const p of NOT_QA_PATHS) {
+      const d = decide(perms, tool, p);
+      if (d.decision === 'deny') errors.push(`non-QA file is denied: ${tool} ${p} by ${d.rules.join(', ')}`);
+    }
+  }
+
   const maxTurns = inputs.maxTurns;
   report.push(`claude-run-task.yml --max-turns: ${maxTurns}`);
   if (maxTurns !== EXPECTED_MAX_TURNS) {
@@ -413,6 +476,13 @@ export function checkPermissions(inputs) {
     const sb = supabaseStartProblems(yml);
     errors.push(...sb);
     if (!sb.length) report.push('claude-run-task.yml: supabase/setup-cli SHA-pinned and supabase start before Claude');
+    if (typeof inputs.postCheckSh !== 'string') {
+      errors.push('O-012 input missing: run-task-post-check.sh text is required');
+    } else {
+      const qa = qaOwnerWiringProblems(yml, inputs.postCheckSh);
+      errors.push(...qa);
+      if (!qa.length) report.push('claude-run-task.yml: pre-head before Claude, post-check scope-check --all-non-qa on PRE_HEAD..HEAD');
+    }
   }
   return { errors, report };
 }
@@ -433,7 +503,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude, QA-owned files denied and --all-non-qa post-check wired)\n');
   process.exitCode = 0;
 }
 

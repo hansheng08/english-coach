@@ -5,7 +5,8 @@
 #   push to main            -> task-lint every docs/tasks/*.md added or
 #                              modified in this push (BEFORE_SHA..SHA).
 #                              No such file -> pass with an explicit line.
-#   push/PR on task/<id>    -> scope-check (git diff --name-only BASE...HEAD),
+#   push/PR on task/<id>    -> scope-check (git diff --name-only BASE...HEAD,
+#                              O-012: --commits from git log BASE..HEAD),
 #   and fix/Q-<nnn> (O-009)    Vitest JSON, ac-coverage, report-lint on the
 #                              changed docs/reports/*.md, run-mutants when
 #                              docs/qa/mutants/<branch id>.json exists, then
@@ -72,7 +73,12 @@ CHANGED="$OUT_DIR/taskcheck-changed.txt"
 git diff --name-only "${BASE}...${HEAD}" > "$CHANGED" || die "git diff --name-only ${BASE}...${HEAD} failed"
 echo "taskcheck: changed files (${BASE}...${HEAD}):"
 cat "$CHANGED"
-node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$CHANGED"
+# O-012: the commit list (BASE..HEAD, merges as dense-combined diffs) lets
+# scope-check enforce QA ownership of **/*.qa.test.ts and
+# supabase/tests/qa_*.sql (only [QA] commits by non-bot authors may touch them).
+COMMITS="$OUT_DIR/taskcheck-commits.txt"
+git log --format=%x1e%H%x1f%ae%x1f%ce%x1f%s --name-status -M --diff-merges=dense-combined "${BASE}..${HEAD}" > "$COMMITS" || die "git log ${BASE}..${HEAD} failed"
+node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$CHANGED" --commits "$COMMITS"
 
 RESULTS="$OUT_DIR/taskcheck-vitest.json"
 rm -f "$RESULTS"

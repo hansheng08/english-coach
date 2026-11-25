@@ -103,6 +103,7 @@ jobs:
           bash .github/scripts/taskcheck-test.sh
           bash .github/scripts/g3-comment-guard-test.sh
           bash .github/scripts/run-task-post-check-test.sh
+          bash .github/scripts/run-task-pre-head-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
 

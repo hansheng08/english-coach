@@ -6,11 +6,13 @@
 #   2. Vitest JSON on that tree, then tooling/verify-summary.mjs with the
 #      Claude execution log (permission denials) -> $RUNNER_TEMP/verify-summary.md,
 #      also appended to GITHUB_STEP_SUMMARY; run-task-summary-step.sh adds it
-#      to the run-task comment.
+#      to the run-task comment;
+#   3. (O-012) scope-check --all-non-qa on every commit of this run
+#      (PRE_HEAD..HEAD; see run-task-pre-head.sh).
 # Every part runs and is reported; the step exits 1 when any part fails
 # (report-lint error, failing tests, missing/empty Vitest JSON, summary
 # error, bad input). Notify maps that to outcome=post_check_failed.
-# Env: TASK LOG RUNNER_TEMP; optional GITHUB_STEP_SUMMARY, BASE_REF
+# Env: TASK LOG RUNNER_TEMP PRE_HEAD BRANCH (O-012); optional GITHUB_STEP_SUMMARY, BASE_REF
 #      (default origin/main), TOOLING_DIR / VITEST_JSON_CMD (tests).
 set -euo pipefail
 
@@ -34,6 +36,27 @@ fi
 
 CHANGED="$OUT_DIR/run-task-changed.txt"
 git diff --name-only "${BASE_REF}...${HEAD_SHA}" > "$CHANGED" || die "git diff --name-only ${BASE_REF}...${HEAD_SHA} failed"
+
+# O-012: every commit this run created (PRE_HEAD..HEAD, PRE_HEAD recorded by
+# run-task-pre-head.sh before Claude) is checked with scope-check
+# --all-non-qa: a Claude commit touching a QA-owned file
+# (**/*.qa.test.ts, supabase/tests/qa_*.sql) fails, whatever its prefix or
+# author. Scope rules apply to the run's own changes as well.
+QA_FAILED=0
+if [[ ! "${PRE_HEAD:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "run-task-post-check: PRE_HEAD '${PRE_HEAD:-}' is not a 40-hex SHA" >&2; QA_FAILED=1
+elif [[ ! "${BRANCH:-}" =~ ^(task/[TQOAP]-[0-9]{3}|fix/Q-[0-9]{3})$ ]]; then
+  echo "run-task-post-check: BRANCH '${BRANCH:-}' is not task/<id> or fix/Q-<nnn>" >&2; QA_FAILED=1
+elif ! git merge-base --is-ancestor "$PRE_HEAD" "$HEAD_SHA"; then
+  echo "run-task-post-check: PRE_HEAD ${PRE_HEAD} is not an ancestor of HEAD ${HEAD_SHA}" >&2; QA_FAILED=1
+else
+  RUN_CHANGED="$OUT_DIR/run-task-run-changed.txt"
+  RUN_COMMITS="$OUT_DIR/run-task-run-commits.txt"
+  git diff --name-only "$PRE_HEAD" "$HEAD_SHA" > "$RUN_CHANGED" || die "git diff ${PRE_HEAD} ${HEAD_SHA} failed"
+  git log --format=%x1e%H%x1f%ae%x1f%ce%x1f%s --name-status -M --diff-merges=dense-combined "${PRE_HEAD}..${HEAD_SHA}" > "$RUN_COMMITS" || die "git log ${PRE_HEAD}..${HEAD_SHA} failed"
+  if ! node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$RUN_CHANGED" --commits "$RUN_COMMITS" --all-non-qa; then QA_FAILED=1; fi
+fi
+if [[ "$QA_FAILED" -ne 0 ]]; then FAILED+=(scope-qa-owner); fi
 
 RESULTS="$OUT_DIR/run-task-vitest.json"
 rm -f "$RESULTS"
