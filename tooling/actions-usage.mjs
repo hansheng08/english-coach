@@ -3,6 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 const METHOD = 'sum of ceil(job seconds / 60) from actions runs/jobs API (estimate)';
+export const GH_MAX_ATTEMPTS = 3;
+export const GH_RETRY_BASE_MS = 1000;
 const PER_PAGE = 100;
 const MAX_RUNS_PER_DAY = 1000;
 const DEFAULTS = { daily_warn: 100, daily_stop: 200, month_warn_pct: 75, month_stop_pct: 90 };
@@ -253,26 +255,56 @@ function numberOpt(opts, key, fallback) {
   return Number(raw);
 }
 
-function ghJson(bin, path) {
-  const r = spawnSync(bin, ['api', path], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-  if (r.error !== undefined) return fail('API', `無法執行 gh：${r.error.message}`);
-  if (r.status !== 0) return fail('API', `gh api ${path} 失敗（exit ${String(r.status)}）`);
-  let parsed;
-  try {
-    parsed = JSON.parse(r.stdout);
-  } catch {
-    return fail('API', `gh api ${path} 的輸出不是 JSON`);
+function sleepMs(ms) {
+  if (ms > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// gh 的 stderr 最後一個 "(HTTP nnn)"；沒有回 null
+function httpStatus(stderr) {
+  const all = [...String(stderr ?? '').matchAll(/\(HTTP (\d{3})\)/g)];
+  return all.length === 0 ? null : Number(all[all.length - 1][1]);
+}
+
+function retryable(r, status) {
+  if (status !== null) return status >= 500 && status <= 599;
+  return r.status === 1;
+}
+
+function ghJson(bin, path, baseMs) {
+  for (let attempt = 1; ; attempt += 1) {
+    const r = spawnSync(bin, ['api', path], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    if (r.error !== undefined) return fail('API', `無法執行 gh：${r.error.message}`);
+    if (r.status === 0) {
+      let parsed;
+      try {
+        parsed = JSON.parse(r.stdout);
+      } catch {
+        return fail('API', `gh api ${path} 的輸出不是 JSON`);
+      }
+      return { value: parsed };
+    }
+    const status = httpStatus(r.stderr);
+    if (!retryable(r, status) || attempt >= GH_MAX_ATTEMPTS) {
+      return fail('API', `gh api ${path} 失敗（已試 ${attempt} 次，最後 exit ${String(r.status)}，狀態碼 ${status === null ? '無' : status}）`);
+    }
+    sleepMs(baseMs * 2 ** (attempt - 1));
   }
-  return { value: parsed };
+}
+
+// 回傳毫秒數或 null（不合法）
+function retryBase(env) {
+  const raw = env.ACTIONS_USAGE_RETRY_BASE_MS;
+  if (raw === undefined) return GH_RETRY_BASE_MS;
+  return /^\d+$/.test(raw) ? Number(raw) : null;
 }
 
 // 逐頁收齊；回傳 { items } 或 { error }
-function fetchAll(bin, basePath, listKey, validate) {
+function fetchAll(bin, baseMs, basePath, listKey, validate) {
   const items = [];
   let total = null;
   for (let page = 1; ; page += 1) {
     const sep = basePath.includes('?') ? '&' : '?';
-    const res = ghJson(bin, `${basePath}${sep}per_page=${PER_PAGE}&page=${page}`);
+    const res = ghJson(bin, `${basePath}${sep}per_page=${PER_PAGE}&page=${page}`, baseMs);
     if ('error' in res) return res;
     const body = res.value;
     if (!isRecord(body) || !Number.isInteger(body.total_count) || !Array.isArray(body[listKey])) {
@@ -336,15 +368,17 @@ export function run(argv) {
   };
   if (!checkThresholds(thresholds)) return bad(fail('USAGE', '門檻必須是非負數'));
 
+  const baseMs = retryBase(process.env);
+  if (baseMs === null) return bad(fail('USAGE', 'ACTIONS_USAGE_RETRY_BASE_MS 必須是非負整數'));
   const bin = process.env.GH_BIN ?? 'gh';
   const allRuns = [];
   const allJobs = [];
   for (let ms = startMs - 86400000; ms <= dateMs + 86400000; ms += 86400000) {
-    const res = fetchAll(bin, `repos/${repo}/actions/runs?created=${dayString(ms)}`, 'workflow_runs', validRun);
+    const res = fetchAll(bin, baseMs, `repos/${repo}/actions/runs?created=${dayString(ms)}`, 'workflow_runs', validRun);
     if ('error' in res) return bad(res);
     for (const r of res.items) {
       allRuns.push(r);
-      const jr = fetchAll(bin, `repos/${repo}/actions/runs/${r.id}/jobs?filter=all`, 'jobs', validJob);
+      const jr = fetchAll(bin, baseMs, `repos/${repo}/actions/runs/${r.id}/jobs?filter=all`, 'jobs', validJob);
       if ('error' in jr) return bad(jr);
       allJobs.push(...jr.items);
     }
