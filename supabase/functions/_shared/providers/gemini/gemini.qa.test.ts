@@ -10,7 +10,7 @@ import { fakeFetch, hangIgnoringSignal, installNoNetwork, json, sse, sseChunks, 
 
 installNoNetwork();
 
-const KEY = 'AIzaQAqaSecretKey0123456789abcdef';
+const KEY = 'k-qa-secret-qa-secret-qa-secret';
 const MODEL: LlmModelId = 'gemini-3.5-flash-lite';
 const WordSchema = z.object({ word: z.string(), meaning_zh: z.string() });
 type Word = z.infer<typeof WordSchema>;
