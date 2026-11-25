@@ -126,10 +126,16 @@ const CASES: Case[] = [
     bad: ['supabase/functions/api/router.ts'],
     good: ['supabase/functions/_shared/providers/wiring.ts'],
   },
+  {
+    rule: 'adr008-20-news-no-providers-no-db',
+    adr: '#20 (rev 6)',
+    bad: ['supabase/functions/_shared/news/bad-registry.ts', 'supabase/functions/_shared/news/bad-db.ts'],
+    good: ['supabase/functions/_shared/news/good-zod.ts', 'supabase/functions/_shared/news/ingest.test.ts'],
+  },
 ];
 
 describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
-  it('ADR-008: the config defines exactly the 13 named rules (TC-24: #18, #19 added by T-015)', () => {
+  it('ADR-008: the config defines exactly the 14 named rules (TC-24: #18, #19 added by T-015; #20 added by T-023)', () => {
     expect(ruleNames).toEqual(CASES.map((c) => c.rule));
   });
 
@@ -167,6 +173,18 @@ describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
     expect(violations.filter((v) => v.from === `${adapterDir}/good-zod.ts`)).toEqual([]);
     expect(hits('adr008-19-provider-keys-only-wiring', 'supabase/functions/api/router.ts').length).toBe(1);
     expect(violations.filter((v) => v.from === 'supabase/functions/_shared/providers/wiring.ts')).toEqual([]);
+  });
+
+  it('(AC-T23-11) (TC-25) ADR-008 rev 6: the four examples (news→registry, news→db, news→zod, news test→fake provider helper)', () => {
+    const news = 'supabase/functions/_shared/news';
+    expect(hits('adr008-20-news-no-providers-no-db', `${news}/bad-registry.ts`).map((v) => v.to)).toEqual([
+      'supabase/functions/_shared/providers/registry.ts',
+    ]);
+    expect(hits('adr008-20-news-no-providers-no-db', `${news}/bad-db.ts`).map((v) => v.to)).toEqual([
+      'supabase/functions/_shared/db/client.ts',
+    ]);
+    expect(violations.filter((v) => v.from === `${news}/good-zod.ts`)).toEqual([]);
+    expect(violations.filter((v) => v.from === `${news}/ingest.test.ts`)).toEqual([]);
   });
 
   it('ADR-008 #4 (rev 1): "npm:" specifiers are recorded as the raw string', () => {
