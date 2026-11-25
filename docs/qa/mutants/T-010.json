@@ -1,0 +1,622 @@
+{
+  "task": "T-010",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const MAX_OLD = 15;",
+      "after": "const MAX_OLD = 16;",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.priorityNew ? 0 : 1, b.priorityNew ? 0 : 1) || ",
+      "after": "",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/domain/src/plan.ts",
+      "before": "input.seeds.filter((s) => !input.usedSeedChunkIds.has(s.seedChunkId))",
+      "after": "input.seeds",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const extra = extraRoom > 0 ? due.slice(MAX_OLD, MAX_OLD + extraRoom) : [];",
+      "after": "const extra: CardCandidate[] = [];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const pool = resume.length > 0 ? resume : active.filter((q) => q.source === 'bank');",
+      "after": "const pool = active;",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_REWRITE_COUNT = 2;",
+      "after": "const SHADOW_REWRITE_COUNT = 3;",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_MIN_WORDS = 6;",
+      "after": "const SHADOW_MIN_WORDS = 5;",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.state === 'reviewing' ? 0 : 1, b.state === 'reviewing' ? 0 : 1) ||",
+      "after": "",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_MAX_WORDS = 25;",
+      "after": "const SHADOW_MAX_WORDS = 26;",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_MAX_WORDS = 25;",
+      "after": "const SHADOW_MAX_WORDS = 24;",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_MIN_WORDS = 6;",
+      "after": "const SHADOW_MIN_WORDS = 7;",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const n = newsWords(s.text).length;",
+      "after": "const n = s.text.split(/\\s+/).filter((w) => w !== '').length;",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/domain/src/plan.ts",
+      "before": "n >= SHADOW_MIN_WORDS",
+      "after": "n > SHADOW_MIN_WORDS",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/domain/src/plan.ts",
+      "before": "n <= SHADOW_MAX_WORDS",
+      "after": "n < SHADOW_MAX_WORDS",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/domain/src/plan.ts",
+      "before": "s.dueDate <= today",
+      "after": "s.dueDate < today",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(dueKey(a), dueKey(b))",
+      "after": "cmp(dueKey(b), dueKey(a))",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.schedule.intervalStep, b.schedule.intervalStep)",
+      "after": "cmp(b.schedule.intervalStep, a.schedule.intervalStep)",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.createdAtMs, b.createdAtMs) ||\n",
+      "after": "cmp(b.createdAtMs, a.createdAtMs) ||\n",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.cardId, b.cardId),\n  );\n  const oldCards",
+      "after": "cmp(b.cardId, a.cardId),\n  );\n  const oldCards",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.createdAtMs, b.createdAtMs) ||\n      cmp(a.cardId, b.cardId),",
+      "after": "cmp(a.createdAtMs, b.createdAtMs),",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/plan.ts",
+      "before": "return c.schedule.state === 'collected' && c.schedule.dueDate === null;",
+      "after": "return c.schedule.dueDate === null;",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/plan.ts",
+      "before": "return c.schedule.state === 'collected' && c.schedule.dueDate === null;",
+      "after": "return c.schedule.state === 'collected';",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/plan.ts",
+      "before": "|| cmp(a.createdAtMs, b.createdAtMs) || cmp(a.cardId, b.cardId),",
+      "after": "|| cmp(b.createdAtMs, a.createdAtMs) || cmp(a.cardId, b.cardId),",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/plan.ts",
+      "before": "|| cmp(a.createdAtMs, b.createdAtMs) || cmp(a.cardId, b.cardId),",
+      "after": "|| cmp(a.createdAtMs, b.createdAtMs) || cmp(b.cardId, a.cardId),",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/plan.ts",
+      "before": ").slice(0, target);",
+      "after": ");",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const seedRoom = target - newCards.length;",
+      "after": "const seedRoom = target;",
+      "expectFail": [
+        "(TC-7)",
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.batch, b.batch)",
+      "after": "cmp(b.batch, a.batch)",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.seedChunkId, b.seedChunkId)",
+      "after": "cmp(b.seedChunkId, a.seedChunkId)",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.batch, b.batch)",
+      "after": "cmp(String(a.batch), String(b.batch))",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/plan.ts",
+      "before": ").slice(0, seedRoom)\n",
+      "after": ")\n",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const extraRoom = seedRoom - seeds.length;",
+      "after": "const extraRoom = seedRoom;",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/plan.ts",
+      "before": "due.slice(MAX_OLD, MAX_OLD + extraRoom)",
+      "after": "due.slice(MAX_OLD - 1, MAX_OLD - 1 + extraRoom)",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/plan.ts",
+      "before": " + extraOldCardIds.length,",
+      "after": ",",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/plan.ts",
+      "before": " + seedChunkIds.length +",
+      "after": " +",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/plan.ts",
+      "before": "candidates.filter((q) => !q.retired)",
+      "after": "[...candidates]",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.timesAsked, b.timesAsked)",
+      "after": "cmp(b.timesAsked, a.timesAsked)",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.lastAskedDate ?? '', b.lastAskedDate ?? '')",
+      "after": "cmp(a.lastAskedDate ?? '9999-12-31', b.lastAskedDate ?? '9999-12-31')",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.lastAskedDate ?? '', b.lastAskedDate ?? '')",
+      "after": "cmp(b.lastAskedDate ?? '', a.lastAskedDate ?? '')",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/plan.ts",
+      "before": "case 'technical':\n      return 2;",
+      "after": "case 'technical':\n      return -1;",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/plan.ts",
+      "before": "case 'behavioral':\n      return 1;",
+      "after": "case 'behavioral':\n      return 3;",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(categoryRank(a.category), categoryRank(b.category))",
+      "after": "cmp(categoryRank(b.category), categoryRank(a.category))",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.questionId, b.questionId)",
+      "after": "cmp(b.questionId, a.questionId)",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/domain/src/plan.ts",
+      "before": ")[0];\n  return first",
+      "after": ").at(-1);\n  return first",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(b.intervalStep, a.intervalStep) ||\n      cmp(a.reviewedAtMs",
+      "after": "cmp(a.intervalStep, b.intervalStep) ||\n      cmp(a.reviewedAtMs",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.reviewedAtMs, b.reviewedAtMs)",
+      "after": "cmp(b.reviewedAtMs, a.reviewedAtMs)",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(a.reviewedAtMs, b.reviewedAtMs) ||\n      cmp(a.cardId, b.cardId),",
+      "after": "cmp(a.reviewedAtMs, b.reviewedAtMs) ||\n      cmp(b.cardId, a.cardId),",
+      "expectFail": [
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const EVENING_HINT_COUNT = 3;",
+      "after": "const EVENING_HINT_COUNT = 4;",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/domain/src/plan.ts",
+      "before": "reviewingFallback.filter((c) => !chosen.has(c.cardId))",
+      "after": "reviewingFallback",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/domain/src/plan.ts",
+      "before": "cmp(b.lastReviewedDate, a.lastReviewedDate)",
+      "after": "cmp(a.lastReviewedDate, b.lastReviewedDate)",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "packages/domain/src/plan.ts",
+      "before": "|| cmp(b.intervalStep, a.intervalStep) || cmp(a.cardId, b.cardId),",
+      "after": "|| cmp(a.intervalStep, b.intervalStep) || cmp(a.cardId, b.cardId),",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "packages/domain/src/plan.ts",
+      "before": "|| cmp(b.intervalStep, a.intervalStep) || cmp(a.cardId, b.cardId),",
+      "after": "|| cmp(b.intervalStep, a.intervalStep) || cmp(b.cardId, a.cardId),",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "packages/domain/src/plan.ts",
+      "before": "    .slice(0, room)\n",
+      "after": "",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "packages/domain/src/plan.ts",
+      "before": "return [...ok.filter((s) => s.containsTargetChunk), ...ok.filter((s) => !s.containsTargetChunk)].map((s) => s.text);",
+      "after": "return ok.map((s) => s.text);",
+      "expectFail": [
+        "(TC-23)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const SHADOW_COUNT = 5;",
+      "after": "const SHADOW_COUNT = 6;",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const newsCount = Math.min(news.length, SHADOW_COUNT - rewriteFirst);",
+      "after": "const newsCount = Math.min(news.length, SHADOW_COUNT - SHADOW_REWRITE_COUNT);",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "packages/domain/src/plan.ts",
+      "before": "const rewriteCount = Math.min(rewrite.length, SHADOW_COUNT - newsCount);",
+      "after": "const rewriteCount = rewriteFirst;",
+      "expectFail": [
+        "(TC-20)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "packages/domain/src/plan.ts",
+      "before": "    ...news.slice(0, newsCount).map((text): ShadowSentence => ({ source: 'news', text })),\n    ...rewrite.slice(0, rewriteCount).map((text): ShadowSentence => ({ source: 'rewrite', text })),",
+      "after": "    ...rewrite.slice(0, rewriteCount).map((text): ShadowSentence => ({ source: 'rewrite', text })),\n    ...news.slice(0, newsCount).map((text): ShadowSentence => ({ source: 'news', text })),",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "packages/domain/src/plan.ts",
+      "before": "({ source: 'rewrite', text })",
+      "after": "({ source: 'news', text })",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "packages/domain/src/words.ts",
+      "before": "raw.toLowerCase()",
+      "after": "raw",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "packages/domain/src/words.ts",
+      "before": ".replace(/^[^a-z0-9']+/, '')",
+      "after": ".replace(/^[^a-z0-9]+/, '')",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": "packages/domain/src/words.ts",
+      "before": ".replace(/[^a-z0-9']+$/, '')",
+      "after": ".replace(/[^a-z0-9]+$/, '')",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": "packages/domain/src/words.ts",
+      "before": ".replace(/^[^a-z0-9']+/, '')",
+      "after": "",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M63",
+      "file": "packages/domain/src/words.ts",
+      "before": ".replace(/[^a-z0-9']+$/, '')",
+      "after": "",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M64",
+      "file": "packages/domain/src/words.ts",
+      "before": "text.split(/\\s+/)",
+      "after": "text.split(' ')",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M65",
+      "file": "packages/domain/src/words.ts",
+      "before": "if (word !== '') words.push(word);",
+      "after": "words.push(word);",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M66",
+      "file": "packages/domain/src/words.ts",
+      "before": ".replace(/[^a-z0-9']+$/, '')",
+      "after": ".replace(/[^a-z0-9']+/g, '')",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M67",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { normalizeWords } from './words.ts';\n",
+      "after": "",
+      "expectFail": [
+        "(TC-24)"
+      ]
+    },
+    {
+      "id": "M68",
+      "file": "packages/domain/src/index.ts",
+      "before": "selectEveningHintChunks, selectShadowSentences, selectTonightQuestion } from './plan.ts';",
+      "after": "selectEveningHintChunks, selectTonightQuestion } from './plan.ts';",
+      "expectFail": [
+        "(TC-24)",
+        "(QA-17)"
+      ]
+    }
+  ]
+}
