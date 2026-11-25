@@ -21,19 +21,36 @@ env:
   SUPABASE_CLI_VERSION: '3.2.0'
 
 jobs:
-  detect:
+  # O-015: detect, actionlint, pushguard and secrets merged into one job
+  # (each job bills at least one minute). The security steps (actionlint,
+  # pushguard tests, gitleaks, scanner self-test) have no mode condition, only
+  # `!cancelled()` (C7), so they run in every mode and all report even if an
+  # earlier step failed. The mode step (C1-C3) decides full / docs / light;
+  # see .github/scripts/ci-guard-mode.sh and docs/RUNBOOK.md §6.3.
+  ci-guard:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Job-level permissions replace the workflow-level block (C6).
+    permissions:
+      contents: read
+      pull-requests: read
     outputs:
       has_node: ${{ steps.flags.outputs.has_node }}
       has_web: ${{ steps.flags.outputs.has_web }}
       has_supabase: ${{ steps.flags.outputs.has_supabase }}
       has_e2e: ${{ steps.flags.outputs.has_e2e }}
       is_pr: ${{ steps.flags.outputs.is_pr }}
+      mode: ${{ steps.mode.outputs.mode }}
+      tasks_changed: ${{ steps.mode.outputs.tasks_changed }}
+      pr_number: ${{ steps.mode.outputs.pr_number }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - name: Detect what exists
         id: flags
         env:
@@ -52,44 +69,38 @@ jobs:
             echo "has_e2e=$has_e2e"
             echo "is_pr=$is_pr"
           } | tee -a "$GITHUB_OUTPUT"
-
-  actionlint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Install actionlint (pinned, checksum verified)
+      - name: Decide CI mode (full / docs / light)
+        id: mode
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/ci-guard-mode.sh
+      - name: actionlint
+        if: ${{ !cancelled() }}
         run: |
           base="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
           archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
           mkdir -p "$RUNNER_TEMP/actionlint"
-          cd "$RUNNER_TEMP/actionlint"
-          curl -fsSL --retry 3 -O "${base}/${archive}"
-          curl -fsSL --retry 3 -O "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
-          grep " ${archive}\$" "actionlint_${ACTIONLINT_VERSION}_checksums.txt" | sha256sum -c -
-          tar -xzf "$archive" actionlint
-          echo "$RUNNER_TEMP/actionlint" >> "$GITHUB_PATH"
-      - name: Lint workflows
-        run: actionlint -color
-
-  pushguard:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Test pushguard, settings, ci-ok, and O-004/O-005/O-008/O-009 verify scripts
+          (
+            cd "$RUNNER_TEMP/actionlint"
+            curl -fsSL --retry 3 -O "${base}/${archive}"
+            curl -fsSL --retry 3 -O "${base}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
+            grep " ${archive}\$" "actionlint_${ACTIONLINT_VERSION}_checksums.txt" | sha256sum -c -
+            tar -xzf "$archive" actionlint
+          )
+          "$RUNNER_TEMP/actionlint/actionlint" -color
+      - name: pushguard tests
+        if: ${{ !cancelled() }}
         run: |
           node --test \
             .claude/hooks/pushguard/guard.test.mjs \
             .claude/hooks/pushguard/settings.test.mjs \
             .github/scripts/ci-ok.test.mjs \
+            .github/scripts/ci-workflow-check.test.mjs \
             .github/scripts/detect-resplit.test.mjs \
             .github/scripts/run-task-summary.test.mjs \
             .github/scripts/fail-open-lint.test.mjs \
@@ -105,39 +116,31 @@ jobs:
           bash .github/scripts/run-task-post-check-test.sh
           bash .github/scripts/run-task-pre-head-test.sh
           bash .github/scripts/run-task-usage-limit-test.sh
+          bash .github/scripts/ci-guard-mode-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
-
-  secrets:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Install gitleaks (pinned, checksum verified)
+          node .github/scripts/ci-workflow-check.mjs .
+      - name: gitleaks (full history)
+        if: ${{ !cancelled() }}
         run: |
           base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
           archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           mkdir -p "$RUNNER_TEMP/gitleaks"
-          cd "$RUNNER_TEMP/gitleaks"
-          curl -fsSL --retry 3 -O "${base}/${archive}"
-          curl -fsSL --retry 3 -O "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
-          grep " ${archive}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
-          tar -xzf "$archive" gitleaks
-          echo "$RUNNER_TEMP/gitleaks" >> "$GITHUB_PATH"
-      - name: Scan full git history
-        run: gitleaks git --config .gitleaks.toml --redact --no-banner
-      - name: Self-test the scanner
-        run: node .github/scripts/secret-selftest.mjs
+          (
+            cd "$RUNNER_TEMP/gitleaks"
+            curl -fsSL --retry 3 -O "${base}/${archive}"
+            curl -fsSL --retry 3 -O "${base}/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+            grep " ${archive}\$" "gitleaks_${GITLEAKS_VERSION}_checksums.txt" | sha256sum -c -
+            tar -xzf "$archive" gitleaks
+          )
+          "$RUNNER_TEMP/gitleaks/gitleaks" git --config .gitleaks.toml --redact --no-banner
+      - name: secret scanner self-test
+        if: ${{ !cancelled() }}
+        run: PATH="$RUNNER_TEMP/gitleaks:$PATH" node .github/scripts/secret-selftest.mjs
 
   check:
-    needs: detect
-    if: needs.detect.outputs.has_node == 'true'
+    needs: ci-guard
+    if: needs.ci-guard.outputs.mode == 'full' && needs.ci-guard.outputs.has_node == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -147,7 +150,7 @@ jobs:
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: ${ env.NODE_VERSION }
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: typecheck
@@ -168,11 +171,15 @@ jobs:
   # (自動驗證摘要 in the job summary). See taskcheck.sh.
   # Other refs skip this job; ci-ok lists it as "Skipped (not verified)".
   taskcheck:
-    needs: detect
+    needs: ci-guard
+    # O-015: full mode as before; docs mode only when docs/tasks/ changed
+    # (main push = task-lint); light mode never (the PR run is authoritative).
     if: >-
-      needs.detect.outputs.has_node == 'true' &&
-      ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/') || startsWith(github.ref_name, 'fix/'))) ||
-       (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'task/') || startsWith(github.head_ref, 'fix/'))))
+      needs.ci-guard.outputs.has_node == 'true' &&
+      ((needs.ci-guard.outputs.mode == 'full' &&
+        ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/') || startsWith(github.ref_name, 'fix/'))) ||
+         (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'task/') || startsWith(github.head_ref, 'fix/'))))) ||
+       (needs.ci-guard.outputs.mode == 'docs' && needs.ci-guard.outputs.tasks_changed == 'true'))
     runs-on: ubuntu-latest
     # O-009: run-mutants runs the Vitest suite once per QA mutant.
     # O-010: + local Supabase start and pnpm db:test.
@@ -214,8 +221,8 @@ jobs:
         run: bash .github/scripts/taskcheck.sh
 
   bundle:
-    needs: detect
-    if: needs.detect.outputs.has_web == 'true'
+    needs: ci-guard
+    if: needs.ci-guard.outputs.mode == 'full' && needs.ci-guard.outputs.has_web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -244,8 +251,8 @@ jobs:
         run: gitleaks dir apps/web/dist --config .gitleaks.toml --redact --no-banner
 
   db:
-    needs: detect
-    if: needs.detect.outputs.has_supabase == 'true' && needs.detect.outputs.is_pr == 'true'
+    needs: ci-guard
+    if: needs.ci-guard.outputs.mode == 'full' && needs.ci-guard.outputs.has_supabase == 'true' && needs.ci-guard.outputs.is_pr == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -261,8 +268,8 @@ jobs:
         run: bash .github/scripts/db-job-verify.sh
 
   e2e:
-    needs: detect
-    if: needs.detect.outputs.has_e2e == 'true' && needs.detect.outputs.is_pr == 'true'
+    needs: ci-guard
+    if: needs.ci-guard.outputs.mode == 'full' && needs.ci-guard.outputs.has_e2e == 'true' && needs.ci-guard.outputs.is_pr == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -295,8 +302,13 @@ jobs:
         if: always()
         run: supabase stop
 
+  # O-015 C4: only the pull_request run produces a check named exactly
+  # `ci-ok` (the required check). Push and workflow_dispatch runs are named
+  # `ci-ok (push)` / `ci-ok (workflow_dispatch)`, so a push run can never
+  # satisfy the required check. Job id (and needs key) stays `ci-ok`.
   ci-ok:
-    needs: [detect, actionlint, pushguard, secrets, check, bundle, db, e2e, taskcheck]
+    name: ${{ github.event_name == 'pull_request' && 'ci-ok' || format('ci-ok ({0})', github.event_name) }}
+    needs: [ci-guard, check, bundle, db, e2e, taskcheck]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -310,4 +322,14 @@ jobs:
       - name: Decide
         env:
           NEEDS_JSON: ${{ toJSON(needs) }}
+          CI_MODE: ${{ needs.ci-guard.outputs.mode }}
+          TASKS_CHANGED: ${{ needs.ci-guard.outputs.tasks_changed }}
+          PR_NUMBER: ${{ needs.ci-guard.outputs.pr_number }}
+          HAS_NODE: ${{ needs.ci-guard.outputs.has_node }}
+          HAS_WEB: ${{ needs.ci-guard.outputs.has_web }}
+          HAS_SUPABASE: ${{ needs.ci-guard.outputs.has_supabase }}
+          HAS_E2E: ${{ needs.ci-guard.outputs.has_e2e }}
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: node .github/scripts/ci-ok.mjs

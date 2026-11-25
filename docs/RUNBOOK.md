@@ -186,7 +186,7 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 | `git add`／`git commit`／`git push -u origin <分支>` 從頭就分成三次單獨的 Bash 呼叫 | 能做（已驗證：真實 run-task） | O-009 run [45426570786](https://github.com/hansheng08/english-coach/actions/runs/45426570786)：三條指令各自一次 tool call，push 成功、`Detect denied-command resplit…` 步驟 success。同一次 run 唯一的被拒是 `git fetch origin && git checkout -b task/O-009 origin/main && ls tooling tooling/fixtures`（`ls` 被擋）；之後單獨送 `git checkout -b task/O-009 origin/main`，detect-resplit 只看 `git push` 與 `cat`／`grep`／`head`／`ls`／`sed`，所以沒判定。O-009 起 SKILL 第 2 步要求 fetch 與建分支也各自單獨送 |
 | 指令被擋後拆開重送（例如複合 `git push` 被拒後再送單獨 `git push`） | 不能做；被偵測到則 `run_task_summary` 失敗 | `detect-resplit.mjs`；憲章 v5 §13 第 12 條。`git status` 等附帶允許指令不當作拆送 |
 
-**權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `pushguard` job 每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
+**權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `ci-guard` job（O-015 前是 `pushguard` job）每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
 
 ### 3.2 box 上的 SRE（共享 Linux；2026-11-24 09:55 Asia/Taipei 重新實測）
 
@@ -250,8 +250,8 @@ gh version 2.103.0 (2026-10-21)
 | `tooling/scope-check.mjs` | `taskcheck` job：`task/**` 的 push 與 PR；變更清單＝`git diff --name-only <base>...<head>` | `ci-ok` 紅叉 |
 | `tooling/ac-coverage.mjs` | 同上，讀 `pnpm exec vitest run --reporter=json` 的輸出 | `ci-ok` 紅叉 |
 
-- 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `pushguard` job 執行。
-- `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`docs/**`、`workflow_dispatch` 的 run 會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。
+- 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
+- `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`workflow_dispatch`、light 模式、沒改 `docs/tasks/` 的 docs 模式會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。O-015 起，模式要求它跑而它被略過也判失敗（§6.3）。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
 - O-010 起：有 `supabase/config.toml` 時，`taskcheck` job 先起本機 Supabase（同 `db` job 的 CLI 與排除清單；main 的 push 不起），`taskcheck.sh` 執行 `pnpm db:test --tap-dir $RUNNER_TEMP/taskcheck-pgtap`，再把每個 `*.tap` 以 `--tap` 交給 ac-coverage，所以只有 pgTAP 測試的 AC 也算覆蓋。db-test 失敗照樣跑 ac-coverage／report-lint／摘要並判紅；一個 TAP 檔都沒有時直接 exit 1。這條路徑在 Actions 上的第一次實測是 O-010 PR 的 CI。`fix/**` 分支自 O-009 起也跑（見 §5）。
 - 實測狀態：本機 box 已跑 `taskcheck-test.sh`、`run-task-outcome-test.sh`、`ci-ok.test.mjs`、`actionlint`；Actions 上的 `taskcheck` job 與 `Task lint` 步驟**待 O-008 PR 的 CI 與下一次真實 `run-task` 實測驗證**。
@@ -267,8 +267,9 @@ gh version 2.103.0 (2026-10-21)
 | `verify-summary`（自動驗證摘要：測試數、突變、權限被拒、變更檔案） | `taskcheck` 寫進 job summary；run-task 寫進 job summary 並附在 run-task 留言（PR 留言或 commit comment） | 輸入缺漏或結構錯 exit 1（taskcheck 紅叉／run-task `post_check_failed`） |
 | `comment-lint` | 新 workflow `g3-comment-guard.yml`：`pull_request`（opened／edited／reopened／synchronize）、`issue_comment`、`pull_request_review`、`pull_request_review_comment`；只處理標題 `[G3]` 開頭的 PR | 寫 PR head 的 commit status `g3-comment-guard`＝failure，job exit 1。讀 API 失敗也判 failure |
 
-- 接線腳本：`taskcheck.sh`（測試 `taskcheck-test.sh`，新增 fix 分支、report-lint、run-mutants、verify-summary 案例）、`run-task-post-check.sh`（測試 `run-task-post-check-test.sh`，用真的 report-lint／verify-summary）、`g3-comment-guard.sh`（測試 `g3-comment-guard-test.sh`，假 gh＋真的 comment-lint）、`run-task-outcome.sh` 新增 `--post-check`（`post_check_failed`、`post_check_outcome`）、`run-task-summary-step.sh` 附上自動驗證摘要。全部在 `pushguard` job 執行。
+- 接線腳本：`taskcheck.sh`（測試 `taskcheck-test.sh`，新增 fix 分支、report-lint、run-mutants、verify-summary 案例）、`run-task-post-check.sh`（測試 `run-task-post-check-test.sh`，用真的 report-lint／verify-summary）、`g3-comment-guard.sh`（測試 `g3-comment-guard-test.sh`，假 gh＋真的 comment-lint）、`run-task-outcome.sh` 新增 `--post-check`（`post_check_failed`、`post_check_outcome`）、`run-task-summary-step.sh` 附上自動驗證摘要。全部在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
 - `g3-comment-guard` **不屬於 `ci-ok`**：留言事件不會重跑 `ci.yml`。結果是 commit status；要不要在 main 分支保護設成必要檢查，由 Hansheng 在 G3 決定。`issue_comment`／review 事件從預設分支執行 workflow（不 checkout PR 程式），所以要等 O-009 合併後才會對留言事件生效。
+- O-015（retro §3.7 C8）：**light 模式的 push run 綠燈不算數**，以同一個 head 的 pull_request run 為準；push run 的彙總檢查名稱是 `ci-ok (push)`，不是必過的 `ci-ok`。**PR 有合併衝突時 GitHub 不會觸發 pull_request run**，這段期間只剩 light 的 push run，它的綠燈不能當成「CI 過了」；解完衝突後的 push 才會觸發 PR run。**docs 模式（純文件推 main）的 `check` 是「未驗證」**，`ci-ok (push)` 摘要會寫出來；以下一個 pull_request run 為準。詳見 §6.3。
 - 判斷依據只有留言開頭文字（所有留言作者都是 `hansheng08`）。已知限制：開頭不是 `TechLead Review` 的留言不會被判；QA 寫「不在本機重跑 pnpm check」也會判紅（寧可誤報）；QA 驗收留言請只引用 CI run。
 - 權杖：`g3-comment-guard.yml` 用 `GITHUB_TOKEN`（`contents: read`、`pull-requests: read`、`issues: read`、`statuses: write`），不新增 secret。
 - run-task SKILL（O-009 改版）：第 2 步 fetch 與建分支各自單獨送；第 5 步報告格式與 ≤ 80 行（report-lint）；第 6 步 `git add`、`git commit`、`git push -u origin <分支>` 從頭就三次單獨送；第 9 步改為憲章 v6 §13 第 9 條。`claude-permission-check.mjs` 檢查這些字句（突變測試 M26～M28）。
@@ -301,3 +302,21 @@ gh version 2.103.0 (2026-10-21)
 - 為什麼不用 `merge-base(HEAD, origin/main)..HEAD`：那會丟掉 `PRE_HEAD` 下界，分支上 QA 先前的 `[QA]` commit（碰 QA 擁有檔）會被 `--all-non-qa` 當成 Claude 的而誤判 `SC-QA-OWNER`；而且本機 `refs/remotes/origin/main` 是 Claude 可以 `git fetch`／`update-ref` 移動的 ref，用它排除等於讓 Claude 決定檢查範圍。保留下界、只減去「GitHub 上的 main 已有的 commit」兩邊都顧到，也涵蓋分支從新 main 長出、fast-forward、merge main 三種情況。
 - 失敗原因：`main-fetch`（抓不到 main、`GITHUB_REPOSITORY` 不合法）→ 步驟 exit 1，不跑 scope-check、不印 OK。
 - 測試（`run-task-post-check-test.sh`）：(a) 執行中被帶進來的 main commit 不算 → exit 0、範圍 1 個 commit；(a2) 既有分支 `merge --no-ff main` → exit 0；拿掉排除的突變讓 (a)、(a2) 都變成 `SC-OUT`；(b) Claude 自己改範圍外（同一個 main 也改過的檔）→ `SC-OUT`；(d) Claude 把本機 `origin/main` 移到 HEAD 仍 `SC-OUT`；(c) 抓 main 失敗 → `main-fetch` exit 1；排除 main 後 Claude 碰 QA 檔仍 `SC-QA-OWNER`。
+
+### 6.3 O-015：ci-guard 與三種模式（降低 Actions 用量）
+
+- 結構：原本每次都跑的 `detect`、`actionlint`、`pushguard`、`secrets` 併成一個 job `ci-guard`（GitHub 每個 job 各自進位到整分鐘）。`ci-guard` 的 job 層權限是 `contents: read`、`pull-requests: read`（job 層會整個取代 workflow 層）。`ci-ok` 的 job id、語意不變；`g3-comment-guard` 不動。
+- 安全步驟 `actionlint`、`pushguard tests`、`gitleaks (full history)`、`secret scanner self-test` 不帶模式條件，只有 `if: ${{ !cancelled() }}`：三種模式都跑，前一步失敗也會跑完、各自報錯。
+- 模式（`ci-guard` 的「Decide CI mode」步驟：`.github/scripts/ci-guard-mode.sh` → `tooling/ci-mode.mjs`）：
+  - `full`：PR、手動觸發、沒有 PR 的 task／fix push、非純文件的 main push、任何判斷失敗。照舊跑全部。
+  - `docs`：推到 `main` 且只改文件（`docs/**/*.md`，不含 `docs/poc/`、`docs/qa/`；根目錄 `*.md`）。略過 `check`、`bundle`、`e2e`；改到 `docs/tasks/` 時仍跑 `taskcheck`（task-lint）。
+  - `light`：推到 `task/**`、`fix/**` 且已有開著、目標 `main` 的 PR（`gh api repos/<repo>/pulls?state=open&base=main&head=<owner>:<branch>`）。只跑 `ci-guard`；重 job 以同一個 head 的 pull_request run 為準。查詢失敗、回應不對、`gh` 非 0（即使有輸出）→ `full`。
+- 為什麼不用 workflow 層的 `paths-ignore`：整個 workflow 不觸發，`ci-ok` 根本不出現，設成必過後只改文件的 PR 會一直等待；gitleaks、pushguard 也不會跑。
+- 判斷文件的規則（retro §3.7）：
+  - C1：變更清單一律 `git diff --no-renames --name-only "$BEFORE_SHA" "$SHA"`；`git mv apps/x.ts docs/x.md` 會同時列出 `apps/x.ts` → full。
+  - C2：`docs/**` 底下非 `.md` 的變更一律當成被引用 → full。
+  - C3：`.github/scripts/ci-referenced.mjs` 在 `$SHA` 的樹（不是工作目錄）裡，搜尋所有非文件檔有沒有寫到該文件的路徑字面；被刪除的文件也查。`--ref` 傳 `github.ref_name`（短名）。BEFORE 為空、全 0、不在 clone 裡、diff 或搜尋失敗 → full。
+  - 已知殘留：用字串拼接或讀資料夾的程式抓不到；目前唯一讀資料夾的是 `taskcheck` 的 `docs/tasks`，docs 模式改到 `docs/tasks/` 時仍會跑 `taskcheck`。最壞情況是延後到下一個 PR run（一定是 full）才發現。
+- 必過檢查（C4）：`ci-ok` 的顯示名稱是 `${{ github.event_name == 'pull_request' && 'ci-ok' || format('ci-ok ({0})', github.event_name) }}`。只有 pull_request run 會產生名為 `ci-ok` 的 check run；push run 是 `ci-ok (push)`，手動是 `ci-ok (workflow_dispatch)`，不會被 main 分支保護的 `ci-ok` 讀到（略過的同名檢查也算通過，所以 push run 連略過的 `ci-ok` 都不能有）。
+- `ci-ok.mjs`（C5）：`ci-guard` 必須 success；依模式該跑的 job 必須 success，不能是 skipped：full 且 `has_node` → `check`；full 且 `has_web` → `bundle`；full PR 且 `has_supabase` → `db`；full PR 且 `has_e2e` → `e2e`；`has_node` 且（full 的 main／task／fix push 或 task／fix 的 PR，或 docs 且改到 `docs/tasks/`）→ `taskcheck`。模式不是 full／docs／light、PR 或手動觸發卻不是 full、docs 不在 main、light 不在 task／fix 或沒有 PR 編號 → 失敗。
+- 測試：`ci-guard-mode-test.sh`（真的 git repo＋假 `gh`：28 個案例、5 個突變）、`ci-ok.test.mjs`（C5 表、context 檢查、9 個突變）、`ci-workflow-check.mjs`＋`.test.mjs`（C4 名稱跨 workflow 依事件唯一、C6、C7、W-5；16 個突變）。全部在 `ci-guard` 的 `pushguard tests` 步驟跑。
