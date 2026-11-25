@@ -9,6 +9,8 @@ export type { ReviewOutcome } from './card-state.ts';
 export { categoryTryOrder, decideNewsCategory, plannedCategory } from './news-rotation.ts';
 export type { NewsCategoryDecision, RotationOrder } from './news-rotation.ts';
 export { normalizeWords } from './words.ts';
+export { SHADOW_MIN_ACCURACY, SHADOW_MIN_SPEED_RATIO, canUnlock, maskWords, scoreShadowAttempt } from './shadowing.ts';
+export type { ShadowScore } from './shadowing.ts';
 export { selectDailyCards, selectEveningHintChunks, selectShadowSentences, selectTonightQuestion } from './plan.ts';
 export type {
   CardCandidate,
