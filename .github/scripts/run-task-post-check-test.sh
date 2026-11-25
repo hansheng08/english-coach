@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Asserted cases for run-task-post-check.sh (O-009, O-012). Uses the REAL
+# Asserted cases for run-task-post-check.sh (O-009, O-012, O-013). Uses the REAL
 # tooling/report-lint.mjs and tooling/verify-summary.mjs on a throwaway git
 # repo; only Vitest is replaced (VITEST_JSON_CMD). Each case asserts the exact
 # exit code and whether verify-summary.md was produced. Zero network.
@@ -48,7 +48,7 @@ run_case() {
   ec=$?
   set -e
   local got_sum=no
-  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -q '^## 自動驗證摘要（O-90[23] @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
+  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -qE '^## 自動驗證摘要（(O-90[23]|T-971-fix[01]) @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
   if [[ "$ec" -ne "$want" || "$got_sum" != "$want_sum" ]]; then
     echo "CASE FAIL: ${name}: exit=${ec} (want ${want}) summary=${got_sum} (want ${want_sum})"; cat "$WORK/out"; FAIL=1
   else
@@ -93,6 +93,65 @@ grep -q 'SC-QA-OWNER' "$WORK/out" || { echo "CASE FAIL: output lacks SC-QA-OWNER
 grep -q 'SC-OUT' "$WORK/out" && { echo "CASE FAIL: SC-OUT from a commit before PRE_HEAD"; FAIL=1; }
 run_case "PRE_HEAD at HEAD -> no commit of this run -> exit 1 (SC-EMPTY)" 1 yes PRE_HEAD="$(git rev-parse HEAD)"
 grep -q 'SC-EMPTY' "$WORK/out" || { echo "CASE FAIL: output lacks SC-EMPTY"; cat "$WORK/out"; FAIL=1; }
+
+# O-013: exact T-015-fix1 topology (run 45526553673). main: T-971 task, later
+# T-971-fix1 task (main only). Branch task/T-971: Claude commit, then a [QA]
+# commit (QA test + mutants) = PRE_HEAD, then the fix-round Claude commit with
+# in-scope code and docs/reports/T-971-fix1.md. Must pass; mutants run with
+# the base id (docs/qa/mutants/T-971.json).
+IREPO="$WORK/irepo"
+git init -q -b main "$IREPO"
+cd "$IREPO"
+git config user.email t@example.invalid
+git config user.name t
+mkdir -p docs/tasks
+printf '# T-971：x\n\n## 分支\n`task/T-971`\n\n## 檔案範圍\n### 要做\n- `src/*.ts`\n### 範圍外\n- `packages/**`\n' > docs/tasks/T-971.md
+git add docs/tasks/T-971.md && git commit -qm "T-971 task"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q -c task/T-971
+mkdir -p src docs/reports docs/qa/mutants
+echo a > src/a.ts; printf '# T-971 報告\n\n## 完成摘要\n完成。\n\n## 未完成事項\n無。\n\n## 需要人類決定的問題\n無。\n\n## 權限被拒\n- 次數：0 次\n' > docs/reports/T-971.md
+git add src/a.ts docs/reports/T-971.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] T-971 work"
+echo q > src/a.qa.test.ts; echo '{"task":"T-971","mutants":[]}' > docs/qa/mutants/T-971.json
+git add src/a.qa.test.ts docs/qa/mutants/T-971.json
+git -c user.email='63729823+hansheng08@users.noreply.github.com' commit -qm "[QA] T-971 mutants and qa test"
+QA_HEAD="$(git rev-parse HEAD)"
+git switch -q main
+printf '# T-971-fix1：x\n\n## 分支\n`task/T-971`\n\n## 檔案範圍\n### 要做\n- `src/*.ts`\n' > docs/tasks/T-971-fix1.md
+git add docs/tasks/T-971-fix1.md && git commit -qm "T-971-fix1 task (main only)"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q task/T-971
+echo fixed > src/a.ts; sed 's/# T-971 報告/# T-971-fix1 報告/' docs/reports/T-971.md > docs/reports/T-971-fix1.md
+git add src/a.ts docs/reports/T-971-fix1.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] T-971-fix1 fix"
+[[ ! -f docs/tasks/T-971-fix1.md ]] || { echo "CASE FAIL: setup: fix task file must not be on the branch"; FAIL=1; }
+MUT_OK="printf '%s' '{\"task\":\"T-971\",\"total\":1,\"killed\":1,\"survived\":[],\"results\":[{\"id\":\"M1\",\"status\":\"killed\",\"failedTests\":[\"t\"]}]}' > \"\$2\"; echo \"mutants file: \$1\""
+MUT_SURV="printf '%s' '{\"task\":\"T-971\",\"total\":1,\"killed\":0,\"survived\":[\"M1\"],\"results\":[{\"id\":\"M1\",\"status\":\"survived\",\"failedTests\":[]}]}' > \"\$2\"; exit 1"
+run_case "incident topology: QA commit before PRE_HEAD, in-scope Claude fix -> exit 0" 0 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK"
+grep -q '^mutants file: docs/qa/mutants/T-971.json$' "$WORK/out" || { echo "CASE FAIL: mutants not run with the base id"; cat "$WORK/out"; FAIL=1; }
+grep -q 'killed／total：1／1' "$WORK/rt/verify-summary.md" || { echo "CASE FAIL: summary lacks the mutants result"; FAIL=1; }
+run_case "same, surviving mutant -> exit 1 (run-mutants), summary still written" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_SURV"
+grep -q 'FAILED: run-mutants$' "$WORK/out" || { echo "CASE FAIL: expected only run-mutants in FAILED"; cat "$WORK/out"; FAIL=1; }
+run_case "same, run-mutants wrote no report -> exit 1" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="exit 0"
+grep -q 'run-mutants-report' "$WORK/out" || { echo "CASE FAIL: expected run-mutants-report"; FAIL=1; }
+run_case "tasks from the branch tree (BASE_REF = branch base) -> exit 1, scope-check:SC-OUT" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK" BASE_REF="$(git rev-parse HEAD~2)"
+grep -q 'FAILED: scope-check:SC-OUT$' "$WORK/out" || { echo "CASE FAIL: expected FAILED: scope-check:SC-OUT"; cat "$WORK/out"; FAIL=1; }
+echo loosen >> src/a.qa.test.ts
+git add src/a.qa.test.ts
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] T-971-fix1 loosen qa test"
+run_case "Claude touches the QA test after PRE_HEAD -> exit 1, scope-check:SC-QA-OWNER" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK"
+grep -q 'FAILED: scope-check:SC-QA-OWNER$' "$WORK/out" || { echo "CASE FAIL: expected FAILED: scope-check:SC-QA-OWNER"; cat "$WORK/out"; FAIL=1; }
+git reset -q --hard HEAD~1  # throwaway test repo: drop the loosening commit
+echo '{"task":"T-971","mutants":[{}]}' > docs/qa/mutants/T-971.json
+git add docs/qa/mutants/T-971.json
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[QA] T-971-fix1 spoofed mutants edit"
+run_case "Claude edits docs/qa/mutants/T-971.json after PRE_HEAD (even [QA] prefix) -> exit 1" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK"
+grep -q 'scope-check:SC-QA-OWNER' "$WORK/out" || { echo "CASE FAIL: expected scope-check:SC-QA-OWNER"; cat "$WORK/out"; FAIL=1; }
+run_case "BASE_REF without docs/tasks -> exit 1, tasks-from-main" 1 yes TASK=T-971-fix1 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK" BASE_REF="$(git commit-tree "$(git hash-object -t tree /dev/null)" -p "$(git rev-list --max-parents=0 HEAD)" -m "no docs/tasks")"
+grep -q 'FAILED:.*tasks-from-main' "$WORK/out" || { echo "CASE FAIL: expected tasks-from-main"; cat "$WORK/out"; FAIL=1; }
+run_case "fix0 task id -> exit 1 (baseTaskId null)" 1 no TASK=T-971-fix0 BRANCH=task/T-971 PRE_HEAD="$QA_HEAD" RUN_MUTANTS_CMD="$MUT_OK"
+cd "$REPO"
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-post-check-test: FAILED"; exit 1; fi
 echo "run-task-post-check-test: all cases matched"

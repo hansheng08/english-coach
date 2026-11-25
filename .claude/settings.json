@@ -172,6 +172,8 @@
       "Edit(**/*.qa.test.ts)",
       "Write(./supabase/tests/qa_*.sql)",
       "Edit(./supabase/tests/qa_*.sql)",
+      "Write(./docs/qa/mutants/*.json)",
+      "Edit(./docs/qa/mutants/*.json)",
       "Read(./.env)",
       "Read(**/.env)",
       "Read(./.env.local)",

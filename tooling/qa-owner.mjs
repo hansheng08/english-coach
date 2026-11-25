@@ -1,7 +1,8 @@
 // QA 擁有檔（O-012）：命名慣例、commit 清單解析與擁有者檢查。只用 node: 與 ./；不丟例外；fail-closed。
 import { matchGlob } from './task-file.mjs';
 
-export const QA_GLOBS = ['**/*.qa.test.ts', 'supabase/tests/qa_*.sql'];
+const QA_TEST_GLOBS = ['**/*.qa.test.ts', 'supabase/tests/qa_*.sql'];
+export const QA_GLOBS = [...QA_TEST_GLOBS, 'docs/qa/mutants/*.json'];
 export const BOT_EMAILS = [
   'claude[bot]@users.noreply.github.com',
   '209825114+claude[bot]@users.noreply.github.com',
@@ -15,6 +16,10 @@ const SHA_RE = /^[0-9a-f]{40}$/;
 
 export function isQaOwned(path) {
   return typeof path === 'string' && QA_GLOBS.some((g) => matchGlob(g, path));
+}
+
+export function isQaTestFile(path) {
+  return typeof path === 'string' && QA_TEST_GLOBS.some((g) => matchGlob(g, path));
 }
 
 function isBotEmail(email) {

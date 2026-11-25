@@ -234,7 +234,8 @@ describe('scope-check branch id', () => {
     path: 'docs/tasks/T-930.md',
     text: ['# T-930：x', '## 分支', '`fix/Q-930`', '## 檔案範圍', '### 要做', '- `tooling/a.mjs`', '### 範圍外', ''].join('\n'),
   };
-  const check = (f) => rules(checkScope({ branch: 'fix/Q-930', tasks: [task], changed: [f] }));
+  const qa = (f) => [{ sha: 'a'.repeat(40), authorEmail: 'qa@example.com', committerEmail: 'qa@example.com', subject: '[QA] Q-930 mutants', files: [{ status: 'M', paths: [f] }] }];
+  const check = (f) => rules(checkScope({ branch: 'fix/Q-930', tasks: [task], changed: [f], commits: qa(f) }));
   it('(AC-O10-4) (TC-16) mutants file allowed by branch id and task id, others SC-OUT', () => {
     expect(check('docs/qa/mutants/Q-930.json')).toEqual([]);
     expect(check('docs/qa/mutants/T-930.json')).toEqual([]);

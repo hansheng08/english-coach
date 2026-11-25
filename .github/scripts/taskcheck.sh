@@ -6,7 +6,8 @@
 #                              modified in this push (BEFORE_SHA..SHA).
 #                              No such file -> pass with an explicit line.
 #   push/PR on task/<id>    -> scope-check (git diff --name-only BASE...HEAD,
-#                              O-012: --commits from git log BASE..HEAD),
+#                              O-012: --commits from git log BASE..HEAD;
+#                              O-013: --tasks-dir = docs/tasks of BASE (main)),
 #   and fix/Q-<nnn> (O-009)    Vitest JSON, ac-coverage, report-lint on the
 #                              changed docs/reports/*.md, run-mutants when
 #                              docs/qa/mutants/<branch id>.json exists, then
@@ -69,6 +70,19 @@ esac
 BRANCH_ID="${BRANCH#*/}"
 HEAD_SHA="$(git rev-parse --verify "${HEAD}^{commit}")" || die "cannot resolve head '${HEAD}'"
 
+# O-013: task files come from main (BASE), never from the branch tree. Task
+# files are pushed to main before dispatch (charter §3) and Claude may not
+# edit docs/tasks/**, so a fix round's task file (e.g. T-015-fix1.md) exists
+# only on main; reading the branch tree made its report SC-OUT and hid its
+# ACs from ac-coverage (T-015-fix1 run 45526553673).
+MAIN_TASKS="$OUT_DIR/taskcheck-main-tasks"
+rm -rf "$MAIN_TASKS"
+mkdir -p "$MAIN_TASKS"
+git archive --format=tar "$BASE" docs/tasks > "$OUT_DIR/taskcheck-main-tasks.tar" || die "git archive ${BASE} docs/tasks failed"
+tar -xf "$OUT_DIR/taskcheck-main-tasks.tar" -C "$MAIN_TASKS" || die "cannot extract docs/tasks of ${BASE}"
+TASKS_DIR="$MAIN_TASKS/docs/tasks"
+compgen -G "$TASKS_DIR/*.md" > /dev/null || die "no docs/tasks/*.md in ${BASE}"
+
 CHANGED="$OUT_DIR/taskcheck-changed.txt"
 git diff --name-only "${BASE}...${HEAD}" > "$CHANGED" || die "git diff --name-only ${BASE}...${HEAD} failed"
 echo "taskcheck: changed files (${BASE}...${HEAD}):"
@@ -78,7 +92,7 @@ cat "$CHANGED"
 # supabase/tests/qa_*.sql (only [QA] commits by non-bot authors may touch them).
 COMMITS="$OUT_DIR/taskcheck-commits.txt"
 git log --format=%x1e%H%x1f%ae%x1f%ce%x1f%s --name-status -M --diff-merges=dense-combined "${BASE}..${HEAD}" > "$COMMITS" || die "git log ${BASE}..${HEAD} failed"
-node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$CHANGED" --commits "$COMMITS"
+node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$CHANGED" --commits "$COMMITS" --tasks-dir "$TASKS_DIR"
 
 RESULTS="$OUT_DIR/taskcheck-vitest.json"
 rm -f "$RESULTS"
@@ -91,7 +105,7 @@ fi
 
 # From here every check runs and is reported; FAILED collects the names.
 FAILED=()
-cov_args=(--branch "$BRANCH" --results "$RESULTS")
+cov_args=(--branch "$BRANCH" --results "$RESULTS" --tasks-dir "$TASKS_DIR")
 if [[ -f supabase/config.toml ]]; then
   TAP_DIR="$OUT_DIR/taskcheck-pgtap"
   rm -rf "$TAP_DIR"

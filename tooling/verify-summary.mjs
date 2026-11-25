@@ -1,5 +1,5 @@
 // 自動驗證摘要（O-009）：數字一律由輸入計算，輸出 Markdown。fail-closed。
-import { failure, isMain, parseArgs, readText, runCli, usageFailure } from './task-file.mjs';
+import { baseTaskId, failure, isMain, mutantsPathFor, parseArgs, readText, runCli, usageFailure } from './task-file.mjs';
 
 const TOOL = 'verify-summary';
 const STATUSES = ['killed', 'survived', 'unexpected'];
@@ -76,7 +76,7 @@ function testSection(vitest) {
 function mutantSection(task, mutants) {
   const out = ['### 突變'];
   if (mutants === undefined) {
-    out.push(`未執行（沒有 docs/qa/mutants/${task}.json）`);
+    out.push(`未執行（沒有 ${mutantsPathFor(task) ?? `docs/qa/mutants/${task}.json`}）`);
     return out;
   }
   out.push(`- killed／total：${String(mutants.killed)}／${String(mutants.total)}`);
@@ -143,6 +143,7 @@ export function run(argv) {
       'usage: verify-summary.mjs --task <id> --sha <sha> --vitest <json> --changed <list.txt> [--execution <json>] [--mutants <report.json>]',
     );
   }
+  if (baseTaskId(v.task) === null) return usageFailure(TOOL, 'USAGE', `--task ${v.task} 不是合格的任務編號`);
   const vitest = readJson(v.vitest);
   if (vitest.error !== undefined) return usageFailure(TOOL, 'INPUT', vitest.error);
   const changed = readText(v.changed);

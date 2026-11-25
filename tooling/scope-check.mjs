@@ -1,5 +1,6 @@
 // 分支變更範圍檢查（O-008）：變更檔只能落在任務單「檔案範圍」。fail-closed。
 import {
+  baseTaskId,
   branchId,
   failure,
   isMain,
@@ -12,7 +13,7 @@ import {
   tasksForBranch,
   usageFailure,
 } from './task-file.mjs';
-import { checkQaOwnership, isQaOwned, parseCommitLog } from './qa-owner.mjs';
+import { checkQaOwnership, isQaTestFile, parseCommitLog } from './qa-owner.mjs';
 
 const TOOL = 'scope-check';
 
@@ -32,6 +33,8 @@ export function checkScope({ branch, tasks, changed, commits = null, allNonQa = 
   const deny = [];
   for (const x of set) {
     allow.push(...x.parsed.allow, `docs/reports/${x.task.id}.md`, `docs/qa/mutants/${x.task.id}.json`);
+    const base = baseTaskId(x.task.id);
+    if (base !== null) allow.push(`docs/qa/mutants/${base}.json`);
     deny.push(...x.parsed.deny);
   }
 
@@ -40,7 +43,7 @@ export function checkScope({ branch, tasks, changed, commits = null, allNonQa = 
 
   const findings = [];
   files.forEach((f, i) => {
-    if (isQaOwned(f)) return;
+    if (isQaTestFile(f)) return;
     const denied = deny.find((p) => matchGlob(p, f));
     if (denied !== undefined) {
       findings.push({ file: f, line: i + 1, rule: 'SC-DENY', message: `符合範圍外 ${denied}` });
