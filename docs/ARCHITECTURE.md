@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.6**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1）｜日期：2026-11-24｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.7**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5）｜日期：2026-11-25｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -53,7 +53,8 @@
 |---|---|---|---|
 | `packages/contracts` | API 請求/回應的 zod schema、供應商介面型別、錯誤型別 `AppError` | `zod` | 任何 I/O、任何其他模組 |
 | `packages/domain` | 純邏輯：字卡狀態機（AC-19）、SRS 間隔（AC-09）、每日 25 張選卡（AC-07）、跟讀比對與語速（AC-06）、停頓/贅詞/字數統計（AC-15）、chunk 命中判斷（AC-18、AC-20）、新聞類別輪替與跳類別（AC-01、§11.2）、台北日期計算 | `contracts` | `fetch`、`Date.now()` 直接呼叫（時間由參數傳入）、資料庫、任何供應商 |
-| `supabase/functions/_shared/providers/*` | 每個外部供應商一個 adapter（gemini、groq、azure-speech、webspeech 描述檔） | `contracts`、`config` | `domain`、資料庫、其他 adapter |
+| `supabase/functions/_shared/providers/<adapter>/` | 每個外部供應商一個 adapter（gemini、groq、azure-speech、webspeech 描述檔）；金鑰由工廠參數傳入（§5.4） | `contracts`、`zod` | `config`（v1.7 起，ADR-008 修訂 5 第 18 條）、`domain`、資料庫、`news`、registry、其他 adapter |
+| `supabase/functions/_shared/providers/wiring.ts` | 讀免費供應商金鑰（`config/provider-keys.ts`）、建立 adapter 清單交給 registry（§5.4.1） | `contracts`、`config/env.ts`、`config/provider-keys.ts`、各 adapter | `config/paid.ts`；任何備援或自動改選 |
 | `supabase/functions/_shared/providers/registry.ts` | 依使用者設定**只回傳被選中的那一個**供應商；檢查付費同意與月上限（ADR-003） | `contracts`、各 adapter | 任何「備援清單」或自動改選 |
 | `supabase/functions/_shared/news` | RSS 抓取、主題篩選、來源白名單 | `contracts`、`config` | 抓白名單以外的網址 |
 | `supabase/functions/_shared/db` | 唯一可以讀寫 Postgres/Storage 的程式（repository），也負責 JWT → `user_id` | `contracts`、`@supabase/supabase-js`（後端唯一可用處，ADR-008 修訂 1） | 供應商；回傳 `SupabaseClient` 或 `{ data, error }`（只回 `Result<T, AppError>`） |
@@ -772,7 +773,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 ### 5.2 供應商介面（`packages/contracts/src/providers.ts`）
 - 完整定義見 §5.0.4（`ProviderError`）與 §5.0.7（四種介面、`PaidConsent`）。v1.1 這裡的程式碼已由 §5.0 取代；`Tier`、`Capability`、`ProviderErrorKind` 三個型別內容不變。
 - 所有 adapter 只用 `fetch` 呼叫 REST，**不使用供應商 SDK**（少依賴、可完全掌握呼叫哪個端點；ADR-003）。
-- AI 回傳一律要求 JSON 並用 zod 驗證；驗證失敗回 `invalid_response`，最多重試 1 次（同一供應商同一模型）。
+- AI 回傳一律要求 JSON 並用 zod 驗證；驗證失敗回 `invalid_response`，最多重試 1 次（同一供應商同一模型）。Gemini 的完整契約（錯誤對應、`finishReason`、串流、金鑰）見 §5.4。
 
 ### 5.3 預設供應商（ADR-004）
 | 能力 | 預設（免費） | 可手動切換的其他免費選項 | 付費選項（只有手動選＋同意後才可用） |
@@ -781,6 +782,87 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | STT（晚上） | Groq `whisper-large-v3-turbo` | Gemini `gemini-3.5-transcribe`、Azure STT F0 | MVP 不提供（需要時走變更路線） |
 | 發音評分＋跟讀辨識 | Azure Pronunciation Assessment（F0） | 「不評分」模式（只用 STT 算正確率與語速；發音分數顯示「無」） | Azure S0 |
 | TTS | 備料時預產生：Azure Neural TTS（F0）；即時：瀏覽器 Web Speech `speechSynthesis` | Gemini `gemini-3.8-flash-lite-tts` | — |
+
+
+### 5.4 Gemini adapter 契約（T-015；ADR-012）
+本節是 T-015 任務單要引用的介面與行為。標「**未驗證**」的項目只有官方文件根據，還沒有人用真的金鑰實測（憲章 v5／v6 §9），**不能當任務單的前提**：測試用錄好的樣本或假 `fetch`，不連網。實測要等 A-xxx PoC（是否做由 Hansheng 決定，見 ADR-012「驗證」）。
+
+#### 5.4.1 檔案與依賴方向（ADR-008 修訂 5 第 18、19 條）
+| 檔案 | 內容 | 可以 import | 不可以 import |
+|---|---|---|---|
+| `supabase/functions/_shared/config/provider-keys.ts` | `loadGeminiKey`（之後的 `GROQ_API_KEY`、Azure 金鑰也放這裡） | `contracts`、同資料夾的 `env.ts`（`EnvGetter`） | 其他一切；**不讀** `GEMINI_PAID_API_KEY`（那只在 `paid.ts`） |
+| `supabase/functions/_shared/providers/gemini/*.ts` | `createGeminiProvider`、請求組裝、回應與錯誤對應、SSE 解析（檔案怎麼切由 T-015 決定） | `@english-coach/contracts`、`zod`、同資料夾的檔案 | `_shared/config/**`（金鑰由參數傳入）、`_shared/db/**`、`_shared/news/**`、`@english-coach/domain`、`registry.ts`、其他 adapter 資料夾、`Deno` |
+| `supabase/functions/_shared/providers/wiring.ts`（第一個用到 LLM 的端點單建立，不在 T-015） | `createProviders(deps)`：讀金鑰、建立免費 adapter 清單交給 `createRegistry` | `contracts`、`config/provider-keys.ts`、`config/env.ts`、各 adapter | `config/paid.ts`（ADR-008 第 6 條） |
+- 只有 `wiring.ts` 可以 import `config/provider-keys.ts`（第 19 條）。端點經 `wiring.ts`＋`registry.ts` 取得 adapter，仍不直接 import adapter（第 5 條不變）。
+- 付費 adapter（`gemini-paid`）怎麼建立：`wiring.ts` 不能讀付費金鑰，所以由 registry 在 `resolvePaid` 時用工廠建立。做法是 `createRegistry` 的 `deps` 加一個 `paidFactories`，型別是 `{ 'gemini-paid'?: (apiKey: string) => LlmProvider }`。**MVP 不設定付費金鑰，這一項等需要付費時的單再做**，T-015 只要讓工廠支援 `id: 'gemini-paid'`。
+
+#### 5.4.2 介面
+```ts
+// _shared/config/provider-keys.ts
+export function loadGeminiKey(get: EnvGetter): Result<string, ProviderError>;
+// _shared/providers/gemini/（對外只匯出這一個）
+export type GeminiDeps = { readonly id: 'gemini' | 'gemini-paid'; readonly apiKey: string; readonly fetch: typeof fetch };
+export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
+```
+- `loadGeminiKey`：只讀 `GEMINI_API_KEY`。`undefined`、空字串、**只有空白** → `not_configured`（`provider: 'gemini'`、`capability: 'llm'`、`message: 'missing env GEMINI_API_KEY'`，訊息只有變數名稱）。有值時原樣回傳。`config/paid.ts` 的 `loadGeminiPaidKey` 也同樣把「只有空白」當成沒有（T-015 順便改，只改一個判斷）。
+- `createGeminiProvider`：`tier` 由 `id` 決定（`gemini-paid` → `paid`，其餘 `free`）；`displayName`：`Gemini`／`Gemini（付費）`；`capability: 'llm'`。工廠本身不發請求、不驗證金鑰。
+- **金鑰保護**：金鑰只放在請求標頭 `x-goog-api-key`，不放網址（不用 `?key=`）。任何 `ProviderError.message`、log、拋出的例外文字都不能含金鑰：組好訊息後，把金鑰字串換成 `[redacted]` 再回傳。測試要涵蓋「錯誤內容含金鑰」的情況。
+
+#### 5.4.3 請求（REST 欄位格式：**未驗證**）
+- 端點：`POST https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`；串流用 `…:streamGenerateContent?alt=sse`。`{model}` 直接放 `LlmModelId`（例如 `gemini-3.5-flash-lite`）。模型 ID 能不能直接當 REST 模型名，**未驗證**：官方模型頁寫的是「Model code」。
+- 請求內容：
+  - `systemInstruction: { parts: [{ text: system }] }`
+  - `contents: [{ role: 'user', parts: [{ text: prompt }] }]`
+  - `generationConfig: { maxOutputTokens }`；`generate` 另外加 `responseMimeType: 'application/json'`
+- 不送 `temperature`／`topP`／`topK`：官方說 3.6 以後的模型會忽略，較早的 3.x 建議維持預設。
+- 不送 `responseJsonSchema`：zod 轉出的 JSON Schema 有哪些關鍵字 Gemini 接受，**未驗證**。格式由 prompt 說明，回來後用 zod 驗證。
+- **思考等級**：不送 `thinkingConfig`，用模型預設值（見 ADR-012 決定 4）。
+- 逾時：`timeoutMs` 從送出請求算到 `generate` 回傳，或 `stream` 產生 `done`，是整段時間。adapter 自己用 `AbortController` 中止；被自己中止時回 `timeout`。
+- 回應文字：取 `candidates[0].content.parts` 裡 `thought !== true` 的 `text`，依序串起來。
+- `usage`：`inputTokens = usageMetadata.promptTokenCount`，`outputTokens = candidatesTokenCount + (thoughtsTokenCount ?? 0)`。缺欄位時 `usage` 是 `null`。
+
+#### 5.4.4 錯誤對應（`ProviderErrorKind`；429 的 `details` 格式：**未驗證**）
+先看 HTTP 狀態，再用 zod 寬鬆地解析錯誤內容 `{ error: { code, message, status, details? } }`；解析失敗就只依 HTTP 狀態判斷。下表由上往下比對，用第一列符合的。「adapter 自動重試」一欄指 adapter 內部的重試；「可重試」是 §5.0.4 給使用者的，不變。
+
+| 情況 | kind | adapter 自動重試 |
+|---|---|---|
+| 沒有金鑰（`loadGeminiKey`，空字串和只有空白都算） | `not_configured` | — |
+| 自己的 `AbortController` 逾時中止；HTTP 408、504 | `timeout` | 否 |
+| `fetch` 丟出網路錯誤（不是自己中止的） | `unavailable` | 否 |
+| 429，且 `details` 裡 `QuotaFailure` 的任一 `quotaId` 含 `PerDay` 或 `Daily`，或 `message` 含 `limit: 0` | `quota_exhausted`，`retryAfterSec: null`（每日額度在太平洋時間午夜重置，不推算） | 否 |
+| 其他 429 | `rate_limited`，`retryAfterSec` 取 `RetryInfo.retryDelay`（格式 `^\d+(\.\d+)?s$`，無條件進位成整數秒；沒有或格式不符就是 `null`） | 否 |
+| 402（Prepay 額度用完，只會出現在付費專案） | `quota_exhausted`，`retryAfterSec: null` | 否 |
+| 400，且 `status` 是 `FAILED_PRECONDITION`，`message` 含 `location is not supported` 或 `not available in your country` | `region_blocked` | 否 |
+| 401；403；400 且 `details` 的 `ErrorInfo.reason` 是 `API_KEY_INVALID` 或 `message` 含 `API key not valid`；其他 400 `FAILED_PRECONDITION`（帳單、驗證等前置條件） | `auth` | 否 |
+| 404（模型不存在） | `not_configured`（訊息寫模型名稱） | 否 |
+| 500、502、503，以及其他 5xx | `unavailable` | 否 |
+| **其他未列出的狀態碼**（其他 4xx、其他 400，例如欄位錯誤，以及 3xx） | `unavailable`（訊息寫 HTTP 狀態和 Google `status`，方便查 log） | 否 |
+| 2xx，但內容不是 JSON，或結構不符（`candidates` 缺少等） | `invalid_response` | 見下 |
+| `generate`：`promptFeedback.blockReason` 有值 | `invalid_response`（訊息寫 `blocked: <原因>`） | 否 |
+| `generate`：`finishReason` 是 `STOP`，但 `JSON.parse` 或 `schema.safeParse` 失敗 | `invalid_response` | **是，同模型重試 1 次**；第 2 次仍失敗就回錯 |
+| `generate`：`finishReason` 不是 `STOP`（對照表見 5.4.5） | 依 5.4.5 | 否 |
+
+- 自動重試只有上表標「是」的一種，最多 1 次，所以每次 `generate` 最多呼叫 2 次（ADR-003「次數 ≤ 2」）。429、5xx、逾時都**不**自動重試：使用者手動重送，或之後由呼叫端決定。
+- 錯誤分類寫成一個純函式，輸入 HTTP 狀態和錯誤內容，回傳 `ProviderError`。每一列都要有樣本測試。
+
+#### 5.4.5 `finishReason` 對應
+| Gemini `finishReason` | `stream` 的 `done.finishReason` | `generate` |
+|---|---|---|
+| `STOP` | `stop` | 解析＋zod 驗證（失敗依 5.4.4 重試 1 次） |
+| `MAX_TOKENS`、`CONTINUATION` | `max_tokens` | `invalid_response`（不重試：同樣的上限重試結果一樣） |
+| `SAFETY`、`RECITATION`、`BLOCKLIST`、`PROHIBITED_CONTENT`、`SPII`、`LANGUAGE`、`ESCALATION` | `safety` | `invalid_response`（不重試，訊息寫原因） |
+| `PUP_LIMITED_DISABLED`（帳號因違反使用政策被限制） | 產生 `err`：`auth` | `auth` |
+| 其他（`OTHER`、`MALFORMED_RESPONSE`、`IMAGE_*`、工具相關、未知的新值、`FINISH_REASON_UNSPECIFIED`） | 產生 `err`：`invalid_response` | `invalid_response`（不重試） |
+
+#### 5.4.6 串流（`stream`；SSE 格式：**未驗證**）
+- 每一行 `data: <JSON>` 是一個 `GenerateContentResponse`。每一段的文字產生一個 `delta`（空字串不產生）。帶 `finishReason` 的那一段在 `delta` 之後產生 `done`，`usage` 取該段的 `usageMetadata`。
+- **串流不重試**：不管哪種錯誤，產生一個 `err` 就結束（介面規定出現 `err` 後不再產生）。已經送出的 `delta` 不收回，由呼叫端保留，例如生卡時已收到的欄位留著，其他背景補齊（§5.0.4）。
+- 開始前就失敗（HTTP 不是 2xx）：依 5.4.4 對應，產生一個 `err`。
+- 中途斷線或讀取錯誤：`unavailable`；超過 `timeoutMs` 被自己中止：`timeout`。
+- 某一行不是 JSON 或結構不符：`invalid_response`。某一行是 `{ error: {…} }`：照 5.4.4 依 `error.code` 對應。
+- `promptFeedback.blockReason` 有值：產生 `done`，`finishReason: 'safety'`，`usage: null`（照草案）。
+- 串流結束，但一直沒有 `finishReason`：`invalid_response`。
+- 呼叫端提前停止讀取（`for await` 中斷）：adapter 要中止底層請求，不再產生任何東西。
 
 ## 6. 錯誤處理
 1. **不丟例外跨模組**：`domain`、`providers`、`db`、`news` 一律回 `Result<T, AppError>`，正式程式不寫 `throw`（§3.2 第 4 點，lint 執行）；`fetch`、`supabase-js`、`JSON.parse` 丟出的例外在模組內 `catch` 轉成 `err`，zod 用 `safeParse`；窮舉檢查用 `const unreachable: never = x; return unreachable;`。HTTP handler 是唯一把錯誤轉成回應的地方（handler 最外層可以 `try/catch` 兜底，轉成 500 回應）。測試程式不受此限（ADR-008 修訂 1）。
@@ -811,7 +893,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | `SUPABASE_URL` | 自動注入 | supabase-js client |
 | `SUPABASE_PUBLISHABLE_KEYS`（JSON，取 `default`；備援 `SUPABASE_PUBLISHABLE_KEY`） | 自動注入 | 驗 JWT、以使用者身分查表（RLS） |
 | `SUPABASE_SECRET_KEYS`（JSON，取 `default`；備援 `SUPABASE_SECRET_KEY`） | 自動注入 | 只給 `daily-prep`、`purge-audio`，以及 `api` 的 `_shared/db/paid-consent.ts`（§4.9、ADR-010 修訂 1） |
-| `GEMINI_API_KEY` | Hansheng（沒有連結帳單的專案） | Gemini adapter |
+| `GEMINI_API_KEY` | Hansheng（沒有連結帳單的專案） | `config/provider-keys.ts` 的 `loadGeminiKey`（只有 `providers/wiring.ts` 呼叫，金鑰以參數傳給 Gemini adapter；§5.4） |
 | `GEMINI_PAID_API_KEY` | Hansheng（MVP 不設定） | 只有 `config/paid.ts` |
 | `GROQ_API_KEY` | Hansheng | Groq adapter |
 | `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION` | Hansheng | Azure Speech adapter |
@@ -1091,6 +1173,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 - PWA 安裝條件：https://developer.chrome.com/blog/update-install-criteria 、https://web.dev/articles/install-criteria
 - 新聞來源條款與 feed：見 ADR-006（含每個條款頁網址）
 - Supabase Edge Functions 環境變數、`verify_jwt`、新金鑰與 `getClaims`（2026-11-23 讀取）：見 ADR-010「參考」
+- Gemini REST（`generateContent`、`streamGenerateContent`、`FinishReason`、`BlockReason`、`thinkingConfig`）、API 錯誤、疑難排解、模型、Interactions API（2026-11-25 讀取）：見 ADR-012「驗證」表
 
 ## 18. 變更紀錄
 | 版本 | 日期 | 變更 |
@@ -1104,3 +1187,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.4 | 2026-11-23 | ARCH-005（TASKS §5 第 28 點）：新增 §4.3 字卡狀態轉換表與 contracts `card.ts`、§4.4 每日 25 張選卡、§4.5 今晚題目與提示 chunk、§4.6 跟讀選句與遮字、§4.7 chunk 命中與計分；§4 `card` 表補 `seed_chunk_id`、`due_date` 可為 null、`correct_count` 定義；§11.2 `anchor_date` 預設 `2026-11-22`；新增 ADR-011；§5.0.1 檔案配置補 `src/settings.ts`（T-008 審查時 TechLead 提出）與 `src/card.ts` |
 | v1.5 | 2026-11-24 | T-006 寫單前的 Q-28～Q-30（TechLead），三題都採方案 A：§4.8.1 `card.mastered_at`＋trigger（只在 reviewing → mastered 時寫、不能重設）、§4.8.2 `evening_answer.speech_duration_ms`（另加無稿重答的 chunk 計數）、§4.8.3 `slot_checkin` 改成事件列（opened／completed／skipped、`recorded_at`；步驟清單在 contracts `checkin.ts`）、§4.8.4 `weekly_metric`（`security_invoker`、台北週一、各欄算法、contracts `metrics.ts`）；§4.9 寫入權限：`profile.settings` 付費同意用 trigger＋`set_paid_consent()`（ADR-010 修訂 1）、題庫 RLS、`card_ids` 由 T-025 防護、刪履歷先 retire；§3.1 `_shared/config` 的依賴對齊程式（ADR-008 修訂 4）；§5.0.1 加 `checkin.ts`、`metrics.ts`；§5.1 加 `POST /checkins`；§7.1、§12 更新 ADR-009 (1) 與 ADR-010 的實測證據（run 45348491671），ADR-009 (2) 仍未驗證（ADR-009 修訂 2） |
 | v1.6 | 2026-11-24 | T-022 寫單前的 Q-31～Q-33（TechLead）：新增 §11.1.1 擷取規格——Q-31 採方案 A（The New Stack 全站 `include_url_pattern = null`，不重複靠去重、類別靠 `category_match`；每個來源最多 3 篇送 LLM、類別不符不重試）；新增贊助內容排除（`<category>` 為 `sponsored`／`sponsor*`）、網址正規化（去 `utm_*`）與原文頁面主機規則；Q-32 採自己寫的解析器、不新增依賴（RSS 2.0、HTML 轉文字、robots.txt RFC 9309；原文頁面按主機指定正文容器，找不到就不用，不退回全頁 `<p>`；逾時、大小上限、測試樣本）；Q-33 不使用條件式請求、不加欄位。§4 `news_source` 列、§11.1 表 The New Stack 全站與 InfoQ 兩格更新；ADR-006 修訂 1。實測依據是 2026-11-24 20:2x 的一次性 curl 檢查（不是 A-xxx PoC） |
+| v1.7 | 2026-11-25 | T-015 寫單前的 TechLead 草案（6 項）：新增 §5.4 Gemini adapter 契約與 ADR-012——錯誤對應表（補其他狀態碼、402、`API_KEY_INVALID`、每日額度優先判定、只有 STOP＋JSON／zod 失敗會自動重試 1 次）、`finishReason` 對應（補 `LANGUAGE`／`ESCALATION`／`CONTINUATION`／`PUP_LIMITED_DISABLED`）、串流錯誤規則、`loadGeminiKey`（`config/provider-keys.ts`，空白也算沒有）與 `createGeminiProvider({ id, apiKey, fetch })`、金鑰只放 `x-goog-api-key` 並遮蔽、不送 `thinkingConfig`、留在 `generateContent`；§3.1 adapter 不再依賴 `config`、新增 `providers/wiring.ts` 列（ADR-008 修訂 5）；§7.1 `GEMINI_API_KEY` 讀取位置；§17 參考。REST 欄位、429 `details`、模型 ID 都標未驗證（沒有 A-xxx PoC） |

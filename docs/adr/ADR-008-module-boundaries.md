@@ -1,6 +1,6 @@
 # ADR-008：模組邊界與架構測試
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；修訂 4（v1.5，2026-11-24）；見文末
+- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；修訂 4（v1.5，2026-11-24）；修訂 5（v1.7，2026-11-25）；見文末
 
 ## 背景
 主要由 Claude Code 寫程式。要讓錯誤（例如在畫面直接呼叫 AI、在 domain 裡讀時間、在 handler 跳過 registry）在 CI 就失敗，而不是靠 Review 抓。
@@ -127,3 +127,19 @@
   - `_shared/config/env.ts` import `_shared/db/client.ts` → error。
   - `_shared/config/env.ts` import `@english-coach/contracts` → 合法。
   - `daily-prep/handler.ts` import `_shared/db/paid-consent.ts` → error。
+## 修訂 5（2026-11-25，Architect；ARCHITECTURE v1.7，隨 ADR-012）
+- 狀態：**已接受**（送 G2 PR `[G2] T-015 Gemini adapter 契約`，Hansheng Merge 即核准）
+- 起因：ADR-012 決定 3。金鑰只從工廠參數傳進 adapter，免費供應商的金鑰只有一個讀取入口。
+- **新增第 18 條**：`supabase/functions/_shared/providers/<adapter>/**`（`providers/` 底下的子資料夾）的正式程式只能 import `@english-coach/contracts`、`zod` 和同資料夾的檔案。
+  - 不得 import `_shared/config/**`、`_shared/db/**`、`_shared/news/**`、`@english-coach/domain`、`_shared/providers/*.ts`（registry、wiring），也不得 import 其他 adapter 資料夾。
+  - dependency-cruiser `forbidden` 寫法：`from.path = ^supabase/functions/_shared/providers/([^/]+)/`，`from.pathNot` 用第 3 條的測試檔 regex，`to.path` 列出上述路徑；跨 adapter 用 `to.pathNot = ^supabase/functions/_shared/providers/$1/`。
+  - 這條取代 ARCHITECTURE §3.1 舊版「adapter 可依賴 `config`」。
+- **新增第 19 條**：只有 `supabase/functions/_shared/providers/wiring.ts`（和測試程式）可以 import `supabase/functions/_shared/config/provider-keys.ts`。寫法和第 6 條相同（`to.path = ^supabase/functions/_shared/config/provider-keys\.ts$`，`from.pathNot = ^supabase/functions/_shared/providers/wiring\.ts$` 或測試檔）。
+- 實作：
+  - 第 18 條由 T-015 加進 `.dependency-cruiser.cjs`（目前沒有程式違反）。
+  - 第 19 條由建立 `wiring.ts` 的單加，或 T-015 一併加。
+  - arch 測試範例：
+    - `providers/gemini/client.ts` import `../../config/env.ts` → error
+    - `providers/gemini/client.ts` import `zod` → 合法
+    - `api/router.ts` import `_shared/config/provider-keys.ts` → error
+    - `providers/wiring.ts` import 同一檔 → 合法
