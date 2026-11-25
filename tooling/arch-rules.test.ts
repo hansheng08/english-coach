@@ -114,10 +114,22 @@ const CASES: Case[] = [
     bad: ['supabase/functions/_shared/db/bad-provider.ts'],
     good: ['supabase/functions/_shared/db/client.ts'],
   },
+  {
+    rule: 'adr008-18-adapter-imports-contracts-zod-only',
+    adr: '#18 (rev 5)',
+    bad: ['supabase/functions/_shared/providers/gemini/client.ts'],
+    good: ['supabase/functions/_shared/providers/gemini/good-zod.ts'],
+  },
+  {
+    rule: 'adr008-19-provider-keys-only-wiring',
+    adr: '#19 (rev 5)',
+    bad: ['supabase/functions/api/router.ts'],
+    good: ['supabase/functions/_shared/providers/wiring.ts'],
+  },
 ];
 
 describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
-  it('ADR-008: the config defines exactly the 11 named rules', () => {
+  it('ADR-008: the config defines exactly the 13 named rules (TC-24: #18, #19 added by T-015)', () => {
     expect(ruleNames).toEqual(CASES.map((c) => c.rule));
   });
 
@@ -145,6 +157,16 @@ describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
   it('ADR-008: legal fixtures trigger no rule at all', () => {
     const legal = CASES.flatMap((c) => c.good);
     expect(violations.filter((v) => legal.includes(v.from))).toEqual([]);
+  });
+
+  it('(AC-T15-11) (TC-24) ADR-008 rev 5: the four examples (adapter→config, adapter→zod, api→provider-keys, wiring→provider-keys)', () => {
+    const adapterDir = 'supabase/functions/_shared/providers/gemini';
+    expect(hits('adr008-18-adapter-imports-contracts-zod-only', `${adapterDir}/client.ts`).map((v) => v.to)).toEqual([
+      'supabase/functions/_shared/config/env.ts',
+    ]);
+    expect(violations.filter((v) => v.from === `${adapterDir}/good-zod.ts`)).toEqual([]);
+    expect(hits('adr008-19-provider-keys-only-wiring', 'supabase/functions/api/router.ts').length).toBe(1);
+    expect(violations.filter((v) => v.from === 'supabase/functions/_shared/providers/wiring.ts')).toEqual([]);
   });
 
   it('ADR-008 #4 (rev 1): "npm:" specifiers are recorded as the raw string', () => {

@@ -46,6 +46,15 @@ describe('loadGeminiPaidKey（NFR-05、ADR-003 第 1 層）', () => {
     }
   });
 
+  it('(AC-T15-1) (TC-2) 只有空白 → not_configured（provider 是 gemini-paid）', () => {
+    const { result, read } = run('   ');
+    const e = expectErr(result);
+    expect(e.kind).toBe('not_configured');
+    expect(e.provider).toBe('gemini-paid');
+    expect(e.message).toBe('missing env GEMINI_PAID_API_KEY');
+    expect(read).toEqual(['GEMINI_PAID_API_KEY']);
+  });
+
   it('(AC-T14-7) (TC-15) 有值 → ok，且只讀過 GEMINI_PAID_API_KEY', () => {
     const { result, read } = run('k-123');
     expect(expectOk(result).id).toBe('gemini-paid');
