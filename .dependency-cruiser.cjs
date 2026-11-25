@@ -110,6 +110,13 @@ module.exports = {
       from: { pathNot: ['^supabase/functions/_shared/providers/wiring\\.ts$', TEST] },
       to: { path: '^supabase/functions/_shared/config/provider-keys\\.ts$' },
     },
+    {
+      name: 'adr008-20-news-no-providers-no-db',
+      comment: 'ADR-008 #20 (rev 6): _shared/news production code must not import _shared/providers/** or _shared/db/** (the LlmProvider is injected)',
+      severity: 'error',
+      from: { path: '^supabase/functions/_shared/news/', pathNot: TEST },
+      to: { path: '^supabase/functions/_shared/(providers|db)/' },
+    },
   ],
   options: {
     // 目錄不存在也不會讓指令失敗：掃描根目錄 "."，只用 exclude 排除非產品程式。
