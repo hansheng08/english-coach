@@ -11,21 +11,48 @@
 #      (PRE_HEAD..HEAD; see run-task-pre-head.sh); O-013: task files from
 #      BASE_REF (main);
 #   4. (O-013) run-mutants on docs/qa/mutants/<base id>.json when present.
+# O-014: main is fetched afresh from GitHub (MAIN_URL) into $FRESH_MAIN_REF
+# after Claude, with this job's token; it is the default BASE_REF and every
+# commit already reachable from it is excluded from the scope-check range.
+# T-009 run 45575460457: PRE_HEAD was origin/main 20c206c (branch did not
+# exist yet); 755c7d4 landed on main while the run was going, Claude's own
+# `git fetch origin` + `git switch -c task/T-009 origin/main` (no merge, no
+# rebase) based the branch on it, and PRE_HEAD..HEAD then held that main
+# commit -> docs/tasks/O-014.md SC-OUT. A main ref Claude could have moved
+# (refs/remotes/origin/main) is never used for the exclusion. Fetch failure
+# -> exit 1 (main-fetch).
 # Every part runs and is reported; the step exits 1 when any part fails
 # (report-lint error, failing tests, missing/empty Vitest JSON, summary
 # error, bad input). Notify maps that to outcome=post_check_failed.
-# Env: TASK LOG RUNNER_TEMP PRE_HEAD BRANCH (O-012); optional GITHUB_STEP_SUMMARY, BASE_REF
-#      (default origin/main), TOOLING_DIR / VITEST_JSON_CMD / RUN_MUTANTS_CMD (tests).
+# Env: TASK LOG RUNNER_TEMP PRE_HEAD BRANCH (O-012); GITHUB_REPOSITORY + GH_TOKEN
+#      (O-014 fetch); optional GITHUB_STEP_SUMMARY, BASE_REF (default: the
+#      fresh main), MAIN_URL (default https://github.com/$GITHUB_REPOSITORY.git;
+#      tests use a local path), TOOLING_DIR / VITEST_JSON_CMD / RUN_MUTANTS_CMD (tests).
 set -euo pipefail
 
 TOOLING_DIR="${TOOLING_DIR:-tooling}"
 OUT_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
-BASE_REF="${BASE_REF:-origin/main}"
+FRESH_MAIN_REF="refs/run-task/fresh-main"
 die() { echo "run-task-post-check: ERROR: $*" >&2; exit 1; }
 
 [[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}(-fix[0-9]+)?$ ]] || die "invalid TASK '${TASK:-}'"
 [[ -n "${LOG:-}" && -f "$LOG" ]] || die "execution log '${LOG:-}' is missing"
 HEAD_SHA="$(git rev-parse --verify 'HEAD^{commit}')" || die "cannot resolve HEAD"
+
+# O-014: fresh main. Explicit URL (not the "origin" remote, whose URL held the
+# revoked Claude App token, O-007); credential helpers reset, then gh supplies
+# GH_TOKEN; no prompt. Any failure -> exit 1, nothing below runs.
+if [[ -z "${MAIN_URL:-}" ]]; then
+  [[ "${GITHUB_REPOSITORY:-}" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "main-fetch: GITHUB_REPOSITORY '${GITHUB_REPOSITORY:-}' is not owner/repo"
+  MAIN_URL="https://github.com/${GITHUB_REPOSITORY}.git"
+fi
+if ! GIT_TERMINAL_PROMPT=0 git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+     fetch --no-tags --quiet "$MAIN_URL" "+refs/heads/main:${FRESH_MAIN_REF}"; then
+  die "main-fetch: cannot fetch main from ${MAIN_URL%%\?*}"
+fi
+FRESH_MAIN="$(git rev-parse --verify "${FRESH_MAIN_REF}^{commit}")" || die "main-fetch: ${FRESH_MAIN_REF} does not resolve"
+echo "run-task-post-check: fresh main ${FRESH_MAIN}"
+BASE_REF="${BASE_REF:-$FRESH_MAIN}"
 
 FAILED=()
 REPORT="docs/reports/${TASK}.md"
@@ -66,8 +93,16 @@ elif ! { rm -rf "$MAIN_TASKS" && mkdir -p "$MAIN_TASKS" \
 else
   RUN_CHANGED="$OUT_DIR/run-task-run-changed.txt"
   RUN_COMMITS="$OUT_DIR/run-task-run-commits.txt"
-  git diff --name-only "$PRE_HEAD" "$HEAD_SHA" > "$RUN_CHANGED" || die "git diff ${PRE_HEAD} ${HEAD_SHA} failed"
-  git log --format=%x1e%H%x1f%ae%x1f%ce%x1f%s --name-status -M --diff-merges=dense-combined "${PRE_HEAD}..${HEAD_SHA}" > "$RUN_COMMITS" || die "git log ${PRE_HEAD}..${HEAD_SHA} failed"
+  # O-014: this run's commits = PRE_HEAD..HEAD minus everything reachable
+  # from the fresh main (git rev-list <pre_head>..HEAD --not <main>), so a
+  # main commit pulled in during the run (new branch based on a newer main,
+  # fast-forward, or a merge of main) is not checked as Claude's. The
+  # changed-file list is built from exactly these commits (every path of
+  # every name-status line, rename sources too), not from a tree diff that
+  # would carry main's files along.
+  git log --format=%x1e%H%x1f%ae%x1f%ce%x1f%s --name-status -M --diff-merges=dense-combined "${HEAD_SHA}" "^${PRE_HEAD}" "^${FRESH_MAIN}" > "$RUN_COMMITS" || die "git log ${PRE_HEAD}..${HEAD_SHA} --not ${FRESH_MAIN} failed"
+  awk -F'\t' 'substr($0, 1, 1) != "\036" && NF >= 2 { for (i = 2; i <= NF; i++) if ($i != "") print $i }' "$RUN_COMMITS" | LC_ALL=C sort -u > "$RUN_CHANGED" || die "cannot list the files of this run's commits"
+  echo "run-task-post-check: scope-check on $(awk 'substr($0, 1, 1) == "\036" { n++ } END { print n + 0 }' "$RUN_COMMITS") commit(s) of this run (PRE_HEAD ${PRE_HEAD:0:7}..HEAD, not on main ${FRESH_MAIN:0:7})"
   set +e
   node "$TOOLING_DIR/scope-check.mjs" --branch "$BRANCH" --changed "$RUN_CHANGED" --commits "$RUN_COMMITS" --all-non-qa --tasks-dir "$MAIN_TASKS/docs/tasks" 2> "$SCOPE_ERR"
   SCOPE_EC=$?

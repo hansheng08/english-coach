@@ -4,5 +4,7 @@ export { forgotIntervalDays, nextSrsStep, srsIntervalDays } from './srs.ts';
 export type { SrsStep } from './srs.ts';
 export { PAUSE_THRESHOLD_MS, computeSpeechMetrics } from './speech-metrics.ts';
 export type { SpeechMetrics } from './speech-metrics.ts';
+export { applyReview, markMastered } from './card-state.ts';
+export type { ReviewOutcome } from './card-state.ts';
 export { categoryTryOrder, decideNewsCategory, plannedCategory } from './news-rotation.ts';
 export type { NewsCategoryDecision, RotationOrder } from './news-rotation.ts';

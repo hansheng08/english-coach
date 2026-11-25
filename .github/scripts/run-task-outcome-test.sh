@@ -190,6 +190,37 @@ run_lint "O-009: all success in --json mode" \
   "{\"outcome\":\"success\",${J},\"post_check_outcome\":\"success\"}" \
   --task-lint success --post-check success --json success success success ok
 
+# O-014: --usage-limit (Claude result is_error + api_error=usage_limit_reached + 429).
+UL='--task-lint success --post-check skipped'
+run_lint "O-014: claude failure + usage limit is usage_limit" usage_limit $UL --usage-limit true failure skipped success
+run_lint "O-014: generic claude failure stays failure" failure $UL --usage-limit false failure skipped success
+run_lint "O-014: --usage-limit invalid value is failure" failure $UL --usage-limit yes failure skipped success
+run_lint "O-014: --usage-limit empty is failure" failure $UL --usage-limit "" failure skipped success
+run_lint "O-014: --usage-limit True (wrong case) is failure" failure $UL --usage-limit True failure skipped success
+run_lint "O-014: --usage-limit given twice is invalid -> failure" failure $UL --usage-limit true --usage-limit true failure skipped success
+run_lint "O-014: --usage-limit without value is failure" failure --usage-limit
+run_lint "O-014: task lint failure wins over usage limit" task_lint_failed --task-lint failure --usage-limit true skipped skipped success
+run_lint "O-014: usage limit ignored when claude success" success --task-lint success --post-check success --usage-limit true success success success
+run_lint "O-014: usage limit ignored when claude cancelled" cancelled $UL --usage-limit true cancelled skipped success
+run_lint "O-014: usage limit ignored when claude skipped" failure $UL --usage-limit true skipped skipped success
+run_lint "O-014: usage limit not given keeps failure" failure $UL failure skipped success
+run_lint "O-014: options in any order" usage_limit --usage-limit true --post-check skipped --task-lint success failure skipped success
+run_lint "O-014: usage_limit in --json mode" \
+  '{"outcome":"usage_limit","claude_outcome":"failure","verify_outcome":"skipped","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"success","post_check_outcome":"skipped"}' \
+  $UL --usage-limit true --json failure skipped success ""
+
+# O-014 mutation: removing the usage_limit branch must break the first case.
+MUT="$(mktemp)"
+grep -v 'result="usage_limit"' "$HERE/run-task-outcome.sh" > "$MUT"
+if cmp -s "$MUT" "$HERE/run-task-outcome.sh"; then echo "ERROR: mutation did not change the script"; FAIL=1; fi
+MUT_GOT="$(bash "$MUT" $UL --usage-limit true failure skipped success 2>/dev/null)"
+rm -f "$MUT"
+if [[ "$MUT_GOT" == "usage_limit" ]]; then
+  echo "ERROR: mutant without the usage_limit branch still printed usage_limit"; FAIL=1
+else
+  echo "MUTANT KILLED: without the usage_limit branch -> ${MUT_GOT}"
+fi
+
 if [[ "$FAIL" -ne 0 ]]; then
   echo "run-task-outcome-test: FAILED"
   exit 1
