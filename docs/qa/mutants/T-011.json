@@ -1,0 +1,425 @@
+{
+  "task": "T-011",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "export const SHADOW_MIN_ACCURACY = 0.8;",
+      "after": "export const SHADOW_MIN_ACCURACY = 0.81;",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "export const SHADOW_MIN_ACCURACY = 0.8;",
+      "after": "export const SHADOW_MIN_ACCURACY = 0.79;",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "export const SHADOW_MIN_SPEED_RATIO = 0.7;",
+      "after": "export const SHADOW_MIN_SPEED_RATIO = 0.71;",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "export const SHADOW_MIN_SPEED_RATIO = 0.7;",
+      "after": "export const SHADOW_MIN_SPEED_RATIO = 0.69;",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "accuracy >= SHADOW_MIN_ACCURACY",
+      "after": "accuracy > SHADOW_MIN_ACCURACY",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "speedRatio >= SHADOW_MIN_SPEED_RATIO",
+      "after": "speedRatio > SHADOW_MIN_SPEED_RATIO",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "accuracy >= SHADOW_MIN_ACCURACY && speedRatio",
+      "after": "accuracy >= SHADOW_MIN_ACCURACY || speedRatio",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-2)",
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "return a.matches >= b.matches ? a : b;",
+      "after": "return a.matches <= b.matches ? a : b;",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "return a.cost < b.cost ? a : b;",
+      "after": "return a.cost > b.cost ? a : b;",
+      "expectFail": [
+        "(TC-"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "{ cost: diag.cost, matches: diag.matches + 1 }",
+      "after": "{ cost: diag.cost, matches: diag.matches }",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "{ cost: diag.cost + 1, matches: diag.matches }",
+      "after": "{ cost: diag.cost + 2, matches: diag.matches }",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "{ cost: up.cost + 1, matches: up.matches }",
+      "after": "{ cost: up.cost, matches: up.matches }",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "{ cost: left.cost + 1, matches: left.matches }",
+      "after": "{ cost: left.cost, matches: left.matches }",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "prev.push({ cost: j, matches: 0 });",
+      "after": "prev.push({ cost: 0, matches: 0 });",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const row: Cell[] = [{ cost: i, matches: 0 }];",
+      "after": "const row: Cell[] = [{ cost: 0, matches: 0 }];",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const same = reference[i - 1] === recognized[j - 1];",
+      "after": "const same = recognized.includes(reference[i - 1] ?? '');",
+      "expectFail": [
+        "(QA-6)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "/ reference.length;",
+      "after": "/ Math.max(reference.length, normalizeWords(result.recognizedText).length);",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "/ reference.length;",
+      "after": "/ normalizeWords(result.recognizedText).length;",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "/ reference.length;",
+      "after": "/ referenceText.split(/\\s+/).filter((w) => w !== '' && w !== '/').length;",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const reference = normalizeWords(referenceText);",
+      "after": "const reference = referenceText.split(/\\s+/).filter((w) => w !== '');",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "normalizeWords(result.recognizedText)) / reference.length",
+      "after": "result.recognizedText.split(/\\s+/).filter((w) => w !== '')) / reference.length",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "normalizeWords(result.recognizedText)) / reference.length",
+      "after": "normalizeWords(result.recognizedText.toLowerCase().replace(/'/g, ''))) / reference.length",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (reference.length === 0) return err",
+      "after": "if (reference.length < 0) return err",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "validationError('referenceText', 'referenceText has no words')",
+      "after": "validationError('text', 'referenceText has no words')",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (!(referenceDurationMs > 0)) {",
+      "after": "if (!(referenceDurationMs >= 0)) {",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (!(referenceDurationMs > 0)) {",
+      "after": "if (referenceDurationMs < -1) {",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "validationError('referenceDurationMs',",
+      "after": "validationError('durationMs',",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const spokenMs = last.endMs - first.startMs;",
+      "after": "const spokenMs = last.endMs;",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const spokenMs = last.endMs - first.startMs;",
+      "after": "const spokenMs = last.endMs - last.startMs;",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const spokenMs = last.endMs - first.startMs;",
+      "after": "const spokenMs = result.words.reduce((s, w) => s + (w.endMs - w.startMs), 0);",
+      "expectFail": [
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "const first = result.words[0];",
+      "after": "const first = result.words[1];",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (spokenMs > 0) speedRatio",
+      "after": "if (spokenMs >= 0) speedRatio",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (spokenMs > 0) speedRatio",
+      "after": "if (spokenMs !== 0) speedRatio",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "speedRatio = referenceDurationMs / spokenMs;",
+      "after": "speedRatio = Math.min(1, referenceDurationMs / spokenMs);",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "let speedRatio = 0;",
+      "after": "let speedRatio = 1;",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "unlocked: canUnlock(accuracy, speedRatio)",
+      "after": "unlocked: canUnlock(accuracy, 1)",
+      "expectFail": [
+        "(TC-12)",
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "unlocked: canUnlock(accuracy, speedRatio)",
+      "after": "unlocked: canUnlock(1, speedRatio)",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "masked: wordIndex % 2 === 1",
+      "after": "masked: wordIndex % 2 === 0",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "tokens.push({ text: token, masked: false });\n      continue;",
+      "after": "tokens.push({ text: token, masked: false });",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (normalizeWords(token).length === 0) {",
+      "after": "if (token === '/') {",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "tokens.push({ text: token, masked: false });",
+      "after": "tokens.push({ text: token, masked: wordIndex % 2 === 1 });",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "tokens.push({ text: token, masked: false });\n      continue;",
+      "after": "tokens.push({ text: token, masked: false });\n      wordIndex += 1;\n      continue;",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "if (token === '') continue;",
+      "after": "",
+      "expectFail": [
+        "(QA-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/domain/src/shadowing.ts",
+      "before": "for (const token of sentence.split(/\\s+/)) {",
+      "after": "for (const token of sentence.split(' ')) {",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/domain/src/index.ts",
+      "before": "canUnlock, maskWords, scoreShadowAttempt }",
+      "after": "canUnlock, scoreShadowAttempt }",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/domain/src/index.ts",
+      "before": "SHADOW_MIN_SPEED_RATIO, canUnlock",
+      "after": "canUnlock",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    }
+  ]
+}
