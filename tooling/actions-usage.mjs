@@ -57,14 +57,19 @@ function dayString(ms) {
 export function billedMinutes(job) {
   if (!isRecord(job)) return fail('DATA', 'job 不是物件');
   if (job.status !== 'completed') return fail('DATA', 'job 尚未完成');
+  // 被略過的 job 不計費，GitHub 給的時間也不可靠（常見 completed_at 早於 started_at）：算 0、不驗時間
+  const skipped = job.conclusion === 'skipped';
   const started = parseTime(job.started_at);
   const completed = parseTime(job.completed_at);
-  if (started === null || completed === null) return fail('DATA', 'job 的 started_at／completed_at 不是合法時間');
-  if (completed < started) return fail('DATA', 'job 的 completed_at 早於 started_at');
+  if (!skipped) {
+    if (started === null || completed === null) return fail('DATA', 'job 的 started_at／completed_at 不是合法時間');
+    if (completed < started) return fail('DATA', 'job 的 completed_at 早於 started_at');
+  }
   const { labels } = job;
   if (!Array.isArray(labels) || !labels.some((l) => typeof l === 'string' && l.startsWith('ubuntu-'))) {
     return fail('RUNNER', 'job 的 labels 缺漏或不是 ubuntu-（倍率未知，不猜）');
   }
+  if (skipped) return { minutes: 0, rawSeconds: 0 };
   const rawSeconds = (completed - started) / 1000;
   return { minutes: Math.ceil(rawSeconds / 60), rawSeconds };
 }
@@ -149,6 +154,7 @@ export function summarize(input) {
     }
     const b = billedMinutes(job);
     if ('error' in b) return b;
+    if (local === null) continue; // 只可能是沒有合法 started_at 的 skipped job：不歸任何一天
     const workflow = names.get(job.run_id);
     if (workflow === undefined) return fail('DATA', `job ${job.id} 的 run ${job.run_id} 不在 runs 裡`);
     addTo(cycleMap, workflow, job.run_id, b.minutes, b.rawSeconds);

@@ -440,6 +440,178 @@ process.stdout.write(JSON.stringify({ total_count: 0, workflow_runs: [] }));
   });
 });
 
+describe('skipped job 算 0 分鐘（O-018）', () => {
+  const skipped = (over = {}) => job(0, { conclusion: 'skipped', ...over });
+  const zero = { minutes: 0, rawSeconds: 0 };
+  const omit = (j, key) => {
+    const copy = { ...j };
+    delete copy[key];
+    return copy;
+  };
+
+  it('(AC-O18-1) (TC-1) skipped、時間顛倒 1 秒與 10 秒 → 0 分鐘', () => {
+    expect(billedMinutes(skipped({ completed_at: at(-1) }))).toEqual(zero);
+    expect(billedMinutes(skipped({ completed_at: at(-10) }))).toEqual(zero);
+  });
+
+  it('(AC-O18-1) (TC-2) skipped、時間為 null、缺欄位、"x" → 0 分鐘且沒有 error', () => {
+    const cases = [
+      skipped({ started_at: null }),
+      skipped({ completed_at: null }),
+      omit(skipped(), 'started_at'),
+      omit(skipped(), 'completed_at'),
+      skipped({ started_at: 'x' }),
+      skipped({ completed_at: 'x' }),
+    ];
+    for (const j of cases) {
+      const b = billedMinutes(j);
+      expect(b).toEqual(zero);
+      expect(b).not.toHaveProperty('error');
+    }
+  });
+
+  it('(AC-O18-1) (TC-3) skipped、時間正常但相差 61 秒 → 0 分鐘', () => {
+    expect(billedMinutes(skipped({ completed_at: at(61) }))).toEqual(zero);
+  });
+
+  it('(AC-O18-2) (TC-4) 不是 skipped 的 completed job 時間顛倒 → DATA', () => {
+    const values = ['success', 'failure', 'cancelled', null, 'Skipped'];
+    const cases = values.map((c) => job(10, { conclusion: c, completed_at: at(-5) }));
+    cases.push(job(10, { completed_at: at(-5) }));
+    for (const j of cases) {
+      const b = billedMinutes(j);
+      expect(b).toHaveProperty('error');
+      expect(b.rule).toBe('DATA');
+    }
+  });
+
+  it('(AC-O18-2) (TC-5) 不是 skipped、completed_at 為 null → DATA', () => {
+    const b = billedMinutes(job(10, { conclusion: 'success', completed_at: null }));
+    expect(b).toHaveProperty('error');
+    expect(b.rule).toBe('DATA');
+  });
+
+  it('(AC-O18-3) (TC-6) skipped 依 started_at 歸日，計入 jobs 與 runs', () => {
+    const ok = job(61, { id: 1, conclusion: 'success' });
+    const sk = skipped({ id: 2, completed_at: at(-3) });
+    const both = summarize(base({ jobs: [ok, sk] }));
+    const only = summarize(base({ jobs: [ok] }));
+    expect(both.day.billed_minutes).toBe(2);
+    expect(both.day.jobs).toBe(2);
+    expect(both.day.runs).toBe(1);
+    expect(both.day.raw_minutes).toBe(only.day.raw_minutes);
+  });
+
+  it('(AC-O18-3) (TC-7) 沒有合法 started_at 的 skipped 不計入任何數字', () => {
+    const ok = job(61, { id: 1, conclusion: 'success' });
+    for (const sk of [skipped({ id: 2, started_at: null }), omit(skipped({ id: 2 }), 'started_at'), skipped({ id: 2, started_at: 'x' })]) {
+      const out = summarize(base({ jobs: [ok, sk] }));
+      expect(out).not.toHaveProperty('error');
+      expect(out.day.jobs).toBe(1);
+      expect(out.cycle.by_workflow.map((w) => w.jobs)).toEqual([1]);
+    }
+  });
+
+  it('(AC-O18-4) (TC-8) skipped 但 labels 非 ubuntu → RUNNER', () => {
+    const b = billedMinutes(skipped({ labels: ['windows-latest'], completed_at: at(-3) }));
+    expect(b).toHaveProperty('error');
+    expect(b.rule).toBe('RUNNER');
+  });
+
+  it('(AC-O18-4) (TC-9) 未完成的 job 不看 conclusion，算 in_progress_jobs', () => {
+    const j = job(0, { id: 2, status: 'in_progress', conclusion: 'skipped', completed_at: null });
+    const out = summarize(base({ jobs: [j, job(61, { id: 1 })] }));
+    expect(out.day.in_progress_jobs).toBe(1);
+    expect(out.day.jobs).toBe(1);
+  });
+
+  describe('CLI（假 gh）', () => {
+    let dir;
+    let fakeGh;
+    const input = readJson(join(fx, 'usage-normal', 'input.json'));
+    const expected = readJson(join(fx, 'usage-normal', 'expected.json'));
+    const ARGS = ['--repo', 'o/r', '--date', '2026-11-25', '--cycle-start', '2026-11-24', '--included', '2000'];
+
+    const routesFor = (src) => {
+      const routes = {};
+      const byDay = new Map();
+      for (const r of src.runs) {
+        const day = r.created_at.slice(0, 10);
+        byDay.set(day, [...(byDay.get(day) ?? []), r]);
+        const jobs = src.jobs.filter((j) => j.run_id === r.id);
+        routes[`repos/o/r/actions/runs/${r.id}/jobs?filter=all&per_page=100&page=1`] = JSON.stringify({ total_count: jobs.length, jobs });
+      }
+      for (const [day, list] of byDay) {
+        routes[`repos/o/r/actions/runs?created=${day}&per_page=100&page=1`] = JSON.stringify({ total_count: list.length, workflow_runs: list });
+      }
+      return routes;
+    };
+    const withExtra = (conclusion) => {
+      const src = structuredClone(input);
+      const first = src.jobs[0];
+      src.jobs.push({
+        ...first,
+        id: 987654321,
+        conclusion,
+        started_at: '2026-11-25T03:00:10Z',
+        completed_at: '2026-11-25T03:00:07Z',
+      });
+      return src;
+    };
+    const exec = (src) => {
+      const routesFile = join(dir, 'routes.json');
+      writeFileSync(routesFile, JSON.stringify({ routes: routesFor(src) }));
+      return spawnSync(process.execPath, [cli, ...ARGS], {
+        encoding: 'utf8',
+        env: { ...process.env, GH_BIN: fakeGh, FAKE_GH_ROUTES: routesFile, ACTIONS_USAGE_RETRY_BASE_MS: '0' },
+      });
+    };
+
+    beforeAll(() => {
+      dir = mkdtempSync(join(tmpdir(), 'o018-'));
+      fakeGh = join(dir, 'gh');
+      writeFileSync(
+        fakeGh,
+        `#!/usr/bin/env node
+const fs = require('node:fs');
+const cfg = JSON.parse(fs.readFileSync(process.env.FAKE_GH_ROUTES, 'utf8'));
+const hit = cfg.routes[process.argv[3]];
+if (hit !== undefined) { process.stdout.write(hit); process.exit(0); }
+if (process.argv[3].includes('/jobs')) { process.exit(1); }
+process.stdout.write(JSON.stringify({ total_count: 0, workflow_runs: [] }));
+`,
+        { mode: 0o755 },
+      );
+    });
+    afterAll(() => {
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    it('(AC-O18-5) (TC-10) skipped 時間顛倒 3 秒 → exit 0，分鐘數與沒有該 job 時相同', () => {
+      const r = exec(withExtra('skipped'));
+      expect(r.status).toBe(0);
+      expect(r.stdout.trimEnd().split('\n')).toHaveLength(1);
+      const out = JSON.parse(r.stdout);
+      expect(out.day.billed_minutes).toBe(expected.day.billed_minutes);
+      expect(out.cycle.billed_minutes).toBe(expected.cycle.billed_minutes);
+    });
+
+    it('(AC-O18-2) (TC-11) 同樣的顛倒 job 但 conclusion 是 success → exit 1、DATA', () => {
+      const r = exec(withExtra('success'));
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe('');
+      expect(r.stderr.startsWith('usage: DATA')).toBe(true);
+    });
+  });
+
+  it('(AC-O18-6) (TC-12) 既有測試不變；import 只用 node: 與 ./，沒有吞錯', () => {
+    const text = readFileSync(join(here, 'actions-usage.mjs'), 'utf8');
+    const specs = [...text.matchAll(/(?:from|import\()\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
+    for (const s of specs) expect(s.startsWith('node:') || s.startsWith('./'), s).toBe(true);
+    expect(text).not.toMatch(/catch\s*(\([^)]*\))?\s*\{\s*\}/);
+  });
+});
+
 describe('新增檔案的規則', () => {
   const sources = ['actions-usage.mjs', 'pr-body-lint.mjs'].map((f) => [f, readFileSync(join(here, f), 'utf8')]);
   const walk = (d) =>
