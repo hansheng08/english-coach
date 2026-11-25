@@ -8,3 +8,15 @@ export { applyReview, markMastered } from './card-state.ts';
 export type { ReviewOutcome } from './card-state.ts';
 export { categoryTryOrder, decideNewsCategory, plannedCategory } from './news-rotation.ts';
 export type { NewsCategoryDecision, RotationOrder } from './news-rotation.ts';
+export { normalizeWords } from './words.ts';
+export { selectDailyCards, selectEveningHintChunks, selectShadowSentences, selectTonightQuestion } from './plan.ts';
+export type {
+  CardCandidate,
+  DailyCardSelection,
+  QuestionCandidate,
+  ReviewedTodayCard,
+  ReviewingFallbackCard,
+  SeedCandidate,
+  ShadowSentence,
+  ShadowSentenceCandidate,
+} from './plan.ts';
