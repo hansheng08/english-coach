@@ -1,6 +1,6 @@
 # ADR-008：模組邊界與架構測試
 - 狀態：**已接受**（G2，2026-11-22 18:46 Hansheng 核准）｜日期：2026-11-22｜提出：Architect（ARCH-001）
-- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；修訂 4（v1.5，2026-11-24）；修訂 5（v1.7，2026-11-25）；見文末
+- 相關：ARCHITECTURE §3、§6、§15；ADR-003｜修訂：修訂 1（ARCHITECTURE v1.1）、修訂 2（v1.2），皆 2026-11-22；修訂 3（v1.3，2026-11-23）；修訂 4（v1.5，2026-11-24）；修訂 5（v1.7，2026-11-25）；修訂 6（v1.8，2026-11-25）；見文末
 
 ## 背景
 主要由 Claude Code 寫程式。要讓錯誤（例如在畫面直接呼叫 AI、在 domain 裡讀時間、在 handler 跳過 registry）在 CI 就失敗，而不是靠 Review 抓。
@@ -143,3 +143,17 @@
     - `providers/gemini/client.ts` import `zod` → 合法
     - `api/router.ts` import `_shared/config/provider-keys.ts` → error
     - `providers/wiring.ts` import 同一檔 → 合法
+
+## 修訂 6（2026-11-25，Architect；ARCHITECTURE v1.8，隨 ADR-013）
+- 狀態：**已接受**（送 G2 PR `[G2] T-023 news rewrite`，Hansheng Merge 即核准）
+- 起因：ADR-013 決定 5。新聞改寫（`_shared/news/rewrite.ts`）要用 LLM，但供應商只能由呼叫端經 registry 取得後注入。`_shared/news` 也不該自己讀寫資料庫：「已用過」的檢查本來就是注入的 `isUsed`。
+- **新增第 20 條**：`supabase/functions/_shared/news/**` 的正式程式不得 import `supabase/functions/_shared/providers/**`（registry、wiring、各 adapter）和 `supabase/functions/_shared/db/**`。
+  - 型別（`LlmProvider`、`LlmModelId`、`AppError`）一律從 `@english-coach/contracts` import。
+  - dependency-cruiser `forbidden` 寫法：`from.path = ^supabase/functions/_shared/news/`，`from.pathNot` 用第 3 條的測試檔 regex，`to.path = ^supabase/functions/_shared/(providers|db)/`。
+  - 現在的 `_shared/news` 沒有違反這條。
+- ARCHITECTURE §3.1 的 news 列同步改成：可依賴 `contracts`、`zod`、`config`；禁止 `providers`、`db`。
+- 實作：由 T-023 加進 `.dependency-cruiser.cjs`。arch 測試範例：
+  - `news/rewrite.ts` import `../providers/registry.ts` → error
+  - `news/rewrite.ts` import `../db/client.ts` → error
+  - `news/rewrite.ts` import `zod` → 合法
+  - `news/ingest.test.ts` import 假 provider 的測試輔助檔 → 合法（測試程式不受限）
