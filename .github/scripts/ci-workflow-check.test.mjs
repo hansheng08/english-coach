@@ -60,7 +60,7 @@ test('O-016: every workflow parsed with a timeout and a concurrency group (not v
   }
   assert.equal(parseWorkflow(readFileSync(join(ROOT, '.github/workflows/claude.yml'), 'utf8')).jobs.get('claude').timeout, '30');
   assert.equal(parseWorkflow(readFileSync(join(ROOT, '.github/workflows/notify-grok.yml'), 'utf8')).jobs.get('notify').timeout, '5');
-  assert.equal(parseWorkflow(readFileSync(join(ROOT, '.github/workflows/claude-code-review.yml'), 'utf8')).jobs.get('claude-review').timeout, '15');
+  assert.equal(parseWorkflow(readFileSync(join(ROOT, '.github/workflows/poc-spike.yml'), 'utf8')).jobs.get('spike').timeout, '20');
 });
 test('C4: ci-ok display name per event', () => {
   const job = { id: 'ci-ok', name: CI_OK_NAME_EXPR };
@@ -95,13 +95,13 @@ const MUTANTS = [
   // CL-2: top-level concurrency with a group.
   ['CL-M5 notify-grok without concurrency', (d) => edit(d, W + 'notify-grok.yml', 'concurrency:\n  group: notify-grok-${{ github.event.pull_request.number }}\n  cancel-in-progress: false\n', ''), /notify-grok\.yml: no top-level concurrency \(CL-2\)/],
   ['CL-M6 poc-spike concurrency without group', (d) => edit(d, W + 'poc-spike.yml', '  group: poc-spike-${{ inputs.ref }}\n', ''), /poc-spike\.yml: concurrency has no group \(CL-2\)/],
-  ['CL-M7 claude-code-review inline concurrency', (d) => edit(d, W + 'claude-code-review.yml', 'concurrency:\n  group: claude-code-review-${{ github.event.pull_request.number }}\n  cancel-in-progress: true\n', 'concurrency: x\n'), /claude-code-review\.yml: concurrency must be a block/],
+  ['CL-M7 notify-grok inline concurrency', (d) => edit(d, W + 'notify-grok.yml', 'concurrency:\n  group: notify-grok-${{ github.event.pull_request.number }}\n  cancel-in-progress: false\n', 'concurrency: x\n'), /notify-grok\.yml: concurrency must be a block/],
   // CL-3: job count <= .github/ci-budget.json; every workflow listed; file readable.
   ['CL-M8 ci.yml gains a job, budget unchanged', (d) => edit(d, CI, '  check:\n', '  extra:\n    runs-on: ubuntu-latest\n    timeout-minutes: 5\n    steps:\n      - run: echo\n\n  check:\n'), /ci\.yml: 8 jobs exceed the budget of 7/],
   ['CL-M9 budget file misses a workflow', (d) => setBudget(d, (m) => { delete m['notify-grok.yml']; }), /workflow notify-grok\.yml is not listed \(CL-3\)/],
   ['CL-M10 budget file is bad JSON', (d) => writeFileSync(join(d, BUDGET_FILE), '{ "max_jobs": '), /ci-budget\.json: cannot read or parse \(CL-3\)/],
   ['CL-M11 budget file missing', (d) => rmSync(join(d, BUDGET_FILE)), /ci-budget\.json: cannot read or parse \(CL-3\)/],
-  ['CL-M12 budget keeps a removed workflow (stale)', (d) => rmSync(join(d, W + 'claude-code-review.yml')), /claude-code-review\.yml is not a workflow \(stale entry, CL-3\)/],
+  ['CL-M12 budget keeps a removed workflow (stale)', (d) => rmSync(join(d, W + 'notify-grok.yml')), /notify-grok\.yml is not a workflow \(stale entry, CL-3\)/],
   ['CL-M13 budget limit 0', (d) => setBudget(d, (m) => { m['claude.yml'] = 0; }), /claude\.yml limit must be a positive integer/],
   // O-016 (retro M5): --no-renames at each of the 4 diffs.
   ['NR-M1 taskcheck main-push task-lint diff without --no-renames', (d) => edit(d, TC, 'git diff --no-renames --name-only --diff-filter=AM "$BEFORE_SHA"', 'git diff --name-only --diff-filter=AM "$BEFORE_SHA"'), /taskcheck\.sh:\d+: git diff without --no-renames/],

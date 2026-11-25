@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { billedMinutes, summarize } from './actions-usage.mjs';
+import { GH_MAX_ATTEMPTS, GH_RETRY_BASE_MS, billedMinutes, summarize } from './actions-usage.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fx = join(here, 'fixtures', 'o016');
@@ -173,7 +173,7 @@ describe('CLI（假 gh）', () => {
     writeFileSync(routesFile, JSON.stringify(cfg));
     return spawnSync(process.execPath, [cli, ...args], {
       encoding: 'utf8',
-      env: { ...process.env, GH_BIN: fakeGh, FAKE_GH_ROUTES: routesFile },
+      env: { ...process.env, GH_BIN: fakeGh, FAKE_GH_ROUTES: routesFile, ACTIONS_USAGE_RETRY_BASE_MS: '0' },
     });
   };
   const expectFail = (r, rule) => {
@@ -251,6 +251,192 @@ process.stdout.write(JSON.stringify({ total_count: 0, workflow_runs: [] }));
     expectFail(exec({ routes }, ['--repo', 'o/r', '--date', '2026-11-25']), 'USAGE');
     expectFail(exec({ routes }, ['--repo', 'o/r', '--date', '2026-11-20', '--cycle-start', '2026-11-24', '--included', '2000']), 'USAGE');
     expectFail(exec({ routes }, [...ARGS, '--tz-offset', '8']), 'USAGE');
+  });
+});
+
+describe('gh api 有限重試（O-017）', () => {
+  let dir;
+  let fakeGh;
+  const input = readJson(join(fx, 'usage-normal', 'input.json'));
+  const expected = readJson(join(fx, 'usage-normal', 'expected.json'));
+  const ARGS = ['--repo', 'o/r', '--date', '2026-11-25', '--cycle-start', '2026-11-24', '--included', '2000'];
+  const RUNS_KEY = 'repos/o/r/actions/runs?created=2026-11-25&per_page=100&page=1';
+  const jobsKey = (id) => `repos/o/r/actions/runs/${id}/jobs?filter=all&per_page=100&page=1`;
+  const HTTP = (code) => ({ exit: 1, stderr: `gh: Server Error (HTTP ${code})` });
+
+  const buildRoutes = () => {
+    const routes = {};
+    const byDay = new Map();
+    for (const r of input.runs) {
+      const day = r.created_at.slice(0, 10);
+      byDay.set(day, [...(byDay.get(day) ?? []), r]);
+      const jobs = input.jobs.filter((j) => j.run_id === r.id);
+      routes[jobsKey(r.id)] = JSON.stringify({ total_count: jobs.length, jobs });
+    }
+    for (const [day, list] of byDay) {
+      routes[`repos/o/r/actions/runs?created=${day}&per_page=100&page=1`] = JSON.stringify({ total_count: list.length, workflow_runs: list });
+    }
+    return routes;
+  };
+  const firstJobsKey = jobsKey(input.runs[0].id);
+
+  // seq[path]：第 n 次呼叫用 seq[path][n]，超過就沿用最後一項；null 表示正常回 routes
+  const exec = (seq = {}, { env = {}, args = ARGS, routes = buildRoutes(), bin } = {}) => {
+    writeFileSync(join(dir, 'cfg.json'), JSON.stringify({ routes, seq }));
+    const log = join(dir, 'calls.log');
+    writeFileSync(log, '');
+    const r = spawnSync(process.execPath, [cli, ...args], {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        GH_BIN: bin ?? fakeGh,
+        FAKE_GH_CFG: join(dir, 'cfg.json'),
+        FAKE_GH_LOG: log,
+        ACTIONS_USAGE_RETRY_BASE_MS: '0',
+        ...env,
+      },
+    });
+    const calls = readFileSync(log, 'utf8').split('\n').filter((l) => l !== '');
+    const count = (p) => calls.filter((c) => c === p).length;
+    return { r, calls, count };
+  };
+  const expectApiFail = ({ r }) => {
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe('');
+    expect(r.stderr.startsWith('usage: API')).toBe(true);
+  };
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'o017-'));
+    fakeGh = join(dir, 'gh');
+    writeFileSync(
+      fakeGh,
+      `#!/usr/bin/env node
+const fs = require('node:fs');
+const cfg = JSON.parse(fs.readFileSync(process.env.FAKE_GH_CFG, 'utf8'));
+const p = process.argv[3];
+fs.appendFileSync(process.env.FAKE_GH_LOG, p + '\\n');
+const n = fs.readFileSync(process.env.FAKE_GH_LOG, 'utf8').split('\\n').filter((l) => l === p).length - 1;
+const steps = cfg.seq[p];
+if (steps !== undefined) {
+  const step = steps[Math.min(n, steps.length - 1)];
+  if (step !== null) {
+    if (step.raw !== undefined) { process.stdout.write(step.raw); process.exit(0); }
+    process.stderr.write(step.stderr ?? '');
+    process.exit(step.exit);
+  }
+}
+const hit = cfg.routes[p];
+if (hit !== undefined) { process.stdout.write(hit); process.exit(0); }
+if (p.includes('/jobs')) { process.exit(1); }
+process.stdout.write(JSON.stringify({ total_count: 0, workflow_runs: [] }));
+`,
+      { mode: 0o755 },
+    );
+  });
+  afterAll(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('(AC-O17-1) (TC-1) jobs 先 502 再成功 → 輸出與未失敗相同、2 次、stderr 空', () => {
+    const t = exec({ [firstJobsKey]: [HTTP(502), null] });
+    expect(t.r.status).toBe(0);
+    expect(JSON.parse(t.r.stdout)).toEqual(expected);
+    expect(t.r.stderr).toBe('');
+    expect(t.count(firstJobsKey)).toBe(2);
+  });
+
+  it('(AC-O17-1) (TC-2) runs 頁 503 兩次後成功 → 3 次', () => {
+    const t = exec({ [RUNS_KEY]: [HTTP(503), HTTP(503), null] });
+    expect(t.r.status).toBe(0);
+    expect(JSON.parse(t.r.stdout)).toEqual(expected);
+    expect(t.r.stderr).toBe('');
+    expect(t.count(RUNS_KEY)).toBe(3);
+  });
+
+  it('(AC-O17-1) (TC-3) 500、504 也重試', () => {
+    const t = exec({ [RUNS_KEY]: [HTTP(500), null], [firstJobsKey]: [HTTP(504), null] });
+    expect(t.r.status).toBe(0);
+    expect(JSON.parse(t.r.stdout)).toEqual(expected);
+    expect(t.count(RUNS_KEY)).toBe(2);
+    expect(t.count(firstJobsKey)).toBe(2);
+  });
+
+  it('(AC-O17-2) (TC-4) 沒有狀態碼的 exit 1 → 重試', () => {
+    const t = exec({ [firstJobsKey]: [{ exit: 1, stderr: 'boom' }, null] });
+    expect(t.r.status).toBe(0);
+    expect(JSON.parse(t.r.stdout)).toEqual(expected);
+    expect(t.count(firstJobsKey)).toBe(2);
+  });
+
+  it('(AC-O17-3) (TC-5) 4xx（404、403、422、429）不重試，之後的路徑 0 次', () => {
+    for (const code of [404, 403, 422, 429]) {
+      const t = exec({ [RUNS_KEY]: [HTTP(code)] });
+      expectApiFail(t);
+      expect(t.count(RUNS_KEY)).toBe(1);
+      expect(t.calls.at(-1)).toBe(RUNS_KEY);
+    }
+    const t = exec({ [firstJobsKey]: [HTTP(404)] });
+    expectApiFail(t);
+    expect(t.count(firstJobsKey)).toBe(1);
+    expect(t.calls.at(-1)).toBe(firstJobsKey);
+  });
+
+  it('(AC-O17-4) (TC-6) exit 4、exit 0 非 JSON、gh 不存在 → 不重試', () => {
+    const a = exec({ [firstJobsKey]: [{ exit: 4, stderr: 'weird' }] });
+    expectApiFail(a);
+    expect(a.count(firstJobsKey)).toBe(1);
+    const b = exec({ [firstJobsKey]: [{ raw: 'not json' }] });
+    expectApiFail(b);
+    expect(b.count(firstJobsKey)).toBe(1);
+    const c = exec({}, { bin: join(dir, 'no-such-gh') });
+    expectApiFail(c);
+  });
+
+  it('(AC-O17-5) (TC-7) 一直 502 → exit 1、stdout 空、含 3 與 502、恰 3 次', () => {
+    const t = exec({ [firstJobsKey]: [HTTP(502)] });
+    expectApiFail(t);
+    expect(t.r.stderr.trimEnd().split('\n')).toHaveLength(1);
+    expect(t.r.stderr).toContain('3');
+    expect(t.r.stderr).toContain('502');
+    expect(t.count(firstJobsKey)).toBe(GH_MAX_ATTEMPTS);
+  });
+
+  it('(AC-O17-5) (TC-8) 一直沒有狀態碼的 exit 1 → 含 3、狀態碼「無」、恰 3 次', () => {
+    const t = exec({ [firstJobsKey]: [{ exit: 1, stderr: 'boom' }] });
+    expectApiFail(t);
+    expect(t.r.stderr).toContain('3');
+    expect(t.r.stderr).toContain('無');
+    expect(t.count(firstJobsKey)).toBe(3);
+  });
+
+  it('(AC-O17-6) (TC-9) 退避：base=100 → 整次執行 ≥ 300 毫秒', () => {
+    const t0 = performance.now();
+    const t = exec({ [firstJobsKey]: [HTTP(502)] }, { env: { ACTIONS_USAGE_RETRY_BASE_MS: '100' } });
+    const elapsed = performance.now() - t0;
+    expectApiFail(t);
+    expect(elapsed).toBeGreaterThanOrEqual(300);
+  });
+
+  it('(AC-O17-6) (TC-10) 匯出常數預設值', () => {
+    expect(GH_MAX_ATTEMPTS).toBe(3);
+    expect(GH_RETRY_BASE_MS).toBe(1000);
+  });
+
+  it('(AC-O17-6) (TC-11) base 不合法（-1、1.5、abc、空字串）→ USAGE、gh 0 次', () => {
+    for (const v of ['-1', '1.5', 'abc', '']) {
+      const t = exec({}, { env: { ACTIONS_USAGE_RETRY_BASE_MS: v } });
+      expect(t.r.status, v).toBe(1);
+      expect(t.r.stdout, v).toBe('');
+      expect(t.r.stderr.startsWith('usage: USAGE'), v).toBe(true);
+      expect(t.calls, v).toHaveLength(0);
+    }
+  });
+
+  it('(AC-O17-7) (TC-12) 既有 TC-1～TC-15、TC-22 斷言不變；新程式也符合無吞錯規則', () => {
+    const text = readFileSync(join(here, 'actions-usage.mjs'), 'utf8');
+    expect(text).toContain('GH_MAX_ATTEMPTS');
+    expect(text).not.toMatch(/catch\s*(\([^)]*\))?\s*\{\s*\}/);
   });
 });
 
