@@ -1,0 +1,487 @@
+{
+  "task": "T-009",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/contracts/src/card.ts",
+      "before": "correctCount: z.literal(0),",
+      "after": "correctCount: z.number().int().min(0),",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/contracts/src/card.ts",
+      "before": "intervalStep: z.literal(0),\n    dueDate: PlanDateSchema.nullable(),",
+      "after": "intervalStep: IntervalStepSchema,\n    dueDate: PlanDateSchema.nullable(),",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/contracts/src/card.ts",
+      "before": "dueDate: PlanDateSchema.nullable(),",
+      "after": "dueDate: PlanDateSchema,",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/contracts/src/card.ts",
+      "before": "correctCount: z.number().int().min(1),",
+      "after": "correctCount: z.number().int().min(0),",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/contracts/src/card.ts",
+      "before": "correctCount: z.number().int().min(1),\n    intervalStep: z.literal(0),",
+      "after": "correctCount: z.number().int().min(1),\n    intervalStep: IntervalStepSchema,",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/contracts/src/card.ts",
+      "before": "intervalStep: z.literal(0),\n    dueDate: PlanDateSchema,\n",
+      "after": "intervalStep: z.literal(0),\n    dueDate: PlanDateSchema.nullable(),\n",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/contracts/src/card.ts",
+      "before": "state: z.literal('reviewing'),\n    correctCount: z.number().int().min(2),",
+      "after": "state: z.literal('reviewing'),\n    correctCount: z.number().int().min(1),",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/contracts/src/card.ts",
+      "before": "intervalStep: ReviewingStepSchema,\n    dueDate: PlanDateSchema,",
+      "after": "intervalStep: IntervalStepSchema,\n    dueDate: PlanDateSchema,",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/contracts/src/card.ts",
+      "before": "intervalStep: ReviewingStepSchema,\n    dueDate: PlanDateSchema,",
+      "after": "intervalStep: ReviewingStepSchema,\n    dueDate: PlanDateSchema.nullable(),",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/contracts/src/card.ts",
+      "before": "state: z.literal('mastered'),\n    correctCount: z.number().int().min(2),",
+      "after": "state: z.literal('mastered'),\n    correctCount: z.number().int().min(1),",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/contracts/src/card.ts",
+      "before": "intervalStep: ReviewingStepSchema,\n    dueDate: z.null(),",
+      "after": "intervalStep: IntervalStepSchema,\n    dueDate: z.null(),",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/contracts/src/card.ts",
+      "before": "dueDate: z.null(),",
+      "after": "dueDate: PlanDateSchema.nullable(),",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.literal(3), z.literal(4)]);",
+      "after": "z.literal(3)]);",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.union([z.literal(0), ReviewingStepSchema]);",
+      "after": "z.union([z.literal(0), ReviewingStepSchema, z.literal(5)]);",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/contracts/src/card.ts",
+      "before": "['fast', 'hesitant', 'forgot'] as const",
+      "after": "['fast', 'hesitant', 'forgot', 'easy'] as const",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/contracts/src/card.ts",
+      "before": "['A', 'B'] as const",
+      "after": "['A', 'B', 'C'] as const",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.object({ cardId: CardIdSchema,",
+      "after": "z.object({ cardId: z.string(),",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/contracts/src/card.ts",
+      "before": "'seed', 'shadowing'] as const",
+      "after": "'seed'] as const",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/contracts/src/card.ts",
+      "before": "'reviewing', 'mastered'] as const",
+      "after": "'reviewing', 'done'] as const",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/contracts/src/card.ts",
+      "before": "correctCount: z.number().int().min(1),",
+      "after": "correctCount: z.number().min(1),",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "state: 'learning',\n        correctCount: 1,",
+      "after": "state: 'learning',\n        correctCount: 2,",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "const days = forgotIntervalDays(srs);",
+      "after": "const days = srsIntervalDays(1, srs);",
+      "expectFail": [
+        "(TC-4)",
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "state: 'collected',\n        correctCount: 0,",
+      "after": "state: 'learning',\n        correctCount: 0,",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "state: 'collected',\n        correctCount: 0,\n        intervalStep: 0,\n        dueDate,",
+      "after": "state: 'collected',\n        correctCount: 0,\n        intervalStep: 0,\n        dueDate: null,",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "srsIntervalDays(1, srs)",
+      "after": "srsIntervalDays(2, srs)",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: 1,",
+      "after": "intervalStep: 2,",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "correctCount: card.correctCount + 1,\n        intervalStep: 1,",
+      "after": "correctCount: card.correctCount + 2,\n        intervalStep: 1,",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: 1,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,",
+      "after": "intervalStep: 1,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, srsIntervalDays(1, srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: 1,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,",
+      "after": "intervalStep: 1,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount + 1,",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "const step = nextSrsStep(card.intervalStep);",
+      "after": "const step = card.intervalStep;",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "srsIntervalDays(step, srs)",
+      "after": "srsIntervalDays(card.intervalStep, srs)",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "correctCount: card.correctCount + 1,\n        intervalStep: step,",
+      "after": "correctCount: card.correctCount,\n        intervalStep: step,",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "srsIntervalDays(card.intervalStep, srs)",
+      "after": "srsIntervalDays(nextSrsStep(card.intervalStep), srs)",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: card.intervalStep,\n        dueDate,",
+      "after": "intervalStep: nextSrsStep(card.intervalStep),\n        dueDate,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "correctCount: card.correctCount + 1,\n        intervalStep: card.intervalStep,",
+      "after": "correctCount: card.correctCount,\n        intervalStep: card.intervalStep,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,\n        intervalStep: 0,",
+      "after": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'reviewing',\n        correctCount: card.correctCount,\n        intervalStep: 0,",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,\n        intervalStep: 0,",
+      "after": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, srsIntervalDays(1, srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,\n        intervalStep: 0,",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,\n        intervalStep: 0,",
+      "after": "intervalStep: card.intervalStep,\n        dueDate,\n      }));\n    case 'forgot':\n      return schedule(card.state, today, forgotIntervalDays(srs), (dueDate) => ({\n        state: 'learning',\n        correctCount: card.correctCount,\n        intervalStep: 1,",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "path: 'state'",
+      "after": "path: 'rating'",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "kind: 'validation', issues",
+      "after": "kind: 'internal', issues",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "return err({ kind: 'validation', issues: [{ path: 'state', message }], message });",
+      "after": "return reviewReviewing({ ...card, state: 'reviewing' }, rating, today, srs);",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "ok({ before, schedule",
+      "after": "ok({ before: build(dueDate).state, schedule",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalDaysApplied: days })",
+      "after": "intervalDaysApplied: days + 1 })",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "return andThen(addDays(today, days), (dueDate) =>",
+      "after": "const r0 = addDays(today, days);\n  if (!r0.ok) return err({ kind: 'validation', issues: [{ path: 'today', message: 'x' }], message: 'x' });\n  return andThen(r0, (dueDate) =>",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "addDays(today, days)",
+      "after": "addDays(today, 0)",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "dueDate: null },\n        changed: true,",
+      "after": "dueDate: card.dueDate },\n        changed: true,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "intervalStep: card.intervalStep, dueDate: null",
+      "after": "intervalStep: 4, dueDate: null",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "schedule: { state: 'mastered', correctCount: card.correctCount,",
+      "after": "schedule: { state: 'mastered', correctCount: card.correctCount + 1,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "changed: true,",
+      "after": "changed: false,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "return { schedule: card, changed: false };",
+      "after": "return { schedule: card, changed: true };",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "packages/domain/src/card-state.ts",
+      "before": "return { schedule: card, changed: false };",
+      "after": "return { schedule: { ...card, dueDate: null }, changed: false };",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { applyReview, markMastered } from './card-state.ts';",
+      "after": "export { applyReview } from './card-state.ts';",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "packages/contracts/src/index.ts",
+      "before": "export * from './card.ts';\n",
+      "after": "",
+      "expectFail": [
+        "(TC-18)",
+        "(QA-18)"
+      ]
+    }
+  ]
+}
