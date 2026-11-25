@@ -1,0 +1,18 @@
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid value at 'generation_config.max_output_tokens' (TYPE_INT32), \"many\"",
+    "status": "INVALID_ARGUMENT",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.BadRequest",
+        "fieldViolations": [
+          {
+            "field": "generation_config.max_output_tokens",
+            "description": "Invalid value at 'generation_config.max_output_tokens' (TYPE_INT32), \"many\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "{\"word\": \"versatile\", \"meaning_zh\": \"多才多艺的，通用的\"}",
+            "thoughtSignature": "EqkBCqYBAWkUfROFDb+l778xr7A3ssa1mSEr2DBy28wV3p5FhxGGYB4Xt60QvLrXRzOKyMDwD3In/xBqi5LK02FoMT8r1JlpaxZhjLWiSyPOVOoZpa0apoWzbQGZJmbrZe2loUwNwaqYLR/Dix2JII8Pa/a+tarUuVByx1GEQx3hZCBGrgs/UDhDfeaSc+ZOcMWMwnyuRYWcjpJWasu12IJA+GRlI6lx+8OP1Q=="
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 35,
+    "candidatesTokenCount": 22,
+    "totalTokenCount": 57,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 35
+      }
+    ],
+    "serviceTier": "standard"
+  },
+  "modelVersion": "gemini-3.1-flash-lite",
+  "responseId": "yy8Ga-qJBZKU5NoPs7SoqQo"
+}

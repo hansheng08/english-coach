@@ -123,3 +123,8 @@ TechLead 寫 T-003（Supabase 骨架）時卡在三件事（TASKS §5 第 27 點
 - **驗證狀態**：
   - trigger 裡的 `current_user` 對 PostgREST 的 `service_role` 請求是 `service_role`、對 migration 是 `postgres`：**未驗證**，T-006 的 pgTAP 會證明或推翻。
   - `supabase-js` 用 `rpc('set_paid_consent', …)` 呼叫：**未驗證**，由 T-020 的整合測試確認。
+## 修訂 2（2026-11-25，Architect；ARCHITECTURE v1.7，隨 ADR-012）
+- 狀態：**已接受**（送 G2 PR `[G2] T-015 Gemini adapter 契約`）
+- 決定 1 環境變數表：`GEMINI_API_KEY` 的讀取位置從「`_shared/providers/gemini`」改成 `_shared/config/provider-keys.ts` 的 `loadGeminiKey`。
+  - 只有 `_shared/providers/wiring.ts` 會呼叫它；金鑰以參數傳給 adapter（ADR-012 決定 3、ADR-008 修訂 5 第 18、19 條）。
+  - 空字串和只有空白都視為沒有設定（`not_configured`）。`GEMINI_PAID_API_KEY` 不變，仍只在 `config/paid.ts`。

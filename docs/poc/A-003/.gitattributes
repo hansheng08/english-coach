@@ -1,0 +1,4 @@
+# 樣本必須保留原始位元組（SSE 和標頭用 CRLF）：不轉換換行，也不檢查空白
+samples/** -text -whitespace
+req/** -text -whitespace
+requests.log -text -whitespace

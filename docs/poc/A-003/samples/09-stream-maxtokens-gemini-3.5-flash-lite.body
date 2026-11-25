@@ -1,0 +1,4 @@
+data: {"candidates": [{"content": {"parts": [{"text": "Job"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 14,"candidatesTokenCount": 1,"totalTokenCount": 15,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 14}],"serviceTier": "standard"},"modelVersion": "gemini-3.5-flash-lite","responseId": "PzAGa8HILbO6xdIP0JeT2Ag"}
+
+data: {"candidates": [{"content": {"parts": [{"text": "","thoughtSignature": "EpYBCpMBAWkUfRMCSZBqjUjnH+Hhyipq0Tp7SN5V9PSbYCvfgWWctuWCv61Ro4kZNEXhp3d9QJPFdcsBdqmLNZ/tLN/XVGxgE6Ldrcv/IADGAXmk84YllpWONBTkfOMks4ia64lbEZe9mDb27hyjiGnxB5w75YdUAk4mwOKMtUI9BjTQH2IPSKZiTnSXxe9fEV2eKn8ojqwm"}],"role": "model"},"finishReason": "MAX_TOKENS","index": 0}],"usageMetadata": {"promptTokenCount": 14,"candidatesTokenCount": 1,"totalTokenCount": 15,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 14}],"serviceTier": "standard"},"modelVersion": "gemini-3.5-flash-lite","responseId": "PzAGa8HILbO6xdIP0JeT2Ag"}
+
