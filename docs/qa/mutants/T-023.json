@@ -1,0 +1,479 @@
+{
+  "task": "T-023",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/contracts/src/news.ts",
+      "before": "filter((w) => w !== '' && w !== '/')",
+      "after": "filter((w) => w !== '')",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/contracts/src/news.ts",
+      "before": "return newsWords(sentence).join(' ');",
+      "after": "return sentence.split(/\\s+/).filter((w) => w !== '').join(' ');",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/contracts/src/news.ts",
+      "before": "const body = words.map(escapeRegex).join('\\\\s+');",
+      "after": "const body = words.join('\\\\s+');",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/contracts/src/news.ts",
+      "before": "${body}(?![\\\\p{L}\\\\p{N}'-])",
+      "after": "${body}(?![\\\\p{L}\\\\p{N}])",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/contracts/src/news.ts",
+      "before": "(?<![\\\\p{L}\\\\p{N}'-])${body}",
+      "after": "(?<![\\\\p{L}])${body}",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/contracts/src/news.ts",
+      "before": "`, 'iu');",
+      "after": "`, 'u');",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/contracts/src/news.ts",
+      "before": "return re.test(stripBreaks(sentence));",
+      "after": "return re.test(sentence);",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/contracts/src/news.ts",
+      "before": "n < CHUNK_MIN_WORDS",
+      "after": "n < 1",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/contracts/src/news.ts",
+      "before": "n > CHUNK_MAX_WORDS",
+      "after": "n > 7",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/contracts/src/news.ts",
+      "before": "len > MEANING_MAX_CHARS",
+      "after": "len > 31",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/contracts/src/news.ts",
+      "before": "const len = Array.from(meaning).length;",
+      "after": "const len = meaning.length;",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/contracts/src/news.ts",
+      "before": "!/\\p{Script=Han}/u.test(meaning)",
+      "after": "false",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/contracts/src/news.ts",
+      "before": "/[\\r\\n]/.test(s)",
+      "after": "/\\n/.test(s)",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/contracts/src/news.ts",
+      "before": "w > MAX_SENTENCE_WORDS",
+      "after": "w > 41",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/contracts/src/news.ts",
+      "before": "a.sentences.length > MAX_SENTENCES",
+      "after": "a.sentences.length > 41",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/contracts/src/news.ts",
+      "before": "tokens.some((t) => t !== '/' && t.includes('/')) ||",
+      "after": "false ||",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/contracts/src/news.ts",
+      "before": "tokens[0] === '/' ||",
+      "after": "false ||",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/contracts/src/news.ts",
+      "before": "tokens.some((t, k) => t === '/' && tokens[k + 1] === '/')",
+      "after": "false",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/contracts/src/news.ts",
+      "before": "slashes > Math.floor(w / 3)",
+      "after": "slashes > Math.ceil(w / 3)",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/contracts/src/news.ts",
+      "before": "w >= FOLLOW_MIN_WORDS && slashes < 1",
+      "after": "w > FOLLOW_MIN_WORDS && slashes < 1",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/contracts/src/news.ts",
+      "before": "w <= FOLLOW_MAX_WORDS",
+      "after": "w < FOLLOW_MAX_WORDS",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/contracts/src/news.ts",
+      "before": ".length < FOLLOW_MIN_SENTENCES",
+      "after": ".length < 4",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/contracts/src/news.ts",
+      "before": "if (a.rewritten_text !== a.sentences.map(stripBreaks).join(' '))",
+      "after": "if (a.rewritten_text.trim() !== a.sentences.map(stripBreaks).join(' '))",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/contracts/src/news.ts",
+      "before": "total < NEWS_REWRITE_MIN_WORDS",
+      "after": "total < 249",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/contracts/src/news.ts",
+      "before": "total > NEWS_REWRITE_MAX_WORDS",
+      "after": "total > 301",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/contracts/src/news.ts",
+      "before": "if (a.chunks.length !== NEWS_CHUNK_COUNT)",
+      "after": "if (a.chunks.length < NEWS_CHUNK_COUNT)",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/contracts/src/news.ts",
+      "before": "const key = c.chunk.toLowerCase().replace(/\\s+/g, ' ');",
+      "after": "const key = c.chunk.replace(/\\s+/g, ' ');",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/contracts/src/news.ts",
+      "before": "|| !chunkAppearsIn(c.chunk, sentence)",
+      "after": "",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/contracts/src/news.ts",
+      "before": ".replace(/[‘’]/g, \"'\")",
+      "after": ".replace(/[’]/g, \"'\")",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/contracts/src/news.ts",
+      "before": ".replace(/\\s+/g, ' ').trim();",
+      "after": ".replace(/\\s+/g, ' ');",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/contracts/src/news.ts",
+      "before": "sentences.findIndex((s) => chunkAppearsIn(chunk, s))",
+      "after": "sentences.findLastIndex((s) => chunkAppearsIn(chunk, s))",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/contracts/src/news.ts",
+      "before": "meaning_zh: c.meaning_zh.trim(), sentence_index: index",
+      "after": "meaning_zh: c.meaning_zh, sentence_index: index",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/contracts/src/news.ts",
+      "before": "if (!checked.success) {",
+      "after": "if (false) {",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "const JUDGE_BODY_WORDS = 300;",
+      "after": "const JUDGE_BODY_WORDS = 301;",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "const REWRITE_BODY_WORDS = 2_000;",
+      "after": "const REWRITE_BODY_WORDS = 2_001;",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "maxOutputTokens: 64,",
+      "after": "maxOutputTokens: 128,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "timeoutMs: 8_000,",
+      "after": "timeoutMs: 16_000,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "maxOutputTokens: 2_048,",
+      "after": "maxOutputTokens: 4_096,",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "timeoutMs: 30_000,",
+      "after": "timeoutMs: 60_000,",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "model: deps.model,\n      system: JUDGE_PROMPT,",
+      "after": "model: 'gemini-3.5-flash-lite',\n      system: JUDGE_PROMPT,",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "model: deps.model,\n    system: REWRITE_PROMPT,",
+      "after": "model: 'gemini-3.1-flash-lite',\n    system: REWRITE_PROMPT,",
+      "expectFail": [
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "`Category: ${candidate.category}\\nTitle: ${candidate.title}\\n",
+      "after": "`Title: ${candidate.title}\\nCategory: ${candidate.category}\\n",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "ok(r.value.category_match) : err(r.error)",
+      "after": "ok(true) : err(r.error)",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "ok(r.value.category_match) : err(r.error)",
+      "after": "ok(r.value.category_match) : err({ ...r.error })",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "ok(r.value) : err(r.error)",
+      "after": "ok(r.value) : err({ ...r.error })",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "schema: NewsRewriteResponseSchema,",
+      "after": "schema: NewsJudgeResponseSchema,",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "`${ARTICLE_START}\\n${body}\\n${ARTICLE_END}`",
+      "after": "`${body}\\n${ARTICLE_END}`",
+      "expectFail": [
+        "(TC-15)",
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "newsWords(body.split(ARTICLE_START).join(' ').split(ARTICLE_END).join(' '))",
+      "after": "newsWords(body)",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": " If the main topic of the article is AI, answer false.",
+      "after": "",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "5. Use the ASCII apostrophe ' only.",
+      "after": "5. Use plain quotes.",
+      "expectFail": [
+        "(TC-20)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": ".dependency-cruiser.cjs",
+      "before": "to: { path: '^supabase/functions/_shared/(providers|db)/' }",
+      "after": "to: { path: '^supabase/functions/_shared/providers/' }",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": ".dependency-cruiser.cjs",
+      "before": "from: { path: '^supabase/functions/_shared/news/', pathNot: TEST }",
+      "after": "from: { path: '^supabase/functions/_shared/news/' }",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    }
+  ]
+}
