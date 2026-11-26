@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FFFFFF">
+<title>B 集章冊｜今天</title>
+<style>
+:root{
+  --pink:#FF48B0; --pink-ink:#B8166F; --pink-tint:#FFE3F1;
+  --teal:#00838A; --teal-ink:#00666B; --teal-tint:#D9F1F1;
+  --ink:#000000; --paper:#FFFFFF; --grey:#5C5C5C; --rule:#1A1A1A;
+  --font:"Noto Sans TC","Noto Sans CJK TC","PingFang TC",Roboto,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--paper);line-height:1.5}
+button,a{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{text-decoration:none}
+:focus-visible{outline:3px solid var(--teal-ink);outline-offset:3px}
+svg{display:block}
+.page{max-width:1160px;margin:0 auto;padding:0 16px 32px}
+
+.top{display:flex;align-items:center;justify-content:space-between;min-height:56px;border-bottom:3px solid var(--ink)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:900;font-size:1rem;letter-spacing:.02em}
+.menu{width:48px;height:48px;display:grid;place-items:center;border:0;background:none;cursor:pointer}
+.menu:hover{background:var(--pink-tint)}
+.nav{display:none}
+
+.head{display:flex;align-items:flex-end;gap:12px;margin:18px 0 8px}
+.day{font-weight:900;font-size:3.5rem;line-height:.95;letter-spacing:-.02em}
+.day-sub{font-weight:700;font-size:.9375rem;padding-bottom:4px}
+.day-sub b{display:block;font-size:1.25rem;font-weight:900}
+
+/* stamp grid */
+.card{border:3px solid var(--ink);padding:12px 10px 10px;margin:12px 0 18px;position:relative;background:var(--paper)}
+.card::after{content:"";position:absolute;inset:6px -9px -9px 6px;background:var(--pink);z-index:-1;mix-blend-mode:multiply}
+.card h2{font-size:.9375rem;font-weight:900;margin:0 4px 8px;display:flex;justify-content:space-between}
+.card h2 span{font-weight:700;color:var(--grey);font-size:.8125rem}
+.grid{display:grid;grid-template-columns:28px repeat(7,1fr);gap:4px 2px;align-items:center;text-align:center}
+.grid .h{font-size:.75rem;font-weight:700;color:var(--grey)}
+.grid .h.today{color:var(--ink);font-weight:900;text-decoration:underline 3px var(--pink);text-underline-offset:4px}
+.grid .r{font-size:.8125rem;font-weight:900;text-align:left}
+.cell{aspect-ratio:1;display:grid;place-items:center}
+.cell svg{width:100%;max-width:40px;height:auto}
+.empty{width:70%;aspect-ratio:1;border-radius:50%;border:2px dotted #767676}
+.now{width:74%;aspect-ratio:1;border-radius:50%;border:3px dashed var(--ink)}
+.milestone{display:flex;align-items:center;gap:12px;margin-top:10px;padding-top:10px;border-top:2px solid var(--ink)}
+.milestone svg{flex:none}
+.milestone p{margin:0;font-weight:700;font-size:.875rem}
+.milestone p b{font-weight:900;font-size:1.125rem}
+
+/* tickets */
+.tickets{display:grid;gap:12px}
+.ticket{position:relative;border:3px solid var(--ink);padding:14px 16px 16px 26px;background:var(--paper)}
+.ticket::before{content:"";position:absolute;left:8px;top:10px;bottom:10px;border-left:3px dotted var(--ink)}
+.ticket .k{font-size:.8125rem;font-weight:900;display:flex;gap:10px;align-items:center}
+.ticket .k .pill{background:var(--ink);color:#fff;padding:1px 8px}
+.ticket h3{font-size:1.5rem;font-weight:900;margin:4px 0 6px;line-height:1.25}
+.ticket blockquote{margin:0 0 14px;font-size:1rem;font-weight:500;line-height:1.5}
+.ticket ol{margin:0 0 14px;padding:0;list-style:none;display:grid;gap:2px;font-size:.875rem}
+.ticket ol li{display:flex;gap:8px;align-items:center;min-height:28px}
+.ticket ol li i{width:20px;height:20px;border:2px solid var(--ink);border-radius:50%;flex:none;font-style:normal;font-size:.6875rem;font-weight:900;display:grid;place-items:center}
+.ticket ol li.cur i{background:var(--ink);color:#fff}
+.go{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:56px;border:3px solid var(--ink);background:var(--ink);color:#fff;font-weight:900;font-size:1.125rem;cursor:pointer}
+.go:hover{background:#222}
+.go:active{transform:translateY(2px)}
+.done{display:flex;align-items:center;gap:12px;min-height:72px;padding:10px 16px 10px 26px}
+.done .t{flex:1}
+.done .t b{display:block;font-weight:900;font-size:1rem}
+.done .t span{font-size:.8125rem;color:var(--grey)}
+.done svg{flex:none;transform:rotate(-8deg)}
+
+/* points */
+.points{margin-top:22px}
+.layout{display:flex;flex-direction:column}
+.points h2{font-size:.9375rem;font-weight:900;margin:0 0 8px;display:flex;justify-content:space-between;align-items:baseline}
+.points h2 span{font-weight:700;font-size:.8125rem;color:var(--grey)}
+.dots{display:grid;grid-template-columns:repeat(10,18px);gap:7px 10px;justify-content:start}
+.dots i{aspect-ratio:1;border-radius:50%;background:var(--teal)}
+.dots i.o{background:none;border:2px dashed var(--teal-ink)}
+
+@media (min-width:900px){
+  .page{padding:0 40px 48px}
+  .menu{display:none}
+  .nav{display:flex;gap:4px}
+  .nav a{min-height:44px;display:flex;align-items:center;padding:0 16px;font-weight:900;border:3px solid transparent}
+  .nav a:hover{border-color:var(--ink)}
+  .nav a[aria-current]{background:var(--ink);color:#fff}
+  .layout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);grid-template-areas:"week tickets" "points tickets";column-gap:48px;align-items:start;margin-top:12px}
+  .layout>section:first-child{grid-area:week}.tickets{grid-area:tickets}.points{grid-area:points;margin-top:8px}
+  .dots{grid-template-columns:repeat(25,16px);gap:8px 6px}
+  .day{font-size:5.5rem}
+  .card{padding:18px 18px 16px}
+  .cell svg{max-width:56px}
+  .grid{gap:8px 6px;grid-template-columns:36px repeat(7,1fr)}
+  .tickets{margin-top:28px}
+}
+@media (prefers-reduced-motion:no-preference){
+  .fresh{animation:thump .5s cubic-bezier(.3,1.6,.5,1) both .3s}
+  @keyframes thump{from{transform:scale(1.6) rotate(-14deg);opacity:0}}
+  .now{animation:breathe 2.4s ease-in-out infinite}
+  @keyframes breathe{50%{transform:scale(.9)}}
+  .go{transition:transform .08s, box-shadow .08s}
+}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="ink"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="2.2"/></filter>
+    <symbol id="st-am" viewBox="0 0 48 48"><g filter="url(#ink)" style="mix-blend-mode:multiply"><circle cx="24" cy="24" r="20" fill="none" stroke="#FF48B0" stroke-width="3"/><circle cx="24" cy="24" r="15.5" fill="#FF48B0"/><text x="24" y="29.5" text-anchor="middle" font-size="15" font-weight="900" fill="#000" font-family="Noto Sans CJK TC,Noto Sans TC,sans-serif">早</text></g></symbol>
+    <symbol id="st-noon" viewBox="0 0 48 48"><g filter="url(#ink)" style="mix-blend-mode:multiply"><rect x="6" y="6" width="36" height="36" rx="3" fill="none" stroke="#00838A" stroke-width="3" transform="rotate(8 24 24)"/><rect x="10.5" y="10.5" width="27" height="27" fill="#00666B" transform="rotate(8 24 24)"/><text x="24" y="29.5" text-anchor="middle" font-size="15" font-weight="900" fill="#fff" font-family="Noto Sans CJK TC,Noto Sans TC,sans-serif">午</text></g></symbol>
+    <symbol id="st-pm" viewBox="0 0 48 48"><g filter="url(#ink)"><path d="M24 4l5.6 6.4 8.4-1.2.9 8.4 6.6 5.3-5 6.8 1.9 8.3-8.3 1.6-4.3 7.3L24 42.6l-6.4 4.3-4.3-7.3L5 38l1.9-8.3-5-6.8 6.6-5.3.9-8.4 8.4 1.2z" fill="#000"/><text x="24" y="29.5" text-anchor="middle" font-size="15" font-weight="900" fill="#fff" font-family="Noto Sans CJK TC,Noto Sans TC,sans-serif">晚</text></g></symbol>
+  </defs>
+</svg>
+<div class="page">
+  <header class="top">
+    <div class="brand"><svg width="30" height="30" viewBox="0 0 48 48" aria-hidden="true"><use href="#st-am"/></svg>English Coach</div>
+    <nav class="nav" aria-label="主要導覽"><a href="#" aria-current="page">今天</a><a href="#">字卡</a><a href="#">紀錄</a><a href="#">設定</a></nav>
+    <button class="menu" type="button" aria-label="開啟選單"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+  </header>
+
+  <div class="layout">
+    <section aria-label="本週集章">
+      <div class="head">
+        <div class="day">11/26</div>
+        <div class="day-sub">週四<b>第 23 天</b></div>
+      </div>
+      <div class="card">
+        <h2>本週集章 <span>每段做完蓋一個</span></h2>
+        <div class="grid" role="img" aria-label="本週一到週三早中晚都已完成，今天早上與中午完成，晚上進行中">
+          <span></span><span class="h">一</span><span class="h">二</span><span class="h">三</span><span class="h today">四</span><span class="h">五</span><span class="h">六</span><span class="h">日</span>
+          <span class="r">早</span>
+          <span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(-6deg)"><use href="#st-am"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(9deg)"><use href="#st-am"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(-12deg)"><use href="#st-am"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(4deg)"><use href="#st-am"/></svg></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span>
+          <span class="r">午</span>
+          <span class="cell"><svg viewBox="0 0 48 48"><use href="#st-noon"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(-10deg)"><use href="#st-noon"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(6deg)"><use href="#st-noon"/></svg></span><span class="cell"><svg class="fresh" viewBox="0 0 48 48" style="transform:rotate(-4deg)"><use href="#st-noon"/></svg></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span>
+          <span class="r">晚</span>
+          <span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(7deg)"><use href="#st-pm"/></svg></span><span class="cell"><svg viewBox="0 0 48 48"><use href="#st-pm"/></svg></span><span class="cell"><svg viewBox="0 0 48 48" style="transform:rotate(-8deg)"><use href="#st-pm"/></svg></span><span class="cell"><i class="now"></i></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span><span class="cell"><i class="empty"></i></span>
+        </div>
+        <div class="milestone">
+          <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="23" fill="none" stroke="#000" stroke-width="2.5" stroke-dasharray="5 4"/><text x="26" y="33" text-anchor="middle" font-size="20" font-weight="900" font-family="Noto Sans CJK TC,sans-serif">30</text></svg>
+          <p>再蓋 <b>7</b> 天，就是連續 30 天的里程碑章</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tickets" aria-label="今天的三段">
+      <article class="ticket">
+        <div class="k"><span class="pill">晚上 21:00</span>現在這段</div>
+        <h3>錄音回答今晚題目</h3>
+        <blockquote lang="en">Tell me about a time you debugged a production issue under pressure.</blockquote>
+        <ol>
+          <li class="cur"><i>1</i>錄音回答（2～3 分鐘）</li>
+          <li><i>2</i>看診斷、勾選升級語塊</li>
+          <li><i>3</i>跟讀改寫版，再無稿重答</li>
+        </ol>
+        <button class="go" type="button"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>開始錄音</button>
+      </article>
+      <a class="ticket done" href="#">
+        <span class="t"><b>早上 讀新聞＋跟讀</b><span>2 步都完成｜收錄 3 個語塊</span></span>
+        <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><use href="#st-am"/></svg>
+      </a>
+      <a class="ticket done" href="#">
+        <span class="t"><b>中午 複習 25 張</b><span>1 步完成、1 步跳過（手動新增）</span></span>
+        <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><use href="#st-noon"/></svg>
+      </a>
+    </section>
+    <section class="points" aria-label="Mastered 集點卡">
+        <h2>Mastered 集點卡 <span>48／50，再 2 點換下一張</span></h2>
+        <div class="dots" role="img" aria-label="Mastered 48 個，滿 50 個換下一張">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="o"></i><i class="o"></i>
+        </div>
+      </section>
+  </div>
+</div>
+</body>
+</html>
