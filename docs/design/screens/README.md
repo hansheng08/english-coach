@@ -3,11 +3,12 @@
 
 | 規格 | 原型 | 流程 |
 |---|---|---|
-| [login.md](login.md) | `login.html` | 登入 → 首頁 |
+| [login.md](login.md) | `login.html`；錯誤狀態 `login-empty.html`、`login-server.html`、`login-offline.html` | 登入 → 首頁；登入錯誤 |
 | [home.md](home.md) | `index.html` | 首頁今日任務（早／中／晚） |
 | [morning.md](morning.md) | `news.html` → `shadow.html` | 早上閱讀 → 跟讀闖關 |
 | [noon.md](noon.md) | `review.html` → `review-order.html`；`review-short.html` | 中午複習；今天只有 N 張 |
 | [evening.md](evening.md) | `evening.html` → `evening-record.html` → `diagnosis.html` → `retell.html` → `retell-cue.html` → `result.html`；`result-milestone.html`／`-seen`／`-60` | 晚上口說；M2 里程碑 |
+| [../pwa.md](../pwa.md) | `notice-offline.html`、`notice-offline-cold.html`、`notice-update.html`、`preview-banner.html`、`preview-banner-unknown.html`、`pwa-icons.html` | 斷線、新版、預覽假資料提示；manifest 與圖示 |
 | [theme.md](theme.md) | 任一頁 `#account`、`system.html` | 主題三段切換 |
 
 - 元件展示：`../prototype/screens/system.html`。D2b 佔位：`later.html`（字卡／紀錄／設定）。
