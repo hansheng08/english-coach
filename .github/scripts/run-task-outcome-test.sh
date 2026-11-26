@@ -209,6 +209,29 @@ run_lint "O-014: usage_limit in --json mode" \
   '{"outcome":"usage_limit","claude_outcome":"failure","verify_outcome":"skipped","summary_outcome":"success","verify_reason":"none","task_lint_outcome":"success","post_check_outcome":"skipped"}' \
   $UL --usage-limit true --json failure skipped success ""
 
+# O-026: post-check failure must not be overwritten by a summary failure (e.g. comment 422).
+run_lint "(AC-O26-4) (TC-6) post-check failure + summary failure is post_check_failed" post_check_failed --task-lint success --post-check failure success success failure
+run_lint "(AC-O26-4) (TC-6) same, options in the other order" post_check_failed --post-check failure --task-lint success success success failure
+run_lint "(AC-O26-4) (TC-6) post-check failure + summary failure in --json mode" \
+  "{\"outcome\":\"post_check_failed\",\"claude_outcome\":\"success\",\"verify_outcome\":\"success\",\"summary_outcome\":\"failure\",\"verify_reason\":\"ok\",\"task_lint_outcome\":\"success\",\"post_check_outcome\":\"failure\"}" \
+  --task-lint success --post-check failure --json success success failure ok
+run_lint "(AC-O26-4) existing priority kept: verify failure + post-check failure is verify_failed" verify_failed --task-lint success --post-check failure success failure success
+run_lint "(AC-O26-4) existing priority kept: claude failure + post-check failure + summary failure is failure" failure --task-lint success --post-check failure failure skipped failure
+run_lint "(AC-O26-4) summary failure alone (post-check success) is still summary_failed" summary_failed --task-lint success --post-check success success success failure
+
+# O-026 mutation (AC-O26-6): a script that reports summary_failed when post-check
+# failed must make the TC-6 case fail. Simulate by forcing the summary branch first.
+MUT26="$(mktemp)"
+sed 's/post_check_failed/summary_failed/g' "$HERE/run-task-outcome.sh" > "$MUT26"
+if cmp -s "$MUT26" "$HERE/run-task-outcome.sh"; then echo "ERROR: O-026 mutation did not change the script"; FAIL=1; fi
+MUT26_GOT="$(bash "$MUT26" --task-lint success --post-check failure success success failure 2>/dev/null)"
+rm -f "$MUT26"
+if [[ "$MUT26_GOT" == "post_check_failed" ]]; then
+  echo "ERROR: (AC-O26-6) mutant reporting summary_failed still printed post_check_failed"; FAIL=1
+else
+  echo "MUTANT KILLED: (AC-O26-6) post-check failure reported as ${MUT26_GOT}"
+fi
+
 # O-014 mutation: removing the usage_limit branch must break the first case.
 MUT="$(mktemp)"
 grep -v 'result="usage_limit"' "$HERE/run-task-outcome.sh" > "$MUT"

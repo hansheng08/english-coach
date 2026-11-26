@@ -50,8 +50,47 @@ run_case() {
   fi
 }
 
-run_case "existing branch -> its current head" 0 "branch=task/T-960|pre_head=${T960}" TASK=T-960
-run_case "branch not pushed yet -> origin/main" 0 "branch=task/T-961|pre_head=${MAIN}" TASK=T-961
+run_case "(AC-O26-1) (TC-1) existing branch -> its current head" 0 "branch=task/T-960|pre_head=${T960}" TASK=T-960
+run_case "(AC-O26-1) (TC-2) branch not pushed yet -> origin/main" 0 "branch=task/T-961|pre_head=${MAIN}" TASK=T-961
+
+# (AC-O26-1) (TC-1): once the workflow checks out pre_head, HEAD must equal it
+# and the ancestor check against it must be runnable (history is present).
+git switch -q --detach "$T960"
+if [[ "$(git rev-parse HEAD)" == "$T960" ]] && git merge-base --is-ancestor "$T960" HEAD; then
+  echo "CASE OK: (AC-O26-1) (TC-1) HEAD == pre_head and ancestor check runs"
+else
+  echo "CASE FAIL: (AC-O26-1) (TC-1) HEAD != pre_head"; FAIL=1
+fi
+git switch -q main
+# (AC-O26-1) (TC-2): first run stays on main whose tip is the pre_head.
+if [[ "$(git rev-parse HEAD)" == "$MAIN" ]]; then
+  echo "CASE OK: (AC-O26-1) (TC-2) first run stays on main"
+else
+  echo "CASE FAIL: (AC-O26-1) (TC-2) HEAD is not main"; FAIL=1
+fi
+# (AC-O26-1): persist-credentials must stay false (RUNBOOK §1.1).
+WF="$HERE/../workflows/claude-run-task.yml"
+if grep -Eq 'persist-credentials:[[:space:]]*true' "$WF" || ! grep -Eq 'persist-credentials:[[:space:]]*false' "$WF"; then
+  echo "CASE FAIL: (AC-O26-1) persist-credentials is not false in claude-run-task.yml"; FAIL=1
+else
+  echo "CASE OK: (AC-O26-1) persist-credentials stays false"
+fi
+# (AC-O26-2) (TC-3): SKILL.md continues an existing head and only creates the
+# branch from origin/main when it does not exist yet.
+SKILL="$HERE/../../.claude/skills/run-task/SKILL.md"
+if grep -q '接在既有 head' "$SKILL" \
+  && grep -q '分支已存在時不得執行 `git switch -c <分支> origin/main`' "$SKILL" \
+  && grep -q '只有分支尚不存在' "$SKILL"; then
+  echo "CASE OK: (AC-O26-2) (TC-3) SKILL.md continues the existing head"
+else
+  echo "CASE FAIL: (AC-O26-2) (TC-3) SKILL.md lacks the existing-branch rule"; FAIL=1
+fi
+# Mutant: the old unconditional instruction must be caught by the same check.
+if printf '%s\n' '例如 `git switch -c task/<編號> origin/main`' | grep -q '分支已存在時不得執行'; then
+  echo "CASE FAIL: (AC-O26-6) mutant passed the SKILL check"; FAIL=1
+else
+  echo "CASE OK: (AC-O26-6) SKILL mutant is caught"
+fi
 run_case "fix round reuses task/T-960" 0 "branch=task/T-960|pre_head=${T960}" TASK=T-960-fix1
 run_case "fix/Q-962 not pushed yet -> origin/main" 0 "branch=fix/Q-962|pre_head=${MAIN}" TASK=Q-962
 run_case "task file names main -> exit 1" 1 "" TASK=O-963

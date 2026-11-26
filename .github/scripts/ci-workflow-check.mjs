@@ -227,8 +227,12 @@ export function checkRepo(root) {
   }
   const tc = ci.jobs.get('taskcheck');
   if (tc) {
-    if (JSON.stringify(tc.needs) !== JSON.stringify(['ci-guard'])) add('ci.yml: taskcheck must need ci-guard');
+    // O-025: taskcheck needs e2e to download Playwright JSON, but must still
+    // run when e2e is skipped or failed (a skipped needed job would otherwise
+    // skip taskcheck; a failed e2e must not hide a missing JSON).
+    if (JSON.stringify(tc.needs) !== JSON.stringify(['ci-guard', 'e2e'])) add('ci.yml: taskcheck must need ci-guard and e2e');
     if (typeof tc.if !== 'string' || !tc.if.includes(FULL_GUARD.trim()) || !tc.if.includes(DOCS_TASKS)) add('ci.yml: taskcheck if must allow full mode and docs mode with tasks_changed only');
+    if (typeof tc.if !== 'string' || !tc.if.includes("needs.e2e.result == 'success'") || !tc.if.includes("needs.e2e.result == 'failure'") || !tc.if.includes("needs.e2e.result == 'skipped'")) add('ci.yml: taskcheck if must run when e2e is success, failure, or skipped');
   }
   const ok = ci.jobs.get('ci-ok');
   if (ok) {

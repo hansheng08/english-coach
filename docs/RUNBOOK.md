@@ -69,7 +69,7 @@ O-002 之後，在該次 **Claude Run Task** 的 run 頁：
 **修正（O-007）**：`.github/scripts/verify-push.sh` 完全不跑 `git fetch`，改用 Verify 步驟注入的 `GH_TOKEN: ${{ github.token }}`（本 job 的 `GITHUB_TOKEN`，整個 job 期間有效，與 Claude App token 無關）：
 1. `gh api repos/<owner>/<repo>/git/ref/heads/<branch>` 取遠端分支先端（需 `contents` 讀取；workflow 已有 `contents: write`）。回應必須是**單一** JSON 物件、`.ref == "refs/heads/<branch>"`、`.object.type == "commit"`、`.object.sha` 為 40 位小寫十六進位；JSON 陣列（舊 `git/refs` 端點的前綴比對會回陣列）或其他形狀一律失敗。box 實測：單數 `git/ref/heads/<前綴>` 對不存在的完整名稱回 `gh: Not Found (HTTP 404)`，不做前綴比對。
 2. `gh run list --repo <repo> --workflow ci.yml --branch <branch> --event push --json …` 輪詢（預設 12 次、每次間隔 15 s，可用 `VERIFY_PUSH_ATTEMPTS`／`VERIFY_PUSH_SLEEP` 調整），必須找到 `event=push`、`headBranch=<branch>`、`headSha=<步驟 1 的 SHA>` 的 run（需 `actions: read`）。
-3. 失敗一律 exit 1，並把原因碼寫進 `GITHUB_OUTPUT` 的 `verify_reason`：`bad_input`（缺 `GH_TOKEN`／`GITHUB_REPOSITORY`、分支名不合法、輪詢參數不合法）、`branch_missing`（HTTP 404：推送沒到 GitHub）、`api_auth`（HTTP 401／403）、`api_error`（其他 `gh api` 錯誤）、`bad_ref_json`、`run_list_error`（`gh run list` 失敗，含 401／403）、`bad_run_json`、`no_push_run`（分支在、但找不到對應的 push run）。成功為 `ok`。`GH_TOKEN` 的值不會印出。
+3. 失敗一律 exit 1，並把原因碼寫進 `GITHUB_OUTPUT` 的 `verify_reason`：`bad_input`（缺 `GH_TOKEN`／`GITHUB_REPOSITORY`、分支名不合法、輪詢參數不合法、缺合法 `PRE_HEAD`）、`branch_missing`（HTTP 404：推送沒到 GitHub）、`api_auth`（HTTP 401／403）、`api_error`（其他 `gh api` 錯誤）、`bad_ref_json`、`head_mismatch`（遠端 tip 不等於這次 local HEAD）、`stale_head`（遠端 tip 等於 `PRE_HEAD`，這次沒有新的推送）、`run_list_error`（`gh run list` 失敗，含 401／403）、`bad_run_json`、`no_push_run`（分支在、但找不到對應的 push run）。成功為 `ok`（O-026：還必須遠端 tip＝local HEAD 且 ≠ `PRE_HEAD`，且該 SHA 已觸發 `ci.yml` event=push 的 run；不要求該 run 的 `conclusion=success`）。`GH_TOKEN` 的值不會印出。
 
 **Notify 區分 Claude 與 Verify（O-007）**：`run-task-outcome.sh --json` 產生 webhook 的 outcome 欄位，`claude-task-finished` payload 保留 `event`、`task`、`run`、`outcome`，另加 `claude_outcome`、`verify_outcome`、`summary_outcome`、`verify_reason`：
 
@@ -248,9 +248,10 @@ gh version 2.103.0 (2026-10-21)
 |---|---|---|
 | `tooling/task-lint.mjs` | `claude-run-task.yml` 的 `Task lint` 步驟（在 Claude 之前）；`ci.yml` `taskcheck` job：推到 `main` 時只檢查該次新增或修改的 `docs/tasks/*.md` | run-task：Claude 不啟動（0 turn），Notify 送 `outcome=task_lint_failed`、`task_lint_outcome=failure`。main：`ci-ok` 紅叉 |
 | `tooling/scope-check.mjs` | `taskcheck` job：`task/**` 的 push 與 PR；變更清單＝`git diff --name-only <base>...<head>` | `ci-ok` 紅叉 |
-| `tooling/ac-coverage.mjs` | 同上，讀 `pnpm exec vitest run --reporter=json` 的輸出 | `ci-ok` 紅叉 |
+| `tooling/ac-coverage.mjs` | 同上，讀 Vitest JSON、TAP，以及（O-025）已通過的 Playwright JSON | `ci-ok` 紅叉 |
 
 - 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
+- O-025：ac-coverage 會讀 Playwright JSON；e2e 有跑時 `taskcheck` 會等 `e2e` 並下載該檔，缺檔或無效就失敗；e2e 略過時不要求該檔、不傳 `--playwright`；以 PR 的 `ci-ok` 為準。
 - `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`workflow_dispatch`、light 模式、沒改 `docs/tasks/` 的 docs 模式會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。O-015 起，模式要求它跑而它被略過也判失敗（§6.3）。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
 - O-010 起：有 `supabase/config.toml` 時，`taskcheck` job 先起本機 Supabase（同 `db` job 的 CLI 與排除清單；main 的 push 不起），`taskcheck.sh` 執行 `pnpm db:test --tap-dir $RUNNER_TEMP/taskcheck-pgtap`，再把每個 `*.tap` 以 `--tap` 交給 ac-coverage，所以只有 pgTAP 測試的 AC 也算覆蓋。db-test 失敗照樣跑 ac-coverage／report-lint／摘要並判紅；一個 TAP 檔都沒有時直接 exit 1。這條路徑在 Actions 上的第一次實測是 O-010 PR 的 CI。`fix/**` 分支自 O-009 起也跑（見 §5）。
@@ -352,3 +353,7 @@ gh version 2.103.0 (2026-10-21)
 ### 6.6 O-023：`bundle` 的 mock 資料模式守衛
 
 - `bundle` job（`full` 且 `has_web=true` 才跑）在 `pnpm build` 之前跑 `node tooling/data-mode-guard.mjs`，守衛與建置步驟都設 `VITE_DATA_MODE=mock`，不設任何 `VITE_SUPABASE_*`；`has_web=false` 時仍略過。`timeout-minutes` 仍為 10，不新增 job。
+
+### 6.7 O-026：重跑必須接在既有任務分支上
+
+- pre-head 之後、Claude 之前：若遠端已有任務單指定的 `task/*`／`fix/*`，以 `fetch-depth: 0`、`persist-credentials: false` 檢出該 `PRE_HEAD`，並把 Task lint 用過的 `docs/tasks/<TASK>.md`（dispatch 的 main 版本）放回工作區，不 merge main。`verify-push.sh` 要求遠端 tip＝這次 local HEAD 且 ≠ `PRE_HEAD`，且該 SHA 已觸發 push CI（進行中或 failure 也算；沒有 run 則失敗）；不得 `git fetch`。post-check 失敗時 outcome 為 `post_check_failed`（留言失敗不得覆蓋）。commit comment 只留在已推送到遠端的 SHA。

@@ -1,0 +1,40 @@
+{
+  "suites": [
+    {
+      "title": "e2e/sample.spec.ts",
+      "specs": [],
+      "suites": [
+        {
+          "title": "sample flow",
+          "specs": [
+            {
+              "title": "(AC-O901-1) (TC-1) works",
+              "tests": [
+                {
+                  "projectName": "chromium",
+                  "status": "expected",
+                  "expectedStatus": "passed",
+                  "results": [{ "status": "passed", "retry": 0 }]
+                }
+              ]
+            },
+            {
+              "title": "(AC-O901-2) (TC-2) works after retry",
+              "tests": [
+                {
+                  "projectName": "chromium",
+                  "status": "flaky",
+                  "expectedStatus": "passed",
+                  "results": [
+                    { "status": "failed", "retry": 0 },
+                    { "status": "passed", "retry": 1 }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -31,14 +31,17 @@
 #    cancelled when it is cancelled; it is checked before everything else)
 #   success        claude, verify and summary are all success (and, when
 #                  --post-check is given, post-check is success too)
-#   post_check_failed  (O-009) claude, verify and summary success but the
+#   post_check_failed  (O-009, O-026) claude and verify success and the
 #                  post-check step failed: report-lint rejected the report,
-#                  tests on the pushed head failed, or the verification
-#                  summary could not be produced. Other post-check values
+#                  tests on the pushed head failed, ancestry/pre-head check
+#                  failed, or the verification summary could not be produced.
+#                  A summary failure (including a comment 422) must not
+#                  overwrite this to summary_failed. Other post-check values
 #                  after an otherwise successful run give failure
 #                  (cancelled -> cancelled). When claude did not succeed the
 #                  post-check is skipped by design and does not change the
-#                  outcome.
+#                  outcome. verify_failed still takes precedence over
+#                  post-check (existing O-009 rule).
 #   verify_failed  claude success + summary success + verify failure:
 #                  Claude finished; the "Verify push triggered CI" step
 #                  failed. See verify_reason: branch_missing means the push
@@ -74,7 +77,7 @@ normalize_step_outcome() {
 
 normalize_verify_reason() {
   case "${1-}" in
-    ok | bad_input | branch_missing | api_auth | api_error | bad_ref_json | run_list_error | bad_run_json | no_push_run) printf '%s' "$1" ;;
+    ok | bad_input | branch_missing | api_auth | api_error | bad_ref_json | head_mismatch | stale_head | run_list_error | bad_run_json | no_push_run) printf '%s' "$1" ;;
     "") printf '%s' "none" ;;
     *) printf '%s' "invalid" ;;
   esac
@@ -163,9 +166,11 @@ elif [[ "$argc_ok" -eq 1 ]]; then
       ;;
     *) result="failure" ;;
   esac
-  if [[ "$result" == "success" && "$post_given" -eq 1 && "$post" != "success" ]]; then
+  # O-026: post-check failure is not overwritten by a summary/comment failure.
+  if [[ "$post_given" -eq 1 && "$post" == "failure" && ( "$result" == "success" || "$result" == "summary_failed" ) ]]; then
+    result="post_check_failed"
+  elif [[ "$result" == "success" && "$post_given" -eq 1 && "$post" != "success" ]]; then
     case "$post" in
-      failure) result="post_check_failed" ;;
       cancelled) result="cancelled" ;;
       *) result="failure" ;;
     esac
