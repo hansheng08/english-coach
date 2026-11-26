@@ -1,10 +1,10 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.8（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.9（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
 - 單一使用者（Hansheng）的英文口說學習 PWA，Android＋Chrome 優先。需求：`docs/PRD.md`（AC-01～25、NFR-01～06）。
-- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-013`。動手前先讀任務單「背景」指定的章節。
+- 架構：`docs/ARCHITECTURE.md`；決策：`docs/adr/ADR-001`～`ADR-014`。動手前先讀任務單「背景」指定的章節。
 
 ## 2. 技術棧（G2 已核准）
 - TypeScript 5 strict 全端；pnpm workspaces。
@@ -69,6 +69,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 16. `config.toml` 新增函式時，`[functions.<slug>]` 一定要寫 `verify_jwt = false` 和 `import_map = "./functions/deno.json"`（ADR-009 修訂 2、ADR-010）。新增 view 一定要寫 `with (security_invoker = true)`。
 17. 供應商金鑰只放請求標頭（Gemini 是 `x-goog-api-key`），不放網址；任何錯誤訊息或 log 回傳前，都要把金鑰字串換成 `[redacted]`。Gemini adapter 不送 `thinkingConfig`，只有「STOP 但 JSON／zod 失敗」會自動重試 1 次，其他錯誤（含 429、5xx、逾時）都不自動重試。adapter **一定要**自己用 `AbortController` 在 `timeoutMs` 時中止請求（實測 Gemini 可能 60 秒都不回）。外部 API 回應的 zod schema 不可以用 strict（Gemini 會多帶 `thoughtSignature` 等欄位）。實測樣本在 `docs/poc/A-003/`（ARCHITECTURE §5.4、ADR-012）。
 18. AI 輸出的格式條件（字數、chunk 數、「/」斷句等）一律寫進傳給 `generate` 的 schema，讓 adapter 那 1 次自動重試就是唯一的重試；呼叫端不再自己包一層重試（ARCHITECTURE §6 第 7 點、§11.3、ADR-013）。
+19. 不加動畫、UI 元件、字型相關的套件（Framer Motion、GSAP、MUI、Tailwind、Google Fonts、woff2 字型檔等），只用系統字（ADR-014）；也不要讓 mock 建置帶 `VITE_SUPABASE_*`，或讓 mock 假資料出現真新聞原文。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
@@ -84,6 +85,13 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 - 時間：`plan_date` 一律是台北日期（`Asia/Taipei`），由 `domain` 的函式依傳入的 `now` 計算；DB 時間戳記用 `timestamptz`。
 - 每個 AI／STT 結果都要帶 `meta`（模型、供應商名稱），畫面要顯示（AC-24）。
 - 每次外部呼叫寫一筆 `provider_call`（不含內容）。
+- **前端外觀（ARCHITECTURE §9.1、ADR-014）**：
+  - CSS Modules 的顏色、間距、圓角、字型、陰影、時間長度一律寫 `var(--…)`，不寫色碼或 `rgb(`／`hsl(`（`tooling/css-literals.mjs` 會擋）。
+  - `apps/web/src/ui/tokens.css` 是 `tooling/tokens-css.mjs` 從 `docs/design/tokens.json` 產生的，**不要手改**；token 不對就停下回報（`tokens.json` 屬於 Designer）。
+  - 動畫只用 CSS `transition`／`@keyframes` 或原生 `element.animate`，只動 `transform`／`opacity`，非必要的動態一律包在 `@media (prefers-reduced-motion: no-preference)` 裡。
+  - 主題三態存在 `localStorage['ec-theme']`，只透過 `ui/theme.ts` 讀寫；不要改 `index.html` 裡的主題 inline script（要改先停下回報，會影響 CSP hash）。
+  - 資料來源只看 `VITE_DATA_MODE`（`mock`／`supabase`）；畫面元件不得判斷資料模式，也不得直接 import `api/mock/`。
+  - 不 import、也不複製 `docs/design/prototype/` 的 JS；互動用 React 重寫。用 `:has()` 時，不支援的瀏覽器至少要看得到預設內容，選擇器錨在小容器上（§9.1.5.1）。
 
 ## 7. 測試規定
 - `domain` 每個公開函式都有 Vitest 單元測試；時間由參數注入。
