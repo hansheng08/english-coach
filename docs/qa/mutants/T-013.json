@@ -1,0 +1,704 @@
+{
+  "task": "T-013",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text.replace(/-/g, ' '));",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text.replace(/[‘’]/g, \"'\"));",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text).map((w) => w.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text.replace(/[‘’]/g, \"'\")).flatMap((w) => w.split('-')).filter((w) => w !== '');",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/[-—–]/g, ' '));",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return text.replace(/[‘’]/g, \"'\").replace(/-/g, ' ').split(/\\s+/).filter((w) => w !== '');",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' '));",
+      "after": "return normalizeWords(text.replace(/[‘’]/g, \"'\").replace(/-/g, ' ').replace(/'/g, ' '));",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const items = toItems(normalize(target));",
+      "after": "const items = toItems(normalizeWords(target));",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const tokens = normalize(transcriptText);",
+      "after": "const tokens = normalizeWords(transcriptText);",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}s`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}s`, `${w}es`, `${w}d`, `${w}ing`];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}ing`];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`];",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`];",
+      "after": "const forms = [`${w}s`, `${w}es`, `${w}ed`, `${w}d`, `${w}ing`, `${w}ment`, `${w}y`];",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (last === 'y' && isConsonant(beforeLast)) {",
+      "after": "if (last === 'y') {",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "forms.push(`${stem}ies`, `${stem}ied`);",
+      "after": "forms.push(`${stem}ies`);",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "forms.push(`${stem}ies`, `${stem}ied`);",
+      "after": "forms.push(`${stem}ied`);",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (last === 'e') forms.push(`${w.slice(0, -1)}ing`);",
+      "after": "",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (last === 'e') forms.push(`${w.slice(0, -1)}ing`);",
+      "after": "if (last === 'e') forms.push(`${w.slice(0, -2)}ing`);",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (isConsonant(last)) forms.push(`${w}${last}ed`, `${w}${last}ing`);",
+      "after": "forms.push(`${w}${last}ed`, `${w}${last}ing`);",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (isConsonant(last)) forms.push(`${w}${last}ed`, `${w}${last}ing`);",
+      "after": "if (isConsonant(last)) forms.push(`${w}${last}ed`);",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (isConsonant(last)) forms.push(`${w}${last}ed`, `${w}${last}ing`);",
+      "after": "if (isConsonant(last)) forms.push(`${w}${last}ing`);",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return (IRREGULAR_VERB_FORMS.get(w) ?? []).includes(t);",
+      "after": "return false;",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return (IRREGULAR_VERB_FORMS.get(w) ?? []).includes(t);",
+      "after": "return (IRREGULAR_VERB_FORMS.get(w) ?? []).includes(t) || (IRREGULAR_VERB_FORMS.get(t) ?? []).includes(w);",
+      "expectFail": [
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return ch !== '' && /[a-z]/.test(ch) && !VOWELS.includes(ch);",
+      "after": "return ch !== '' && /[a-z]/.test(ch);",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (t === w) return true;",
+      "after": "if (t === w || t.startsWith(w)) return true;",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const GAP_WORDS: ReadonlySet<string> = new Set(['sb', 'someone', 'somebody', 'sth', 'something']);",
+      "after": "const GAP_WORDS: ReadonlySet<string> = new Set(['sb', 'someone', 'somebody', 'sth']);",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const GAP_WORDS: ReadonlySet<string> = new Set(['sb', 'someone', 'somebody', 'sth', 'something']);",
+      "after": "const GAP_WORDS: ReadonlySet<string> = new Set(['sb', 'someone', 'sth', 'something']);",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const POSSESSIVE_PLACEHOLDERS: ReadonlySet<string> = new Set([\"one's\", \"sb's\", \"someone's\"]);",
+      "after": "const POSSESSIVE_PLACEHOLDERS: ReadonlySet<string> = new Set([\"one's\"]);",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const POSSESSIVES: ReadonlySet<string> = new Set(['my', 'your', 'his', 'her', 'its', 'our', 'their']);",
+      "after": "const POSSESSIVES: ReadonlySet<string> = new Set(['my', 'your', 'his', 'her', 'our', 'their']);",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const POSSESSIVES: ReadonlySet<string> = new Set(['my', 'your', 'his', 'her', 'its', 'our', 'their']);",
+      "after": "const POSSESSIVES: ReadonlySet<string> = new Set(['my', 'your', 'his', 'her', 'its', 'our', 'their', 'the']);",
+      "expectFail": [
+        "(QA-7)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const MAX_GAP = 4;",
+      "after": "const MAX_GAP = 5;",
+      "expectFail": [
+        "(TC-15)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const MAX_GAP = 4;",
+      "after": "const MAX_GAP = 3;",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return POSSESSIVES.has(t) || (t.length > 2 && t.endsWith(\"'s\"));",
+      "after": "return POSSESSIVES.has(t);",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return POSSESSIVES.has(t) || (t.length > 2 && t.endsWith(\"'s\"));",
+      "after": "return POSSESSIVES.has(t) || t.endsWith('s');",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let count = 1; count <= MAX_GAP && pos + count <= tokens.length; count++) {",
+      "after": "for (let count = 0; count <= MAX_GAP && pos + count <= tokens.length; count++) {",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let count = 1; count <= MAX_GAP && pos + count <= tokens.length; count++) {",
+      "after": "for (let count = MAX_GAP; count >= 1; count--) {\n        if (pos + count > tokens.length) continue;",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let count = 1; count <= MAX_GAP && pos + count <= tokens.length; count++) {",
+      "after": "for (let count = 1; count <= MAX_GAP && pos + count < tokens.length; count++) {",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return token !== undefined && isPossessiveWord(token) ? matchFrom(tokens, items, pos + 1, idx + 1) : null;",
+      "after": "return token !== undefined && isPossessiveWord(token) ? matchFrom(tokens, items, pos + 1, idx + 1) ?? matchFrom(tokens, items, pos + 2, idx + 1) : null;",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (POSSESSIVE_PLACEHOLDERS.has(w)) return { kind: 'possessive' };",
+      "after": "if (POSSESSIVE_PLACEHOLDERS.has(w)) return { kind: 'gap' };",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let start = 0; start < tokens.length; start++) {\n    const end = matchFrom(tokens, items, start, 0);",
+      "after": "for (let start = tokens.length - 1; start >= 0; start--) {\n    const end = matchFrom(tokens, items, start, 0);",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let start = 0; start < tokens.length; start++) {\n    const end = matchFrom(tokens, items, start, 0);",
+      "after": "for (let start = 0; start < 1; start++) {\n    const end = matchFrom(tokens, items, start, 0);",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (end !== null) return tokens.slice(start, end).join(' ');",
+      "after": "if (end !== null) return tokens.slice(start, end - 1).join(' ');",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const need = Math.ceil(n / 2);",
+      "after": "const need = Math.floor(n / 2);",
+      "expectFail": [
+        "(TC-20)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const need = Math.ceil(n / 2);",
+      "after": "const need = Math.ceil(n / 2) + 1;",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const maxLen = n + 2;",
+      "after": "const maxLen = n + 3;",
+      "expectFail": [
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "const maxLen = n + 2;",
+      "after": "const maxLen = n + 1;",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (best.count >= need) return",
+      "after": "if (best.count > need) return",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let len = 1; len <= maxLen && start + len <= tokens.length; len++) {",
+      "after": "for (let len = maxLen; len >= 1; len--) {\n      if (start + len > tokens.length) continue;",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let len = 1; len <= maxLen && start + len <= tokens.length; len++) {",
+      "after": "for (let len = 1; len < maxLen && start + len <= tokens.length; len++) {",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (let start = 0; start < tokens.length; start++) {\n    const head",
+      "after": "for (let start = tokens.length - 1; start >= 0; start--) {\n    const head",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return seg.slice(best.first, best.last + 1).join(' ');",
+      "after": "return tokens.slice(start, start + maxLen).join(' ');",
+      "expectFail": [
+        "(TC-26)",
+        "(QA-9)",
+        "(QA-10)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "row[j] = hit ? at(i - 1, j - 1) + 1 : Math.max(at(i - 1, j), at(i, j - 1));",
+      "after": "row[j] = hit ? at(i - 1, j - 1) + 1 : at(i, j - 1);",
+      "expectFail": [
+        "(TC-"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "row[j] = hit ? at(i - 1, j - 1) + 1 : Math.max(at(i - 1, j), at(i, j - 1));",
+      "after": "row[j] = hit ? Math.max(at(i - 1, j), at(i, j - 1)) + 1 : Math.max(at(i - 1, j), at(i, j - 1));",
+      "expectFail": [
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (words.length >= 2) {",
+      "after": "if (words.length >= 1) {",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (words.length === 0) return { target, level: 'none', matchedText: null };",
+      "after": "",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (full !== null) return { target, level: 'full', matchedText: full };",
+      "after": "if (full !== null && words.length > 1) return { target, level: 'full', matchedText: full };",
+      "expectFail": [
+        "(TC-21)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "if (partial !== null) return { target, level: 'partial', matchedText: partial };",
+      "after": "if (partial !== null) return { target, level: 'partial', matchedText: null };",
+      "expectFail": [
+        "(TC-26)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "for (const item of items) if (item.kind === 'word') words.push(item.word);",
+      "after": "for (const item of items) if (item.kind !== 'gap') words.push(item.kind === 'word' ? item.word : 'my');",
+      "expectFail": [
+        "(TC-",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return hits.filter((h) => h.level === 'full').length;",
+      "after": "return hits.filter((h) => h.level !== 'none').length;",
+      "expectFail": [
+        "(TC-22)",
+        "(TC-23)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return hits.filter((h) => h.level === 'full').length;",
+      "after": "return Math.min(1, hits.filter((h) => h.level === 'full').length);",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M63",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return targets.map((target) => detectOne(tokens, target));",
+      "after": "return [...new Set(targets)].map((target) => detectOne(tokens, target));",
+      "expectFail": [
+        "(TC-24)"
+      ]
+    },
+    {
+      "id": "M64",
+      "file": "packages/domain/src/chunk-hit.ts",
+      "before": "return targets.map((target) => detectOne(tokens, target));",
+      "after": "return targets.map((target) => detectOne(tokens, target)).sort((a, b) => a.level.localeCompare(b.level));",
+      "expectFail": [
+        "(TC-22)"
+      ]
+    },
+    {
+      "id": "M65",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /^[A-Za-z'’-]+$/;",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M66",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /^[A-Za-z0-9'-]+$/;",
+      "expectFail": [
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M67",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /^[A-Za-z-]+$/;",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M68",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /^[A-Za-z']+$/;",
+      "expectFail": [
+        "(TC-1)"
+      ]
+    },
+    {
+      "id": "M69",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /[A-Za-z'-]+/;",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M70",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const CHUNK_WORD = /^[A-Za-z'-]+$/;",
+      "after": "const CHUNK_WORD = /^[A-Za-z'\\s-]+$/;",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M71",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const HAS_LETTER = /[A-Za-z]/;",
+      "after": "const HAS_LETTER = /./;",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M72",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const HAS_LETTER = /[A-Za-z]/;",
+      "after": "const HAS_LETTER = /[a-z]/;",
+      "expectFail": [
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M73",
+      "file": "packages/contracts/src/card.ts",
+      "before": ".refine((s) => s.split(' ').every(",
+      "after": ".refine((s) => s.trim().split(/ +/).every(",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M74",
+      "file": "packages/contracts/src/card.ts",
+      "before": ".refine((s) => s.split(' ').every(",
+      "after": ".refine((s) => s.split(/\\s/).every(",
+      "expectFail": [
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M75",
+      "file": "packages/domain/src/irregular-verbs.ts",
+      "before": "['take', ['took', 'taken']]",
+      "after": "['take', ['took']]",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M76",
+      "file": "packages/domain/src/irregular-verbs.ts",
+      "before": "['lead', ['led']]",
+      "after": "['lead', []]",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M77",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { detectChunkHits, scoreChunkHits } from './chunk-hit.ts';",
+      "after": "export { detectChunkHits } from './chunk-hit.ts';",
+      "expectFail": [
+        "(TC-27)"
+      ]
+    }
+  ]
+}
