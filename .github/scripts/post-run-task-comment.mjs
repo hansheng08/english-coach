@@ -27,6 +27,12 @@ function failFrom(r, what) {
   throw new Error(text);
 }
 
+export function commitExistsOnRemote({ repo, sha, runGh }) {
+  if (!sha || !repo) return false;
+  const r = runGh(['api', `repos/${repo}/commits/${sha}`]);
+  return r.status === 0;
+}
+
 export function postCommitComment({ repo, sha, bodyFile, runGh }) {
   if (!sha) throw new Error('commit SHA is required for a commit comment');
   if (!repo) throw new Error('repository is required');
@@ -50,10 +56,17 @@ export function postRunTaskComment({ repo, prNumber, sha, bodyFile, runGh }) {
     const r = gh(['pr', 'comment', String(prNumber), '--repo', repo, '--body-file', bodyFile]);
     if (r.status === 0) return { posted: 'pr', prNumber: String(prNumber) };
     if (looksLike403(r.status, r.stdout, r.stderr)) {
+      // O-026: fallback commit comments only on a SHA that is on the remote.
+      if (!commitExistsOnRemote({ repo, sha, runGh: gh })) {
+        return { posted: 'skipped', reason: 'sha-not-on-remote', sha, prNumber: String(prNumber), prError: '403' };
+      }
       const fallback = postCommitComment({ repo, sha, bodyFile, runGh: gh });
       return { ...fallback, posted: 'commit-fallback', prNumber: String(prNumber), prError: '403' };
     }
     failFrom(r, 'gh pr comment');
+  }
+  if (!commitExistsOnRemote({ repo, sha, runGh: gh })) {
+    return { posted: 'skipped', reason: 'sha-not-on-remote', sha };
   }
   return postCommitComment({ repo, sha, bodyFile, runGh: gh });
 }

@@ -106,6 +106,46 @@ else
 fi
 rm -rf "$OKBIN"
 
+# O-026 (AC-O26-5) (TC-7): local HEAD that is not on the remote must never get a
+# commit comment, and the step must not fail with the 422 (that would hide a
+# post-check failure behind summary_failed). The fake gh answers every lookup of
+# the SHA with 404 and records any POST to .../comments, which answers 422.
+NOPUSH="$(mktemp -d)"
+cat > "$NOPUSH/git" << 'FAKE'
+#!/usr/bin/env bash
+case "${1:-}" in
+  branch) echo "task/O-004"; exit 0 ;;
+  rev-parse) echo "7fb74cce397e9b84de590497893677260662590c"; exit 0 ;;
+  ls-remote) exit 0 ;;
+  *) echo "unexpected git $*" >&2; exit 90 ;;
+esac
+FAKE
+cat > "$NOPUSH/gh" << 'FAKE'
+#!/usr/bin/env bash
+if [[ "${1:-} ${2:-}" == "pr list" ]]; then exit 0; fi
+if [[ "${1:-}" == "api" ]]; then
+  if [[ " $* " == *" POST "* ]]; then
+    echo "POST $*" >> "${CAPTURE:?}"
+    echo '{"message":"No commit found for SHA: 7fb74cce397e9b84de590497893677260662590c","status":"422"}' >&2
+    echo "gh: No commit found for SHA: 7fb74cce397e9b84de590497893677260662590c (HTTP 422)" >&2
+    exit 1
+  fi
+  echo "gh: Not Found (HTTP 404)" >&2
+  exit 1
+fi
+echo "unexpected gh $*" >&2; exit 90
+FAKE
+chmod +x "$NOPUSH/git" "$NOPUSH/gh"
+: > "$WORKDIR/nopush-posts.txt"
+run_case "(AC-O26-5) (TC-7) unpushed local HEAD: step exits 0, no 422 surfaces" 0 \
+  env PATH="$NOPUSH:$PATH" CAPTURE="$WORKDIR/nopush-posts.txt" CLAUDE_OUTCOME=success LOG="$EXEC" bash "$HERE/run-task-summary-step.sh"
+if [[ -s "$WORKDIR/nopush-posts.txt" ]]; then
+  echo "ERROR: (AC-O26-5) (TC-7) a commit comment was POSTed for an unpushed SHA:"; cat "$WORKDIR/nopush-posts.txt"; FAIL=1
+else
+  echo "CASE OK: (AC-O26-5) (TC-7) no commit comment POST for the unpushed SHA"
+fi
+rm -rf "$NOPUSH"
+
 if [[ "$FAIL" -ne 0 ]]; then
   echo "run-task-summary-step-test: FAILED"
   exit 1

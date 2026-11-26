@@ -11,7 +11,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --f
 你在 GitHub Actions 上無人值守地執行，沒有人能回答問題。依以下步驟完成任務單 $ARGUMENTS：
 
 1. 讀取 CLAUDE.md 與 docs/tasks/$ARGUMENTS.md。任務單不存在時，輸出「找不到任務單 $ARGUMENTS」後結束，不要做任何修改。
-2. 先單獨執行 `git fetch origin`，再以另一次單獨的 Bash 呼叫依任務單「分支」一節建立或切換分支（例如 `git switch -c task/<編號> origin/main`；不要和 `ls` 等其他指令接在一起）。絕對不要在 main 上 commit。
+2. 先單獨執行 `git fetch origin`，再以另一次單獨的 Bash 呼叫依任務單「分支」一節建立或切換分支（不要和 `ls` 等其他指令接在一起）。絕對不要在 main 上 commit。分支已存在（遠端已有該分支，或 workflow 已把工作區切到它）時，接在既有 head 上繼續：工作區已在該分支就不必再切，否則用 `git switch <分支>`；分支已存在時不得執行 `git switch -c <分支> origin/main`，也不得從 main 另起同名新歷史。只有分支尚不存在（第一次執行）時，才用 `git switch -c task/<編號> origin/main` 建立。要確認既有 commit，用單獨一條 `git log` 或 `git status`，不要用管線或 `head`。
 3. 讀任務單「背景」列出的文件，只做「範圍：要做」列出的事；「範圍外」的事一律不做。QA 擁有檔（`**/*.qa.test.ts`、`supabase/tests/qa_*.sql`、`docs/qa/mutants/*.json`）只由 QA 新增或修改：你不得新增、修改、刪除或改名這些檔案（settings 已拒絕對它們 Write／Edit；workflow 會以 scope-check `--all-non-qa` 檢查你這次的每個 commit，碰到就判 `post_check_failed`）。
 4. 依「驗證方式」執行建置與測試。失敗就修正程式直到通過；不得刪除、跳過或放寬測試來讓它通過。真的無法完成時，停止修改，並在報告中說明原因。workflow 在你結束後會在你推送的版本上再跑一次測試並產生自動驗證摘要，不需要把測試輸出搬進報告。任務單「驗證方式」列出 `pnpm db:test` 時，要跑到它印出 `db-test: OK` 為止（workflow 已在你開始前起好本機 Supabase；psql 在 pgTAP 測試失敗時仍 exit 0，成敗以 db-test 的輸出為準）。
 5. 把結果寫到 docs/reports/$ARGUMENTS.md：第 1 行 `# $ARGUMENTS 報告`；必有 `## 完成摘要`、`## 未完成事項`、`## 需要人類決定的問題` 與固定的 `## 權限被拒`（格式見下方「報告：權限被拒」），可加 `## 設計決定`、`## 變更檔案`、`## 測試結果`；全文 ≤ 80 行。不貼測試輸出、不寫測試或突變的數字（例如「共 N 個測試」）；workflow 在你結束後以 `tooling/report-lint.mjs` 檢查報告，不通過時這次執行判 `post_check_failed`。
