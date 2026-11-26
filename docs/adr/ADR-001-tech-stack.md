@@ -94,7 +94,7 @@ T-018 需要 DOM 的測試，至少有三個：
   - T-018 用 Vitest 的 `projects`，或在 `apps/web` 的測試檔用 `// @vitest-environment jsdom`，只讓 `apps/**` 的測試跑在 jsdom 上。兩種都可以，T-018 選一種並寫進報告。
 - `matchMedia`：jsdom 沒有實作（未在 v31 實測），由 `apps/web/test/setup.ts` 放一個可以控制結果的小 stub，主題測試才能切換「系統深色／淺色」。
 - **Node 版本**：jsdom v30 起要 Node `^22.22.2 || ^24.15.0 || >=26.0.0`，比根目錄的 `engines` 嚴格。
-  - T-018 要把根目錄的 `engines.node` 收緊成和 jsdom 一致，或改鎖 jsdom `^29`（Node `^22.13.0` 起就能用）。建議收緊 engines。
+  - **已決定（幕僚長 2026-11-26 20:24；Hansheng 以 Merge 本 PR 核准）**：T-018 把根目錄的 `engines.node` 收緊成 `^22.22.2 || ^24.15.0 || >=26.0.0`（或和 jsdom 一致的等價寫法），**不鎖舊版 jsdom**。CI 和 box 都是 Node 24，不受影響。
   - CI 用 Node 24 最新版，不受影響。
 
 ### 選擇 3：元件測試工具
