@@ -35,9 +35,9 @@
 .sr{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--color-sunken)}
 .lab{display:block;font-size:.6875rem;font-weight:600;color:var(--color-ink-2)}
 @supports not selector(:has(*)){.view-seg{display:none}}
-.diag:has(#v-mine:checked) .sr,.diag:has(#v-sr:checked) .mine{display:none}
-.diag:has(#v-mine:checked) .lab,.diag:has(#v-sr:checked) .lab{display:none}
-.diag:has(#v-sr:checked) .sr{margin-top:0;background:none;padding:0}
+.cmp:has(#v-mine:checked) .sr,.cmp:has(#v-sr:checked) .mine{display:none}
+.cmp:has(#v-mine:checked) .lab,.cmp:has(#v-sr:checked) .lab{display:none}
+.cmp:has(#v-sr:checked) .sr{margin-top:0;background:none;padding:0}
 [data-tip]{position:relative}
 .chunks .panel-h{margin-bottom:4px}
 .ck{display:flex;align-items:center;gap:12px;min-height:52px;cursor:pointer;border-radius:10px;margin:0 -8px;padding:0 8px;position:relative}

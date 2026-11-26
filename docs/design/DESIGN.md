@@ -1,6 +1,6 @@
 # DESIGN：english-coach 設計系統（D2a，v1.1）
 
-- 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE §9.1／ADR-014（PR #53，9194b83，尚未合併）。
+- 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE v1.9 §9.1／ADR-014（PR #53 已於 2026-11-26 20:03 合併，f1a6077）。
 - v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
@@ -93,7 +93,7 @@
   - **可點的說明（觸控與鍵盤等效）**：文法、贅詞、太口語三種標記是 `<button class="mk">`。點一下（或 Tab 到標記按 Enter／Space）在該句下方開一則說明（`.mnote`，深藍底，例：「have　文法：have → had」），`aria-expanded` 同步；再點同一個、按說明的 ✕（48×48）或按 Esc 關閉，焦點回到標記。一次只開一則。電腦（`hover:hover and pointer:fine`）hover 仍顯示同樣的短提示。
   - **點擊範圍**：標記用 `::before` 擴大到 48×48（置中）。相鄰兩行的標記擴大範圍會重疊，所以字本身（`.w`）疊在所有擴大範圍之上：看得到的字永遠點到自己，重疊的邊緣由相鄰標記共用（符合 WCAG 2.5.8 的間距規則）。停頓膠囊本身就寫秒數，不做成按鈕。
   - **沒有 JS 時**：按鈕不會開說明，但圖例仍說明每種標記。
-- **AC-15 手機切換的退回**：切換用 `:has()` 隱藏欄位。瀏覽器不支援 `:has()` 時，`@supports not selector(:has(*))` 把切換列整個藏起來，畫面固定是預設的「逐句對照」（原逐字稿＋Senior 版上下排），所以一定看得到原逐字稿；`:has()` 的隱藏規則在不支援的瀏覽器會整條失效，不會誤藏。
+- **AC-15 手機切換的退回**：切換用 `:has()` 隱藏欄位，選擇器錨在對照區塊 `.cmp`（不錨在 `:root`／`body`，照 ARCH §9.1）。瀏覽器不支援 `:has()` 時，`@supports not selector(:has(*))` 把切換列整個藏起來，畫面固定是預設的「逐句對照」（原逐字稿＋Senior 版上下排），所以一定看得到原逐字稿；`:has()` 的隱藏規則在不支援的瀏覽器會整條失效，不會誤藏。
 - **語塊 `.chunk`**：內文中點狀底線，可點開 sheet（意思、例句、播放、跟唸、收錄）。
 
 ## 8. 遊戲化鼓勵的呈現
@@ -148,7 +148,7 @@
 
 ## 14. 不確定（待確認）
 1. 原型 inline JS（§13）是否符合產品端寫法 → Architect。
-2. 主題偏好只存在這台裝置（ADR-014 localStorage）；是否要跨裝置同步 → PR #53「需要 Hansheng 確認」中。
+2. （已解決）主題偏好只存在這台裝置、不跨裝置同步（ADR-014，PR #53 合併）。
 3. Windows 字型呈現未真機驗證（§12）。
 4. 「在該時段內進入第一步」的時段邊界（例如晚上時段到幾點結束、跨午夜怎麼算）→ Architect 落實 streak 計算時定義；文案目前不寫時間邊界。
 5. 「跨過 M2 刻度（15、60）時出現一次」的里程碑提示要不要做（只在 `system.html` 示範，畫面上沒用）→ Hansheng。
