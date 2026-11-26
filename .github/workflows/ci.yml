@@ -248,7 +248,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      # O-023: mock-mode guard before build. Fail-closed if VITE_DATA_MODE is
+      # missing/invalid or any VITE_SUPABASE_* is present (including empty).
+      # Do not unset violating keys to pass. timeout-minutes stays 10; no new job.
+      - name: Check VITE_DATA_MODE=mock
+        env:
+          VITE_DATA_MODE: mock
+        run: node tooling/data-mode-guard.mjs
+      - name: Build
+        env:
+          VITE_DATA_MODE: mock
+        run: pnpm build
       - name: Install gitleaks (pinned, checksum verified)
         run: |
           base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
