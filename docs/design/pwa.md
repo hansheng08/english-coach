@@ -108,9 +108,9 @@
 - 觸控 ≥48×48：「更新」「重新載入」「登入」與輸入框（52 px）。提示條本身不可點。
 
 ## 4. 不確定（待確認）
-1. `short_name` 用 `EN Coach`（8 字元）是 Designer 提案；也可以用 `english-coach`（會被 Android 截字）或中文名 → PM／Hansheng。
+1. `short_name` 用 `EN Coach`（8 字元，PM §15.6 對照時也建議用這個）是 Designer 提案，**待 Hansheng 確認**；也可以用 `english-coach`（會被 Android 截字）或中文名 → PM／Hansheng。
 2. `background_color` 用深藍 `#0F2236`（和 `theme_color` 同）是 Designer 決定；若希望淺色模式的啟動畫面是淺灰 `#F4F5F7`，深色模式開啟時會先閃一下淺色 → Hansheng 可改。
 3. 「有新版本」要不要加「稍後」（關閉到下次開 App）：T-019 只有「更新」，這版不加 → TechLead／Hansheng。
-4. 錄音或作答中出現新版時，要不要等這一步結束才顯示卡片（ARCH §9 只說「不在練習中途自動重整」）：這版一律顯示、不自動重整 → Architect／TechLead。
+4. 錄音或作答中出現新版時，要不要等這一步結束才顯示卡片（相關 PRD AC-14 晚上錄音、AC-25 保留錄音；ARCH §9 只說「不在練習中途自動重整」）：這版一律顯示、不自動重整 → TechLead／Architect。
 5. T-019 TC-2 寫「`sizes` 有 `192x192`、`512x512` 各一」，但 ADR-007 要含 maskable，本規格是 192、512 各兩張（any＋maskable）→ TechLead 確認 TC-2 改成「各有 any 與 maskable」。
 6. 離線時重新開啟的面板文案依 ARCH §9「資料 network-only」推得；首頁實際的載入失敗狀態屬 T-026 → TechLead。

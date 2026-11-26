@@ -1,12 +1,12 @@
-# 登入（`login.html`）｜AC-23
+# 登入（`login.html`）｜Q-01（要登入、只有 Hansheng、不開放註冊）
 - 用途：只有 Hansheng 一個帳號，不開放註冊（Q-01）。
 - 手機：品牌字樣＋一句說明 → Email、密碼（52px 輸入框，標籤在上）→ 墨色「登入」按鈕。錯誤狀態：密碼框紅框＋圖示＋「Email 或密碼不對，再試一次。」；下方「連線加密。履歷與錄音只供你自己練習。」
 - 電腦：左右分割。左＝深藍焦點卡，「每天 80 分鐘，把英文講得像 Senior。」＋今天的份量（1 篇科技新聞、5 句跟讀、25 張字卡、1 題面試題）；右＝同一張表單，最大寬 400px。
-- 不放：註冊、社群登入、忘記密碼流程（PRD 未列；如需要由 PM 補）。
+- 不放：註冊、社群登入、忘記密碼連結。不放註冊是依 Q-01；PRD 沒有忘記密碼流程（如需要由 PM 補）。
 - 截圖：`shots/login-*`。
 
 ## 錯誤狀態（D-004 增補，2026-11-26）
-依據：ARCHITECTURE §6 錯誤碼表（`unauthenticated`＝帳密錯；其他）、§7（v1.9.1：Supabase Auth 只用 email＋密碼、不用 magic link、關閉註冊）、T-018「介面」（`signInWithPassword` 錯誤對應：帳密錯 → `unauthenticated`，其他 → `internal`）、NFR-06（需連網）、T-019（`subscribeOnlineStatus`）。
+依據：PRD Q-01（要登入、只有 Hansheng、不開放註冊；登入錯誤文案沒有對應的 AC）、ARCHITECTURE §6 錯誤碼表（`unauthenticated`＝帳密錯；其他）、§7（v1.9.1：Supabase Auth 只用 email＋密碼、不用 magic link、關閉註冊）、T-018「介面」（`signInWithPassword` 錯誤對應：帳密錯 → `unauthenticated`，其他 → `internal`）、NFR-06（需連網）、T-019（`subscribeOnlineStatus`）。
 
 兩種位置：
 - **欄位訊息**（`.hint.err`）：欄位下方，`bad` 字＋警告圖示；輸入框 2px `bad` 框；欄位 `aria-invalid="true"`，訊息用 `aria-describedby` 連到欄位。
