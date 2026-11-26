@@ -36,7 +36,8 @@ Designer 的計畫第 5 步要一份小的 G2 增補，處理五件事：前端 
   - 少一個需要授權、版本、子集化和快取的資產，也不影響 §8 首屏 JS ≤ 200 KB 的預算。
   - Designer 實測 Hansheng 的 Android Chrome 實際顯示 Roboto＋Noto Sans CJK TC，截圖就是實際看到的樣子。
   - 高級感照 D1 的方向，靠間距、層次、字級、配色來做。
-- 字型堆疊是 token（`--font-sans`），值以 Designer 的 `tokens.json` 為準。ARCHITECTURE §9.1.2 寫的是目前原型的值。
+- 字型堆疊是 token（`--font-sans`），值以 Designer 的 `tokens.json` 為準。
+- 同意 Designer 的 U-5 建議（D2a，PR #54）：在 Roboto 之後、中文字型之前加 `"Segoe UI"`，讓 Windows 的英文不會落到 Microsoft JhengHei 的拉丁字。Android 和 Apple 裝置排序在前面的字型不變，所以不受影響。真的在 Windows 上的效果仍**未驗證**（ARCHITECTURE §9.1.6 U-5）。
 - 數字用 `font-variant-numeric: tabular-nums`，讓數字寬度一致。
 - 不採用的替代方案：自己放 woff2（約 20 KB／字重）。只有回頭選 round 1 的方向才需要，已經不適用。
 
@@ -82,7 +83,12 @@ Designer 的計畫第 5 步要一份小的 G2 增補，處理五件事：前端 
 - **使用規則**：
   - CSS Modules 裡的顏色、間距、圓角、字型、時間長度，一律寫 `var(--…)`，不直接寫色碼或毫秒數。
   - CI 掃 `apps/web/src/**/*.module.css`，`tokens.css` 以外出現 `#rgb`、`rgb(`、`hsl(` 就失敗。用一個小腳本做，不加 stylelint。
-- **`tokens.json` 的格式還沒定**（D2a 才會有）。ARCHITECTURE §9.1.5 寫了產生器需要的最小形狀，Designer 在 D2a 依此產出，或在 D2 PR 說明差異，Architect 再對齊。
+- **格式（U-4 已解決）**：D2a 的 `tokens.json`（PR #54，`e6b7866`）照最小形狀產出。產生器的解析規則寫在 ARCHITECTURE §9.1.5：
+  - `$` 開頭的鍵在任何一層都是說明，一律略過，不報錯。
+  - 頂層其他的鍵只能是 6 個群組，出現別的就失敗。
+  - 巢狀子類別用 `-` 攤平成名稱，例如 `--font-size-title-1`。
+  - 斷點、z-index 不是 token。
+  - 選「頂層未知的鍵就失敗」而不是忽略，是為了讓打錯字的群組在 CI 被擋下，不會默默漏掉。
 
 ## 後果
 - 好處：

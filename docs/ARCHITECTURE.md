@@ -1010,8 +1010,9 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
 
 #### 9.1.2 字型（Q-35 已結案：不新增字型依賴）
 - 只用系統字，不打包 woff2，不用字型服務，CSP 不需要 `font-src` 例外。
-- `--font-sans` 的值以 `tokens.json` 為準。目前 R2-C 原型的值：
-  `-apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Noto Sans TC", "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif`
+- `--font-sans` 的值以 `tokens.json` 為準。D2a（PR #54，`e6b7866`）的值：
+  `-apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, "Segoe UI", "Noto Sans TC", "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif`
+  - v1.9 同意 Designer 的 U-5 建議：`"Segoe UI"` 放在 Roboto 之後、中文字型之前。Windows 的英文改用 Segoe UI，不會落到 Microsoft JhengHei 的拉丁字；中文仍由後面的中文字型補字。Android 有 Roboto，排在 Segoe UI 前面，所以不受影響。實際在 Windows 上的效果仍**未驗證**（U-5）。
 - 數字（分數、計數、倒數）用 `font-variant-numeric: tabular-nums`。
 - `<html lang>` 設 `zh-Hant-TW`，英文內容的元素加 `lang="en"`，讓瀏覽器挑對字型和斷字。
 
@@ -1064,7 +1065,7 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
 - 指令：
   - `node tooling/tokens-css.mjs` 寫檔。
   - `--check` 只比對，不同就以非 0 結束。CI 在 `check` job 跑（SRE 接線）。
-- 產生器需要的**最小形狀**（Designer 在 D2a 可以加欄位，例如 `$description`，產生器忽略不認得的欄位）：
+- 產生器需要的**最小形狀**（D2a 的實際檔案見下方「解析規則」）：
 
 ```json
 {
@@ -1079,6 +1080,16 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
 
   - 值是字串時，深淺色共用。值是 `{light, dark}` 時，分兩段輸出。
   - 名稱只能是小寫英數和 `-`，不符合就讓產生器失敗。
+- **解析規則**（v1.9 依 PR #54 `e6b7866` 的 `tokens.json` 和 DESIGN.md §11 補齊）：
+  1. **`$` 開頭的鍵**在**任何一層**都是說明，一律略過，不輸出也不報錯。例如頂層的 `$meta`，或之後放在 token 旁邊的 `$description`。
+  2. 頂層其他的鍵只能是 `color`、`space`、`radius`、`font`、`shadow`、`motion` 這 6 個群組，出現別的就失敗。不會默默忽略，避免打錯字的群組被漏掉。
+  3. **葉節點**：值是字串，或是物件且去掉 `$` 鍵後剛好只有 `light`、`dark` 兩個字串。
+  4. **子類別**：其他物件都當成巢狀子類別，路徑用 `-` 接成名稱。例如 `font.size.title-1` 和平的 `font["size-title-1"]` 都輸出 `--font-size-title-1`。
+     - 攤平後名稱重複就失敗。
+     - D2a 目前是平的寫法，子類別已經寫進名稱（`size-*`、`weight-*`、`leading-*`、`duration-*`、`ease-*`）。
+  5. 值不是字串、不是 `{light, dark}`、也不是物件時（例如數字、陣列），就失敗。
+  6. 斷點、z-index **不是 token**，因為不能當 media query 變數；寫在 DESIGN.md，由元件 CSS 直接用數值。
+  7. 輸出的順序照 `tokens.json` 的鍵順序，讓 `--check` 的結果固定。
 - 輸出命名：`--<群組>-<名稱>`，例如 `--color-ink`、`--space-4`、`--radius-card`、`--font-sans`、`--motion-duration-short`。
   - R2-C 原型的 `--ink`、`--hero`、`--gold-text`，對應成 `--color-ink`、`--color-hero`、`--color-gold-text`。
 - 使用規則：
@@ -1087,13 +1098,24 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
   - `0`、`1px` 的分隔線寬，和 `%`／`fr` 之類的版面數值，不在限制內。
 - `tokens.css` 由 `apps/web/src/main.tsx` 最先 import 一次。
 
+#### 9.1.5.1 瀏覽器範圍與 CSS 功能
+- 目前 ARCHITECTURE 只寫了範圍：Android Chrome 為主，桌機 Chrome／Edge 為輔，Safari 不在驗收範圍（§9）。**沒有寫最低版本**，所以最低版本是**不確定**（U-7）。
+- 建議（**需要 Hansheng 確認**）：
+  - 驗收只用最新穩定版的 Android Chrome 和桌機 Chrome／Edge。
+  - 建置的 `build.target` 用 Vite 預設的 `'baseline-widely-available'`。Vite 7 是 Chrome／Edge 107、Firefox 104、Safari 16；Vite 8 是 Chrome／Edge 111、Firefox 114、Safari 16.4。實際值看 T-018 裝的 Vite 版本。
+- `:has()`（AC-15 手機版的「原文／Senior 版」切換用到）：Chrome／Edge 105 起支援，已經是 Baseline Widely Available（MDN）。在上面的驗收範圍內可以用，**不需要 JS 備援**。
+  - 寫法要讓不支援 `:has()` 的瀏覽器至少看得到其中一個版本（預設顯示「原文」），不能整塊空白。
+  - 選擇器錨在小容器上，例如 `.diff:has(> input:checked)`，不要錨在 `:root` 或 `body`（MDN 的效能建議）。
+- 原型裡的 inline JS 只是展示用，產品程式不 import、也不複製。產品的互動由 React 重寫。
+
 #### 9.1.6 不確定與未驗證
 - U-1（不確定）：之後建了正式免費 Supabase 專案，要不要另開一個「連真資料的預覽」。那需要 Supabase Auth Redirect URLs 加預覽網域萬用字元，也要決定資料重設方式。等 G4 部署時再評估，現在不做。
 - U-2（未驗證）：Cloudflare Pages 建置環境能不能直接跑 pnpm workspace（`packageManager` 欄位、Node 版本）。由前端 Pages 專案的 O 單實測。
 - U-3（未驗證）：Vite 能不能把 `api/index.ts` 沒選到的那一邊完整移除。用 §9.1.1 的 `dist/` 掃描保證，不靠假設。
-- U-4（不確定）：`tokens.json` 的實際格式要等 D2a。和 §9.1.5 的最小形狀不同時，Architect 改產生器的規格，不改 Designer 的檔案。
-- U-5（未驗證）：Windows Chrome 上，英文會落到哪個字型。堆疊裡沒有 `Segoe UI`，英文可能用 Microsoft JhengHei 的拉丁字。建議 Designer 在 D2a 評估在 `Roboto` 後面加 `"Segoe UI"`。這是設計決定，Architect 不改。
+- U-4（**已解決**，2026-11-26）：PR #54（`e6b7866`）的 `tokens.json` 和 DESIGN.md §11 確定了格式：6 個群組、平的名稱、`$meta` 是說明、斷點不進 tokens。§9.1.5 的「解析規則」已照這個形狀補齊。#54 Merge 之前若再改格式，以 Merge 時的版本為準，由 Architect 對齊。
+- U-5（未驗證）：v1.9 已同意在 Roboto 之後加 `"Segoe UI"`（§9.1.2），但沒有在真的 Windows Chrome／Edge 上看過實際效果，包括中英混排的基線和字重。等 Hansheng 在 Windows 上看預覽時確認。
 - U-6（未驗證）：inline script 經過 Vite 建置後內容是否不變（影響 CSP hash），見 §9.1.4。
+- U-7（不確定）：ARCHITECTURE 沒有寫前端支援的最低瀏覽器版本，§9.1.5.1 只是建議，等 Hansheng 確認。
 
 ## 10. 免費額度與每日用量估計
 | 供應商 | 免費額度（來源見 §17） | 本專案每日估計 | 餘裕 |
@@ -1452,7 +1474,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 - Gemini REST（`generateContent`、`streamGenerateContent`、`FinishReason`、`BlockReason`、`thinkingConfig`）、API 錯誤、疑難排解、模型、Interactions API（2026-11-25 讀取）：見 ADR-012「驗證」表
 - T-023 新聞判定與改寫的決策（2026-11-25）：ADR-013；token 估計依據為 A-003 樣本
 - PoC A-003（Hansheng 手動實測，2026-11-25，31 次呼叫）：`docs/poc/A-003/REPORT.md`、樣本索引 `docs/poc/A-003/README.md`
-- 前端設計基礎（2026-11-26 讀取）：Cloudflare Pages 建置與環境變數 https://developers.cloudflare.com/pages/configuration/build-configuration/ 、https://developers.cloudflare.com/pages/functions/bindings/ ；Pages `_headers`（CSP）https://developers.cloudflare.com/pages/configuration/headers/ ；Supabase Auth Redirect URLs 萬用字元 https://supabase.com/docs/guides/auth/redirect-urls ；決策見 ADR-014
+- 前端設計基礎（2026-11-26 讀取）：Cloudflare Pages 建置與環境變數 https://developers.cloudflare.com/pages/configuration/build-configuration/ 、https://developers.cloudflare.com/pages/functions/bindings/ ；Pages `_headers`（CSP）https://developers.cloudflare.com/pages/configuration/headers/ ；Supabase Auth Redirect URLs 萬用字元 https://supabase.com/docs/guides/auth/redirect-urls ；`:has()` https://developer.mozilla.org/en-US/docs/Web/CSS/:has ；Vite `build.target` https://vite.dev/guide/migration 、https://v7.vite.dev/config/build-options ；決策見 ADR-014
 
 ## 18. 變更紀錄
 | 版本 | 日期 | 變更 |
@@ -1469,4 +1491,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.7 | 2026-11-25 | T-015 寫單前的 TechLead 草案（6 項）：新增 §5.4 Gemini adapter 契約與 ADR-012——錯誤對應表（補其他狀態碼、402、`API_KEY_INVALID`、每日額度優先判定、只有 STOP＋JSON／zod 失敗會自動重試 1 次）、`finishReason` 對應（補 `LANGUAGE`／`ESCALATION`／`CONTINUATION`／`PUP_LIMITED_DISABLED`）、串流錯誤規則、`loadGeminiKey`（`config/provider-keys.ts`，空白也算沒有）與 `createGeminiProvider({ id, apiKey, fetch })`、金鑰只放 `x-goog-api-key` 並遮蔽、不送 `thinkingConfig`、留在 `generateContent`；§3.1 adapter 不再依賴 `config`、新增 `providers/wiring.ts` 列（ADR-008 修訂 5）；§7.1 `GEMINI_API_KEY` 讀取位置；§17 參考。REST 欄位、429 `details`、模型 ID 都標未驗證（沒有 A-xxx PoC） |
 | v1.7.1 | 2026-11-25 | 依 PoC A-003 實測修訂 §5.4（Hansheng 用免費金鑰手動實測 31 次，不是 workflow run；報告和樣本放 `docs/poc/A-003/`）：<br>• §5.4.6 SSE：CRLF 切段、沒有 `event:`／`[DONE]`、`usageMetadata` 累計只取最後一段、`finishReason` 只在最後一段且文字為空、非 2xx 不管 `content-type` 一律當 JSON 解析<br>• §5.4.3：回應 zod 不用 strict（`thoughtSignature`）、`thoughtsTokenCount` 可省略；adapter 自己逾時中止改為必要條件（3.8-flash 實測 20.9 秒 503，以及 40～60 秒沒有回應）；模型 ID 已實測<br>• §5.4.4：`error.details` 可省略；金鑰錯誤 400 `API_KEY_INVALID`、沒帶金鑰 403，兩者都是 `auth`，401 沒出現<br>• 仍未驗證：429 `details`、`region_blocked` 訊息、3.8-flash 成功回應與思考預設、`SAFETY`／`blockReason` |
 | v1.8 | 2026-11-25 | T-023 寫單前 TechLead 的 Q1～Q5：新增 §11.3 新聞類別判定與改寫、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6（第 20 條）。<br>• Q1 採 (b)：判定是只看標題和前 300 字的小呼叫，只改寫通過的那篇；T-022 不用改<br>• Q2：jsonb 用 snake_case；`sentences: string[]`、「/」是單獨的 token；`sentence_index` 和 `rewritten_text` 由程式產生；沿用原文標題<br>• Q3：用 `rewritten_text` 和原文相同的空白切字規則算 250～300 字<br>• Q4：所有檢查都寫進 `generate` 的 schema，T-023 不自己重試<br>• Q5：`_shared/news/rewrite.ts`，`LlmProvider` 由 `daily-prep` 注入<br>另改 §3.1 news 列、§4 `news_article` 列、§6 第 6、7 點、§10、§11.1.1 第 1 點 |
-| v1.9 | 2026-11-26 | 前端設計基礎（Designer 計畫第 5 步；D1 決定 R2-C、只用系統字、深色模式三態）：新增 §9.1 與 ADR-014。<br>• 預覽：`VITE_DATA_MODE` 只能是 `mock`／`supabase`（沒有預設值），前端 PR 預覽只用假資料，不連任何 Supabase；`dist/` 雙向掃描<br>• 字型：只用系統字，Q-35 結案，不新增依賴<br>• 動畫：只用 CSS／原生 Web Animations API，包在 `prefers-reduced-motion: no-preference` 裡<br>• 主題：`localStorage['ec-theme']` 三態，`<head>` 最前面的 inline script 設 `data-theme`，`color-scheme`／`theme-color` meta；加 CSP 時用 sha256<br>• token：`tooling/tokens-css.mjs` 產生 `apps/web/src/ui/tokens.css`（commit，CI `--check`），命名 `--<群組>-<名稱>`，CSS Modules 不寫色碼（`css-literals.mjs`）<br>另改：§4.6 選句字數統一用 contracts `newsWords`（ADR-013，和 T-010 一致）；§7 加預覽不連後端；§12 目錄；§17 參考；檔頭版本改正為 v1.9（v1.8 時檔頭仍寫 v1.7） |
+| v1.9 | 2026-11-26 | 前端設計基礎（Designer 計畫第 5 步；D1 決定 R2-C、只用系統字、深色模式三態）：新增 §9.1 與 ADR-014。<br>• 預覽：`VITE_DATA_MODE` 只能是 `mock`／`supabase`（沒有預設值），前端 PR 預覽只用假資料，不連任何 Supabase；`dist/` 雙向掃描<br>• 字型：只用系統字，Q-35 結案，不新增依賴<br>• 動畫：只用 CSS／原生 Web Animations API，包在 `prefers-reduced-motion: no-preference` 裡<br>• 主題：`localStorage['ec-theme']` 三態，`<head>` 最前面的 inline script 設 `data-theme`，`color-scheme`／`theme-color` meta；加 CSP 時用 sha256<br>• token：`tooling/tokens-css.mjs` 產生 `apps/web/src/ui/tokens.css`（commit，CI `--check`），命名 `--<群組>-<名稱>`，CSS Modules 不寫色碼（`css-literals.mjs`）<br>另改：§4.6 選句字數統一用 contracts `newsWords`（ADR-013，和 T-010 一致）；§7 加預覽不連後端；§12 目錄；§17 參考；檔頭版本改正為 v1.9（v1.8 時檔頭仍寫 v1.7）<br>• 依 D2a PR #54（`e6b7866`）補充：§9.1.5「解析規則」（任何一層的 `$` 鍵都略過、頂層只能是 6 個群組、巢狀子類別用 `-` 攤平、斷點不進 tokens），U-4 已解決；§9.1.2 字型堆疊加 `"Segoe UI"`（U-5 仍未驗證）；新增 §9.1.5.1 瀏覽器範圍與 `:has()` 判斷（U-7 不確定） |

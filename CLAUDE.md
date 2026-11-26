@@ -91,6 +91,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
   - 動畫只用 CSS `transition`／`@keyframes` 或原生 `element.animate`，只動 `transform`／`opacity`，非必要的動態一律包在 `@media (prefers-reduced-motion: no-preference)` 裡。
   - 主題三態存在 `localStorage['ec-theme']`，只透過 `ui/theme.ts` 讀寫；不要改 `index.html` 裡的主題 inline script（要改先停下回報，會影響 CSP hash）。
   - 資料來源只看 `VITE_DATA_MODE`（`mock`／`supabase`）；畫面元件不得判斷資料模式，也不得直接 import `api/mock/`。
+  - 不 import、也不複製 `docs/design/prototype/` 的 JS；互動用 React 重寫。用 `:has()` 時，不支援的瀏覽器至少要看得到預設內容，選擇器錨在小容器上（§9.1.5.1）。
 
 ## 7. 測試規定
 - `domain` 每個公開函式都有 Vitest 單元測試；時間由參數注入。
