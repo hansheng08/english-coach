@@ -248,9 +248,10 @@ gh version 2.103.0 (2026-10-21)
 |---|---|---|
 | `tooling/task-lint.mjs` | `claude-run-task.yml` 的 `Task lint` 步驟（在 Claude 之前）；`ci.yml` `taskcheck` job：推到 `main` 時只檢查該次新增或修改的 `docs/tasks/*.md` | run-task：Claude 不啟動（0 turn），Notify 送 `outcome=task_lint_failed`、`task_lint_outcome=failure`。main：`ci-ok` 紅叉 |
 | `tooling/scope-check.mjs` | `taskcheck` job：`task/**` 的 push 與 PR；變更清單＝`git diff --name-only <base>...<head>` | `ci-ok` 紅叉 |
-| `tooling/ac-coverage.mjs` | 同上，讀 `pnpm exec vitest run --reporter=json` 的輸出 | `ci-ok` 紅叉 |
+| `tooling/ac-coverage.mjs` | 同上，讀 Vitest JSON、TAP，以及（O-025）已通過的 Playwright JSON | `ci-ok` 紅叉 |
 
 - 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
+- O-025：ac-coverage 會讀 Playwright JSON；e2e 有跑時 `taskcheck` 會等 `e2e` 並下載該檔，缺檔或無效就失敗；e2e 略過時不要求該檔、不傳 `--playwright`；以 PR 的 `ci-ok` 為準。
 - `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`workflow_dispatch`、light 模式、沒改 `docs/tasks/` 的 docs 模式會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。O-015 起，模式要求它跑而它被略過也判失敗（§6.3）。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
 - O-010 起：有 `supabase/config.toml` 時，`taskcheck` job 先起本機 Supabase（同 `db` job 的 CLI 與排除清單；main 的 push 不起），`taskcheck.sh` 執行 `pnpm db:test --tap-dir $RUNNER_TEMP/taskcheck-pgtap`，再把每個 `*.tap` 以 `--tap` 交給 ac-coverage，所以只有 pgTAP 測試的 AC 也算覆蓋。db-test 失敗照樣跑 ac-coverage／report-lint／摘要並判紅；一個 TAP 檔都沒有時直接 exit 1。這條路徑在 Actions 上的第一次實測是 O-010 PR 的 CI。`fix/**` 分支自 O-009 起也跑（見 §5）。

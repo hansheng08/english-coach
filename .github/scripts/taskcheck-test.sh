@@ -127,6 +127,31 @@ run_case "unsupported event is fail-closed" 1 "" \
   EVENT_NAME=workflow_dispatch REF_NAME=task/T-901 SHA="$BRANCH_SHA"
 run_case "empty event is fail-closed" 1 ""
 
+# O-025: Playwright JSON is passed to ac-coverage only when e2e ran.
+PW_OK="$WORK/pw-ok.json"
+printf '{ "suites": [] }\n' > "$PW_OK"
+: > "$WORK/pw-empty.json"
+BASE_COV="scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks"
+BASE_SUM="verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt"
+run_case "e2e skipped does not pass --playwright" 0 \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|${BASE_SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=skipped PLAYWRIGHT_JSON="$PW_OK"
+run_case "e2e ran with valid JSON passes --playwright" 0 \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --playwright W/pw-ok.json|${BASE_SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=success PLAYWRIGHT_JSON="$PW_OK"
+run_case "e2e failed but JSON exists still passes --playwright" 0 \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --playwright W/pw-ok.json|${BASE_SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=failure PLAYWRIGHT_JSON="$PW_OK"
+run_case "e2e ran but Playwright JSON is missing is fail-closed" 1 \
+  "$BASE_COV" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=success PLAYWRIGHT_JSON="$WORK/pw-missing.json"
+run_case "e2e ran but Playwright JSON is empty is fail-closed" 1 \
+  "$BASE_COV" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=success PLAYWRIGHT_JSON="$WORK/pw-empty.json"
+run_case "unexpected E2E_RESULT is fail-closed" 1 \
+  "$BASE_COV" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=cancelled PLAYWRIGHT_JSON="$PW_OK"
+
 # O-016 (retro M5): renames must list the old path too (git diff --no-renames).
 # expect_killed <mutant name> <line pattern> <run_case args...>: the case must FAIL
 # on a copy of taskcheck.sh whose matching git diff line lost --no-renames.

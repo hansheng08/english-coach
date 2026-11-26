@@ -30,6 +30,9 @@
 # Env: EVENT_NAME REF_NAME HEAD_REF BEFORE_SHA SHA BASE_SHA PR_HEAD_SHA
 #      RUNNER_TEMP; optional GITHUB_STEP_SUMMARY; optional TOOLING_DIR (tests), VITEST_JSON_CMD (tests),
 #      DB_TEST_CMD (tests; gets the TAP dir as $1).
+#      O-025: E2E_RESULT (needs.e2e.result: success|failure|skipped; unset = skipped),
+#      PLAYWRIGHT_JSON (downloaded artifact path; required and must be non-empty
+#      when E2E_RESULT is success or failure).
 set -euo pipefail
 
 TOOLING_DIR="${TOOLING_DIR:-tooling}"
@@ -121,6 +124,22 @@ if [[ -f supabase/config.toml ]]; then
 else
   echo "taskcheck: db-test: 未執行（沒有 supabase/config.toml）"
 fi
+# O-025: only pass --playwright when e2e actually ran. Missing/empty JSON is
+# fail-closed (die), not a silent skip. Unset or skipped keeps Vitest/TAP only.
+E2E_RESULT="${E2E_RESULT:-skipped}"
+PLAYWRIGHT_JSON="${PLAYWRIGHT_JSON:-}"
+case "$E2E_RESULT" in
+  success|failure)
+    [[ -s "${PLAYWRIGHT_JSON}" ]] || die "e2e ran (${E2E_RESULT}) but Playwright JSON '${PLAYWRIGHT_JSON}' is missing or empty"
+    cov_args+=(--playwright "$PLAYWRIGHT_JSON")
+    ;;
+  skipped)
+    echo "taskcheck: ac-coverage: 未傳 --playwright（e2e 未跑或被略過）"
+    ;;
+  *)
+    die "unexpected E2E_RESULT '${E2E_RESULT}'"
+    ;;
+esac
 if ! node "$TOOLING_DIR/ac-coverage.mjs" "${cov_args[@]}"; then FAILED+=(ac-coverage); fi
 
 REPORTS="$OUT_DIR/taskcheck-reports.txt"
