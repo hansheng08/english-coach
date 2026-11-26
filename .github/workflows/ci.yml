@@ -184,10 +184,18 @@ jobs:
   # (自動驗證摘要 in the job summary). See taskcheck.sh.
   # Other refs skip this job; ci-ok lists it as "Skipped (not verified)".
   taskcheck:
-    needs: ci-guard
+    needs: [ci-guard, e2e]
     # O-015: full mode as before; docs mode only when docs/tasks/ changed
     # (main push = task-lint); light mode never (the PR run is authoritative).
+    # O-025: also needs e2e so the Playwright JSON artifact can be downloaded.
+    # always() lets the job start after a failed e2e (missing JSON must
+    # fail-closed). The needs.e2e.result clause keeps the job running when
+    # e2e is skipped; without it a skipped e2e would skip taskcheck too.
     if: >-
+      always() &&
+      !cancelled() &&
+      needs.ci-guard.result == 'success' &&
+      (needs.e2e.result == 'success' || needs.e2e.result == 'failure' || needs.e2e.result == 'skipped') &&
       needs.ci-guard.outputs.has_node == 'true' &&
       ((needs.ci-guard.outputs.mode == 'full' &&
         ((github.event_name == 'push' && (github.ref_name == 'main' || startsWith(github.ref_name, 'task/') || startsWith(github.ref_name, 'fix/'))) ||
@@ -222,6 +230,12 @@ jobs:
         run: |
           psql --version
           supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor
+      - name: Download Playwright JSON results
+        if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: playwright-results
+          path: ${{ runner.temp }}/playwright-results
       - name: Task lint / scope check / db-test / AC coverage / report lint / mutants / summary
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -231,6 +245,8 @@ jobs:
           SHA: ${{ github.sha }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          PLAYWRIGHT_JSON: ${{ runner.temp }}/playwright-results/playwright-results.json
         run: bash .github/scripts/taskcheck.sh
 
   bundle:
@@ -312,7 +328,17 @@ jobs:
         run: supabase start -x studio,imgproxy,logflare,vector
       - run: pnpm exec playwright install --with-deps chromium
       - name: Run e2e (fake providers)
-        run: pnpm e2e
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: playwright-results.json
+        run: pnpm e2e -- --reporter=list --reporter=json
+      - name: Upload Playwright JSON results
+        if: success() || failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-results
+          path: playwright-results.json
+          retention-days: 7
+          if-no-files-found: error
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
