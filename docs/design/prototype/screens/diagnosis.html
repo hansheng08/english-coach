@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F5F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A1420">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('ec-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>晚上｜診斷（AC-15）｜english-coach 原型</title>
+<link rel="stylesheet" href="app.css">
+<style>
+.band{display:grid;gap:16px;padding:18px 18px 16px}
+.band .eyebrow{display:block}
+.band-t{font-size:1.375rem;margin:6px 0 4px}
+.bstats{display:grid;grid-template-columns:repeat(3,1fr);margin:0;padding-top:14px;border-top:1px solid var(--color-hero-line)}
+.bstats div+div{padding-left:12px;border-left:1px solid var(--color-hero-line)}
+.bstats dt{font-size:.75rem;color:var(--color-on-hero)}
+.bstats dd{margin:0}
+.bstats dd.num{font-size:1.75rem;font-weight:600;color:var(--color-gold);line-height:1.15;letter-spacing:-.02em}
+.bstats dd.d{font-size:.6875rem;color:var(--color-on-hero-2)}
+.cmp{padding:12px 16px}
+.view-seg{margin-bottom:10px}
+.legend{list-style:none;margin:0;padding:0 0 10px;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.75rem;color:var(--color-ink-2);border-bottom:1px solid var(--color-line)}
+.legend li{display:flex;gap:4px;align-items:baseline}
+.legend li>span{color:var(--color-ink)}
+.colh{display:none}
+.rows{list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:8px;padding:14px 0;outline:none}
+.row+.row{border-top:1px solid var(--color-line)}
+.row:focus-visible{box-shadow:inset 3px 0 0 var(--color-gold-text)}
+.no{width:20px;height:20px;border-radius:6px;background:var(--color-sunken);color:var(--color-ink-2);font-size:.6875rem;font-weight:600;display:grid;place-items:center;margin-top:3px}
+.mine,.sr{grid-column:2;line-height:1.65}
+.sr{margin-top:8px;padding:8px 10px;border-radius:10px;background:var(--color-sunken)}
+.lab{display:block;font-size:.6875rem;font-weight:600;color:var(--color-ink-2)}
+.diag:has(#v-mine:checked) .sr,.diag:has(#v-sr:checked) .mine{display:none}
+.diag:has(#v-mine:checked) .lab,.diag:has(#v-sr:checked) .lab{display:none}
+.diag:has(#v-sr:checked) .sr{margin-top:0;background:none;padding:0}
+[data-tip]{position:relative}
+.chunks .panel-h{margin-bottom:4px}
+.ck{display:flex;align-items:center;gap:12px;min-height:52px;cursor:pointer;border-radius:10px;margin:0 -8px;padding:0 8px;position:relative}
+.ck+.ck{border-top:1px solid var(--color-line);border-radius:0}
+.ck:hover{background:var(--color-sunken)}
+.ck input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.cb{width:24px;height:24px;border-radius:50%;box-shadow:inset 0 0 0 1.75px var(--color-ink-3);display:grid;place-items:center;color:transparent;flex:none}
+.ck input:checked+.cb{background:var(--color-ink);box-shadow:none;color:var(--color-surface)}
+.ck input:focus-visible+.cb{outline:2px solid var(--color-gold-text);outline-offset:2px}
+.ck-t{flex:1;font-weight:500}
+.note{margin:8px 0 4px}
+.kb{display:none;text-align:center;margin-top:10px}
+.ck-bar .btn{width:100%}
+@media (min-width:900px){
+  .diag{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+  .band{grid-column:1/-1;grid-template-columns:minmax(0,1fr) auto;align-items:end;column-gap:48px;padding:28px 32px}
+  .band-t{font-size:1.75rem}
+  .bstats{padding:0;border:0;grid-template-columns:repeat(3,auto)}
+  .bstats div{padding:0 24px} .bstats div:first-child{border-left:0}
+  .bstats dd.num{font-size:2.75rem}
+  .cmp{padding:8px 24px 12px}
+  .view-seg{display:none}
+  .legend{padding:14px 0 12px}
+  .colh{display:grid;grid-template-columns:28px 1fr 1fr;column-gap:28px;font-size:.75rem;font-weight:600;color:var(--color-ink-2);padding:12px 0 8px;border-bottom:1px solid var(--color-line)}
+  .row{grid-template-columns:28px 1fr 1fr;column-gap:28px;padding:16px 12px;margin:0 -12px}
+  .row:hover,.row:focus-visible{background:var(--color-sunken)}
+  .row:hover .sr,.row:focus-visible .sr{background:var(--color-surface)}
+  .mine{grid-column:2} .sr{grid-column:3;margin:0}
+  .lab{display:none}
+  .kb{display:block}
+  .ck-bar{margin-top:8px}
+  [data-tip]:hover::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 6px);z-index:5;white-space:nowrap;padding:5px 9px;border-radius:8px;background:var(--color-hero);color:var(--color-on-hero);font:600 .75rem/1.3 var(--font-sans);text-decoration:none;box-shadow:var(--shadow-float);pointer-events:none}
+}
+@media (max-width:899px){.chunks{padding-bottom:4px}}
+</style>
+</head>
+<body>
+<header class="navbar"><div class="in">
+  <a class="back" href="index.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>今天</a>
+  <h1>晚上｜第 2 步，共 3 步</h1>
+  <div class="side-r"><a class="avatar" href="#account" aria-label="帳號與外觀"><span>H</span></a></div>
+</div></header>
+<main class="page flow diag">
+  <header class="hero band">
+    <div>
+      <p class="eyebrow"><span>逐字稿與診斷・28 秒完成</span></p>
+      <h2 class="band-t">這次回答的診斷</h2>
+      <p class="sub" lang="en">Tell me about a time you debugged a production issue under pressure.</p>
+    </div>
+    <dl class="bstats" aria-label="這次的數字">
+      <div><dt>停頓 &gt;2 秒</dt><dd class="num">4</dd><dd class="d">上週平均 6</dd></div>
+      <div><dt>贅詞</dt><dd class="num">9</dd><dd class="d">上週平均 13</dd></div>
+      <div><dt>每分鐘字數</dt><dd class="num">96</dd><dd class="d">上週平均 88</dd></div>
+    </dl>
+  </header>
+  <section class="panel cmp" aria-labelledby="cmp-h">
+    <h2 id="cmp-h" class="sr-only">逐句對照</h2>
+    <fieldset class="seg view-seg">
+      <legend>顯示方式</legend>
+      <label><input type="radio" name="view" id="v-pair" checked>逐句對照</label>
+      <label><input type="radio" name="view" id="v-mine">你的回答</label>
+      <label><input type="radio" name="view" id="v-sr">Senior 版</label>
+    </fieldset>
+    <ul class="legend" aria-label="標記說明"><li><span class="m-g">波浪底線</span>文法</li><li><span class="m-f">刪除線</span>贅詞</li><li><span class="m-p">底色</span>太口語</li><li><span class="pz">停 3 秒</span>停頓</li><li><span class="up">粗底線</span>升級語塊</li></ul>
+    <div class="colh" aria-hidden="true"><span></span><span>你的回答（原逐字稿）</span><span>Senior 工程師版</span></div>
+    <ol class="rows">
+      <li class="row" tabindex="0" aria-label="第 1 句，4 個標記"><span class="no num">1</span><div class="mine"><span class="lab">你的回答</span><p lang="en"><span class="m-f" data-tip="贅詞">Um, so</span> last year our wafer handler, <span class="m-f" data-tip="贅詞">uh,</span> <span class="m-g" data-tip="文法：have → had">have</span> a problem that it <span class="m-g" data-tip="文法：stop → stopped">stop</span> randomly.</p></div><div class="sr"><span class="lab">Senior 版</span><p lang="en">Last year, one of our wafer handlers started halting at random,</p></div></li>
+      <li class="row" tabindex="0" aria-label="第 2 句，1 個標記"><span class="no num">2</span><div class="mine"><span class="lab">你的回答</span><p lang="en">I think it's <span class="m-p" data-tip="太口語：可換成 took the line down">very bad</span> because the line is down.</p></div><div class="sr"><span class="lab">Senior 版</span><p lang="en">which <span class="up">took the line down</span>.</p></div></li>
+      <li class="row" tabindex="0" aria-label="第 3 句，6 個標記"><span class="no num">3</span><div class="mine"><span class="lab">你的回答</span><p lang="en"><span class="m-f" data-tip="贅詞">So</span> I <span class="m-g" data-tip="文法：check → checked">check</span> the log and <span class="pz">停 3.4 秒</span> I <span class="m-g" data-tip="文法：find → found">find</span> the timing is <span class="m-p" data-tip="太口語：可換成 a race condition">not good</span> between two <span class="m-g" data-tip="文法：thread → threads">thread</span>.</p></div><div class="sr"><span class="lab">Senior 版</span><p lang="en">I <span class="up">dug into</span> the controller logs and <span class="up">traced it to</span> <span class="up">a race condition</span> between two threads.</p></div></li>
+      <li class="row" tabindex="0" aria-label="第 4 句，3 個標記"><span class="no num">4</span><div class="mine"><span class="lab">你的回答</span><p lang="en"><span class="m-f" data-tip="贅詞">You know,</span> then I <span class="m-p" data-tip="太口語：可換成 fixed the synchronization">fix it</span> and <span class="m-p" data-tip="太口語：可換成 made it more reliable">make it more good</span>.</p></div><div class="sr"><span class="lab">Senior 版</span><p lang="en">I fixed the synchronization and added a regression test,</p></div></li>
+      <li class="row" tabindex="0" aria-label="第 5 句，2 個標記"><span class="no num">5</span><div class="mine"><span class="lab">你的回答</span><p lang="en"><span class="m-f" data-tip="贅詞">Um,</span> after that <span class="pz">停 2.6 秒</span> it is okay.</p></div><div class="sr"><span class="lab">Senior 版</span><p lang="en">and we <span class="up">haven't seen it since</span>.</p></div></li>
+    </ol>
+  </section>
+  <aside class="panel rail sticky chunks" aria-labelledby="ck-h">
+    <div class="panel-h"><h3 id="ck-h">升級語塊・選 3～5 個</h3><span class="t-callout num"><span id="n">3</span>／5</span></div>
+    <label class="ck"><input type="checkbox" data-chunk checked><span class="cb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ck-t" lang="en">took the line down</span><kbd>1</kbd></label><label class="ck"><input type="checkbox" data-chunk checked><span class="cb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ck-t" lang="en">dug into</span><kbd>2</kbd></label><label class="ck"><input type="checkbox" data-chunk checked><span class="cb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ck-t" lang="en">traced it to</span><kbd>3</kbd></label><label class="ck"><input type="checkbox" data-chunk><span class="cb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ck-t" lang="en">a race condition</span><kbd>4</kbd></label><label class="ck"><input type="checkbox" data-chunk><span class="cb"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ck-t" lang="en">haven't seen it since</span><kbd>5</kbd></label>
+    <p class="t-caption muted note">確認後變成字卡，明天中午優先出現在新卡。</p>
+    <div class="actionbar ck-bar"><button class="btn btn-lg grow" type="button">加入明天的新卡（<span id="n2">3</span>）</button></div>
+    <p class="t-caption muted kb">1～5 勾選・Tab 逐句看・Enter 確認</p>
+  </aside>
+</main>
+<div class="sheet pop" id="account" role="dialog" aria-modal="true" aria-labelledby="acc-h">
+  <a class="scrim" href="#" aria-label="關閉"></a>
+  <div class="card">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="card-h"><h2 id="acc-h">帳號與外觀</h2><a class="icon-btn" href="#" aria-label="關閉"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></a></div>
+    <div class="acc-me"><span class="avatar-lg" aria-hidden="true">H</span><div><b>Hansheng</b><p class="t-callout muted">hansheng@example.com</p></div></div>
+    <fieldset class="seg lg theme-seg">
+      <legend>外觀</legend>
+      <label><input type="radio" name="theme-acc" data-theme-input value="light"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></svg>淺色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg>深色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="system"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>跟隨系統</label>
+    </fieldset>
+    <p class="t-callout muted theme-now" data-theme-now aria-live="polite">跟隨系統</p>
+    <hr class="hr">
+    <a class="acc-row" href="later.html?s=settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.25"/><circle cx="8" cy="17" r="2.25"/></svg><span>設定</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+    <a class="acc-row" href="login.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.5h4.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H14M10 8l-4 4 4 4M6 12h9"/></svg><span>登出</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+  </div>
+</div>
+<script>/* 原型的主題切換：對齊 ADR-014。localStorage['ec-theme'] = system | light | dark；只有 light／dark 會設 data-theme。?theme= 只供截圖與預覽，不存。 */
+(function(){var d=document.documentElement,K='ec-theme',mq=matchMedia('(prefers-color-scheme: dark)'),metas=[].slice.call(document.querySelectorAll('meta[name="theme-color"]'));
+function pref(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return 'system'}}
+function paint(){var dark=d.dataset.theme?d.dataset.theme==='dark':mq.matches;
+ metas.forEach(function(m,i){if(d.dataset.theme){m.setAttribute('content',dark?'#0A1420':'#F4F5F7');m.removeAttribute('media')}else{m.setAttribute('content',i?'#0A1420':'#F4F5F7');m.setAttribute('media','(prefers-color-scheme: '+(i?'dark':'light')+')')}});
+ document.querySelectorAll('[data-theme-now]').forEach(function(e){e.textContent=(d.dataset.theme?'':'跟隨系統，')+'現在是'+(dark?'深色':'淺色')+'。只存在這台裝置。'})}
+var cur=d.dataset.theme||pref();
+var ins=[].slice.call(document.querySelectorAll('input[data-theme-input]'));ins.forEach(function(r){r.checked=r.value===cur;r.addEventListener('change',function(){try{localStorage.setItem(K,r.value)}catch(e){}if(r.value==='system')delete d.dataset.theme;else d.dataset.theme=r.value;ins.forEach(function(o){o.checked=o.value===r.value});paint()})});
+mq.addEventListener&&mq.addEventListener('change',paint);paint()})();</script>
+<script>(function(){var b=[].slice.call(document.querySelectorAll('[data-chunk]'));function u(){var c=b.filter(function(x){return x.checked}).length;document.getElementById('n').textContent=c;document.getElementById('n2').textContent=c;}
+b.forEach(function(x){x.addEventListener('change',u)});addEventListener('keydown',function(e){if(/input|textarea/i.test(e.target.tagName)&&e.target.type!=='checkbox')return;var i=+e.key;if(i>=1&&i<=b.length){b[i-1].checked=!b[i-1].checked;u();}});})();</script>
+</body>
+</html>

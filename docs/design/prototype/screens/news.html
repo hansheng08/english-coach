@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F5F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A1420">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('ec-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>早上｜新聞閱讀｜english-coach 原型</title>
+<link rel="stylesheet" href="app.css">
+<style>
+.cat{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.a-h{font-size:1.375rem;line-height:1.3;margin:14px 0 6px}
+.src{margin-bottom:6px}
+.srclink{display:inline-flex;align-items:center;gap:4px;color:var(--color-gold-text);font-weight:600;min-height:48px;vertical-align:middle}
+.srclink:hover{text-decoration:underline}
+.body p+p{margin-top:1em}
+.body{max-width:68ch}
+.sel{background:color-mix(in srgb,var(--color-gold) 34%,transparent);border-radius:3px}
+.selplus{position:relative;display:inline-block;width:0}
+.selplus button{position:absolute;left:0;top:-54px;display:inline-flex;align-items:center;gap:4px;min-height:48px;padding:0 12px;border:0;border-radius:10px;background:var(--color-hero);color:var(--color-on-hero);font-size:.8125rem;font-weight:600;box-shadow:var(--shadow-float);white-space:nowrap;font-family:var(--font-sans)}
+.tip{display:flex;gap:6px;align-items:flex-start;margin-top:18px;padding-top:14px;border-top:1px solid var(--color-line)}
+.news .kb{display:none}
+.clist{margin-top:8px}
+.crow{display:flex;align-items:center;gap:10px;border-top:1px solid var(--color-line)}
+.crow:first-child{border-top:0}
+.cr-main{flex:1;display:grid;min-height:56px;align-content:center;border-radius:10px;padding:4px 6px;margin:0 -6px}
+.cr-main:hover{background:var(--color-sunken)}
+.cr-t{font-weight:600}
+.cr-zh{font-size:.8125rem;color:var(--color-ink-2)}
+.cr-end{display:grid;justify-items:end;gap:4px}
+.kb{text-align:center}
+.news-bar .segs{margin-top:6px}
+.sheet .sent{margin:14px 0;padding:12px 14px;border-radius:var(--radius-md);background:var(--color-sunken)}
+.say{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.say .btn{padding:0 10px}
+.cnt .pips{margin:0 2px}
+@media (min-width:900px){
+  .news{grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+  .news .kb{display:block}
+  .art{padding:32px 48px}
+  .a-h{font-size:1.75rem}
+  .news-bar{display:none}
+}
+</style>
+</head>
+<body>
+<header class="navbar"><div class="in">
+  <a class="back" href="index.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>今天</a>
+  <h1>早上｜第 1 步，共 2 步</h1>
+  <div class="side-r"><a class="avatar" href="#account" aria-label="帳號與外觀"><span>H</span></a></div>
+</div></header>
+<main class="page flow news">
+  <article class="panel art" aria-labelledby="a-h">
+    <div class="cat"><span class="chip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 20.5v-16M5.5 4.5h11l-2 4 2 4h-11"/></svg>半導體產業</span><span class="t-callout muted">今天輪到 AI，沒有新文章，改用下一類</span></div>
+    <h2 id="a-h" class="a-h" lang="en">AI demand pushes memory makers to the limit</h2>
+    <p class="t-callout muted src">AI 依原文改寫，約 280 字｜<a class="srclink" href="#">原文：EE Times <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.5h5.5V10M19.5 4.5L11 13M17 14v4.5a1 1 0 0 1-1 1H5.5a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1H10"/></svg></a></p>
+    <div class="t-read body" lang="en"><p>Memory makers are racing to <a class="chunk got" href="#chunk" data-i="0">ramp up production</a> of high-bandwidth memory as demand from AI data centers keeps climbing. Analysts say the biggest <a class="chunk got" href="#chunk" data-i="1">supply bottleneck</a> is no longer the chips themselves but the advanced packaging needed to stack them.</p>
+<p>One supplier told investors that its <a class="chunk" href="#chunk" data-i="2">yield rate</a> on the newest stacks has improved from roughly 60 to 75 percent this quarter, but warned that a new packaging line in Taiwan had been <a class="chunk" href="#chunk" data-i="3">pushed back</a> to next spring. <span class="selplus" role="group" aria-label="反白後收錄"><button type="button"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>收錄</button></span><span class="sel">Engineers are now working around the clock</span> to qualify a second line.</p>
+<p>Equipment vendors are watching closely. More capacity is <a class="chunk" href="#chunk" data-i="4">in the pipeline</a>, executives said, yet customers want guarantees on delivery dates before they commit to long-term orders. For engineers on the factory floor, that means more pressure to keep tools running and to find the root cause of any stoppage quickly.</p></div>
+    <p class="t-callout muted tip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.8v.2"/></svg>點虛線底線的語塊看中文；反白任何詞句，按「收錄」做成字卡。</p>
+  </article>
+  <aside class="rail sticky" aria-label="今天的 5 個語塊">
+    <section class="panel">
+      <div class="panel-h"><h3>5 個語塊・每句跟唸 2 遍</h3><span class="t-callout num">3／5</span></div>
+      <div class="segs" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i class=""></i></div>
+      <ul class="list clist"><li class="crow"><a class="cr-main" href="#chunk"><span class="cr-t" lang="en">ramp up production</span><span class="cr-zh">提高產量（逐步擴大生產）</span></a><span class="cr-end"><span class="pips" role="img" aria-label="跟唸 2／2"><i class="on"></i><i class="on"></i></span><span class="state collected"><i></i>已收錄</span></span></li><li class="crow"><a class="cr-main" href="#chunk"><span class="cr-t" lang="en">supply bottleneck</span><span class="cr-zh">供應瓶頸</span></a><span class="cr-end"><span class="pips" role="img" aria-label="跟唸 2／2"><i class="on"></i><i class="on"></i></span><span class="state collected"><i></i>已收錄</span></span></li><li class="crow"><a class="cr-main" href="#chunk"><span class="cr-t" lang="en">yield rate</span><span class="cr-zh">良率</span></a><span class="cr-end"><span class="pips" role="img" aria-label="跟唸 2／2"><i class="on"></i><i class="on"></i></span></span></li><li class="crow"><a class="cr-main" href="#chunk"><span class="cr-t" lang="en">pushed back</span><span class="cr-zh">延後</span></a><span class="cr-end"><span class="pips" role="img" aria-label="跟唸 1／2"><i class="on"></i><i class=""></i></span></span></li><li class="crow"><a class="cr-main" href="#chunk"><span class="cr-t" lang="en">in the pipeline</span><span class="cr-zh">正在準備中、即將推出</span></a><span class="cr-end"><span class="pips" role="img" aria-label="跟唸 0／2"><i class=""></i><i class=""></i></span></span></li></ul>
+    </section>
+    <p class="t-caption muted kb">空白鍵播放整句・Enter 計一次跟唸</p>
+  </aside>
+</main>
+<div class="actionbar news-bar"><div class="grow"><p class="t-callout"><b class="num">3／5</b> 句跟唸完成</p><div class="segs" aria-hidden="true"><i class="done"></i><i class="done"></i><i class="done"></i><i class="cur"></i><i class=""></i></div></div><a class="btn" href="#chunk"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>播放下一句</a></div>
+<div class="sheet" id="chunk" role="dialog" aria-modal="true" aria-labelledby="ck-h">
+  <a class="scrim" href="#" aria-label="關閉"></a>
+  <div class="card">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="card-h"><h2 id="ck-h" lang="en">yield rate</h2><a class="icon-btn" href="#" aria-label="關閉"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></a></div>
+    <p class="t-headline">良率</p>
+    <p class="muted t-callout" style="margin-top:2px">工廠產出的合格品比例；工程師常說 improve / hurt the yield rate。</p>
+    <div class="sent"><p class="t-caption muted">所在整句</p><p lang="en" class="t-body">One supplier told investors that its <b>yield rate</b> on the newest stacks has improved from roughly 60 to 75 percent this quarter.</p></div>
+    <div class="say"><button class="btn btn-2" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg>播放整句</button><button class="btn btn-2 cnt" type="button" aria-label="跟唸了一次，目前 0／2">跟唸 <span class="pips"><i></i><i></i></span><span class="num">0／2</span></button></div>
+    <button class="btn btn-lg btn-block" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>收錄成字卡</button>
+    <p class="t-caption muted" style="margin-top:8px;text-align:center">收錄後狀態是 <span class="state collected"><i></i>Collected</span>，明天開始排進中午複習</p>
+  </div>
+</div>
+<div class="sheet pop" id="account" role="dialog" aria-modal="true" aria-labelledby="acc-h">
+  <a class="scrim" href="#" aria-label="關閉"></a>
+  <div class="card">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="card-h"><h2 id="acc-h">帳號與外觀</h2><a class="icon-btn" href="#" aria-label="關閉"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></a></div>
+    <div class="acc-me"><span class="avatar-lg" aria-hidden="true">H</span><div><b>Hansheng</b><p class="t-callout muted">hansheng@example.com</p></div></div>
+    <fieldset class="seg lg theme-seg">
+      <legend>外觀</legend>
+      <label><input type="radio" name="theme-acc" data-theme-input value="light"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></svg>淺色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg>深色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="system"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>跟隨系統</label>
+    </fieldset>
+    <p class="t-callout muted theme-now" data-theme-now aria-live="polite">跟隨系統</p>
+    <hr class="hr">
+    <a class="acc-row" href="later.html?s=settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.25"/><circle cx="8" cy="17" r="2.25"/></svg><span>設定</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+    <a class="acc-row" href="login.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.5h4.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H14M10 8l-4 4 4 4M6 12h9"/></svg><span>登出</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+  </div>
+</div>
+<script>/* 原型的主題切換：對齊 ADR-014。localStorage['ec-theme'] = system | light | dark；只有 light／dark 會設 data-theme。?theme= 只供截圖與預覽，不存。 */
+(function(){var d=document.documentElement,K='ec-theme',mq=matchMedia('(prefers-color-scheme: dark)'),metas=[].slice.call(document.querySelectorAll('meta[name="theme-color"]'));
+function pref(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return 'system'}}
+function paint(){var dark=d.dataset.theme?d.dataset.theme==='dark':mq.matches;
+ metas.forEach(function(m,i){if(d.dataset.theme){m.setAttribute('content',dark?'#0A1420':'#F4F5F7');m.removeAttribute('media')}else{m.setAttribute('content',i?'#0A1420':'#F4F5F7');m.setAttribute('media','(prefers-color-scheme: '+(i?'dark':'light')+')')}});
+ document.querySelectorAll('[data-theme-now]').forEach(function(e){e.textContent=(d.dataset.theme?'':'跟隨系統，')+'現在是'+(dark?'深色':'淺色')+'。只存在這台裝置。'})}
+var cur=d.dataset.theme||pref();
+var ins=[].slice.call(document.querySelectorAll('input[data-theme-input]'));ins.forEach(function(r){r.checked=r.value===cur;r.addEventListener('change',function(){try{localStorage.setItem(K,r.value)}catch(e){}if(r.value==='system')delete d.dataset.theme;else d.dataset.theme=r.value;ins.forEach(function(o){o.checked=o.value===r.value});paint()})});
+mq.addEventListener&&mq.addEventListener('change',paint);paint()})();</script>
+
+</body>
+</html>
