@@ -1,4 +1,6 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { assertDataModeEnv } from '../../tooling/data-mode-guard.mjs';
 import { dataModeOrThrow } from './vite.data-mode.ts';
 
 const FAKE = 'https://example.invalid';
@@ -40,5 +42,36 @@ describe('dataModeOrThrow', () => {
     } catch (e) {
       expect(e instanceof Error ? e.message : '').not.toContain('example.invalid');
     }
+  });
+
+  it('(AC-T18-24) (TC-42) (AC-T18-28) (TC-48) gives the same result as assertDataModeEnv', () => {
+    const inputs: Record<string, unknown>[] = [
+      {},
+      { VITE_DATA_MODE: '' },
+      { VITE_DATA_MODE: 'MOCK' },
+      { VITE_DATA_MODE: 'mock' },
+      { VITE_DATA_MODE: 'mock', VITE_SUPABASE_URL: FAKE },
+      { VITE_DATA_MODE: 'mock', VITE_SUPABASE_FOO: '' },
+      SUPABASE_OK,
+      { ...SUPABASE_OK, VITE_SUPABASE_PUBLISHABLE_KEY: '  ' },
+      { VITE_DATA_MODE: 'supabase', VITE_SUPABASE_PUBLISHABLE_KEY: 'k' },
+    ];
+    for (const env of inputs) {
+      const r = assertDataModeEnv(env);
+      if (r.ok) {
+        expect(dataModeOrThrow(env)).toBe(r.mode);
+      } else {
+        expect(() => dataModeOrThrow(env)).toThrow(new Error(r.reason));
+      }
+    }
+  });
+
+  it('(AC-T18-24) (TC-43) (AC-T18-28) (TC-49) the rules live only in tooling/data-mode-guard.mjs', async () => {
+    const src = readFileSync(new URL('./vite.data-mode.ts', import.meta.url), 'utf8');
+    expect(src).toContain('assertDataModeEnv');
+    expect(src).not.toContain('VITE_SUPABASE_');
+    expect(src).not.toContain('trim(');
+    const mod = await import('../../tooling/data-mode-guard.mjs');
+    expect(Object.keys(mod)).toEqual(['assertDataModeEnv']);
   });
 });
