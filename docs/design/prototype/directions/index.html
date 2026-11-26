@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>english-coach D1 風格方向比較（第 1 輪）</title>
+<style>
+/* 比較頁外殼刻意保持中性，不代表任何方向 */
+:root{--fg:#1F1F1F;--muted:#555;--line:#DDD;--bg:#FFF;--soft:#F5F5F5;--font:"Noto Sans TC","Noto Sans CJK TC","PingFang TC",system-ui,sans-serif}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--fg);background:var(--bg);line-height:1.6}
+a{color:#1A4FB4}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid #1A4FB4;outline-offset:2px}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 64px}
+h1{font-size:1.5rem;line-height:1.3;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:52em}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px;padding:0;list-style:none}
+.jump a{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--fg);font-weight:700}
+.jump a:hover{background:var(--soft)}
+.dir{border-top:2px solid var(--fg);padding:24px 0 8px;margin-top:16px}
+.dir h2{font-size:1.375rem;margin:0}
+.star{font-size:1.0625rem;margin:6px 0 12px;font-weight:700}
+.kw{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.kw li{border:1px solid var(--line);border-radius:14px;padding:1px 10px;font-size:.875rem}
+.meta{display:grid;gap:14px;margin-bottom:16px}
+.meta h3{font-size:.875rem;margin:0 0 6px;color:var(--muted)}
+.sw{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.sw li{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-family:ui-monospace,Menlo,monospace}
+.sw i{width:28px;height:28px;border-radius:6px;border:1px solid rgba(0,0,0,.15);flex:none}
+.fonts{margin:0;padding-left:1.1em;font-size:.9375rem}
+.shots{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:8px 0 16px}
+figure{margin:0}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:var(--soft)}
+figure.m img{max-width:360px}
+figcaption{font-size:.8125rem;color:var(--muted);margin-top:4px}
+.open{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.open a{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border-radius:8px;background:var(--fg);color:#fff;text-decoration:none;font-weight:700}
+.open a:hover{background:#000}
+.fit{display:grid;gap:12px;margin-bottom:12px}
+.fit div{background:var(--soft);border-radius:8px;padding:12px 14px}
+.fit h3{font-size:.9375rem;margin:0 0 4px}
+.fit ul,.refs ul{margin:0;padding-left:1.1em}
+.refs{font-size:.9375rem}
+.refs h3{font-size:.9375rem;margin:0 0 4px}
+.refs li{margin:2px 0;overflow-wrap:anywhere}
+.rec{border:2px solid var(--fg);border-radius:10px;padding:16px;margin-top:32px}
+.rec h2{margin:0 0 8px;font-size:1.25rem}
+table{border-collapse:collapse;width:100%;font-size:.875rem;margin:12px 0}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.tablewrap{overflow-x:auto}
+@media (min-width:900px){
+  .wrap{padding:32px 32px 80px}
+  h1{font-size:2rem}
+  .meta{grid-template-columns:1.2fr 1fr}
+  .shots{grid-template-columns:300px minmax(0,1fr);align-items:start}
+  .fit{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>english-coach D1 風格方向比較（第 1 輪，最多 2 輪）</h1>
+  <p class="lead">依 D0 決定：活潑一點、有遊戲化鼓勵，但不做 Duolingo 翻版、不用 emoji 圖示。三個方向用同一組畫面比較：<b>手機＝今天的課表首頁</b>、<b>電腦＝晚上口說診斷（AC-15 左右對照）</b>。全部是假資料的靜態原型，不連後端。可以混搭，例如「B 的集章＋C 的逐句對照」。</p>
+  <ul class="jump"><li><a href="#a">A 三圈賽道</a></li><li><a href="#b">B 集章冊</a></li><li><a href="#c">C 螢光筆草稿</a></li><li><a href="#rec">Designer 的推薦</a></li></ul>
+
+  <section class="dir" id="a" aria-labelledby="a-h">
+    <h2 id="a-h">A　三圈賽道</h2>
+    <p class="star">北極星：每天三圈，像運動手錶一樣把英文練習「跑完」。</p>
+    <ul class="kw"><li>有勁</li><li>計分板</li><li>一眼看到進度</li></ul>
+    <div class="meta">
+      <div><h3>配色</h3><ul class="sw"><li><i style="background:#2B44D6"></i>#2B44D6 鈷藍</li><li><i style="background:#FFE14D"></i>#FFE14D 檸檬黃</li><li><i style="background:#0E1A4F"></i>#0E1A4F 深藍（字）</li><li><i style="background:#EEF1FA"></i>#EEF1FA 雲灰底</li><li><i style="background:#8FA3FF"></i>#8FA3FF 天藍</li><li><i style="background:#B42318"></i>#B42318 文法標記</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>數字、連續天數、計分：Barlow Condensed 600／800（窄體，OFL，原型內附檔）</li><li>介面與英文內容：Noto Sans TC（Android 系統字）</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="a-track/index.html"><img src="shots/a-mobile-360.png" width="360" height="800" alt="A 方向手機首頁截圖：深藍計分板上三個進度圈與連續 23 天"></a><figcaption>手機 360｜今天（<a href="shots/a-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="a-track/diagnosis.html"><img src="shots/a-desktop-1280.png" width="1280" height="800" alt="A 方向電腦版晚上診斷截圖：上方計分板三個數字，下方左右兩欄對照"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/a-home-desktop-1280.png">電腦首頁</a>、<a href="shots/a-diagnosis-mobile-360-full.png">手機診斷：切換</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="a-track/index.html">打開 A 首頁</a><a href="a-track/diagnosis.html">打開 A 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>遊戲化最直接：三段＝三圈，關圈的成就感很強，手機一眼看懂。</li><li>計分板式的數字（停頓、贅詞、字速）很有「練習數據」的感覺，符合工程師。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>三個同心圈和 Apple 健身「圓圈」很像，有撞臉風險，D2 要改成自己的圖形（例如跑道三條線道）。</li><li>需要一個新字型（Barlow Condensed），要 Architect 決定。</li><li>診斷是兩段整段文字，逐句對應要自己找。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>同類／遊戲化：Apple「Close Your Rings」三圈與里程碑 <a href="https://www.apple.com/watch/close-your-rings/">apple.com/watch/close-your-rings</a></li>
+      <li>習慣打卡：Streaks（Apple Design Award）大字窄體＋圈狀進度 <a href="https://streaksapp.com/">streaksapp.com</a></li>
+      <li>運動紀錄：Strava <a href="https://www.strava.com/">strava.com</a>、Nike Run Club <a href="https://www.nike.com/nrc-app">nike.com/nrc-app</a></li>
+      <li>字型：Barlow Condensed <a href="https://fonts.google.com/specimen/Barlow+Condensed">fonts.google.com/specimen/Barlow+Condensed</a></li>
+    </ul></div>
+  </section>
+
+  <section class="dir" id="b" aria-labelledby="b-h">
+    <h2 id="b-h">B　集章冊</h2>
+    <p class="star">北極星：每做完一段就蓋一個章，看著自己的集章冊一天天蓋滿。</p>
+    <ul class="kw"><li>好玩</li><li>手作印刷感</li><li>收集</li></ul>
+    <div class="meta">
+      <div><h3>配色（取自 Riso 油墨色）</h3><ul class="sw"><li><i style="background:#FF48B0"></i>#FF48B0 螢光粉</li><li><i style="background:#00838A"></i>#00838A 藍綠</li><li><i style="background:#00666B"></i>#00666B 深藍綠（字）</li><li><i style="background:#B8166F"></i>#B8166F 深粉（字）</li><li><i style="background:#000000"></i>#000000 黑</li><li><i style="background:#FFFFFF"></i>#FFFFFF 白紙</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>全部用系統字：Noto Sans TC 粗體當標題與章面，一般字重當內文；英文跟著系統字（Android 為 Roboto）</li><li>不需要新字型</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="b-stamp/index.html"><img src="shots/b-mobile-360.png" width="360" height="800" alt="B 方向手機首頁截圖：本週集章格，早中晚三種印章，下方是今晚的票券"></a><figcaption>手機 360｜今天（<a href="shots/b-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="b-stamp/diagnosis.html"><img src="shots/b-desktop-1280.png" width="1280" height="800" alt="B 方向電腦版晚上診斷截圖：三個印章數字，左右兩張錯位印刷感的紙"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/b-home-desktop-1280.png">電腦首頁</a>、<a href="shots/b-diagnosis-mobile-360-full.png">手機診斷：分頁切換</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="b-stamp/index.html">打開 B 首頁</a><a href="b-stamp/diagnosis.html">打開 B 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>「蓋章」剛好對應 PRD 的早中晚三格打卡（AC-21），完成回饋（蓋章動畫）自然又不幼稚。</li><li>最不像 Duolingo，也不像一般 AI 模板；不用新字型、不用新依賴。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>粗黑框與錯位色塊很有個性，每天看 80 分鐘可能偏吵；D2 要把診斷這類閱讀頁收安靜一點。</li><li>螢光粉只能當圖形，不能當字色（對比 3.09:1）。</li><li>Android 上 Noto Sans TC 有沒有最粗字重「不確定」，沒有時會退成粗體（本截圖就是粗體）。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>跨領域：日本車站紀念章（駅スタンプ）的集章文化 <a href="https://en.wikipedia.org/wiki/Eki_stamp">en.wikipedia.org/wiki/Eki_stamp</a></li>
+      <li>Riso 油墨色與疊印 <a href="https://www.stencil.wiki/wiki/Category:Riso_inks">stencil.wiki Riso inks</a>、<a href="https://en.wikipedia.org/wiki/Risograph">en.wikipedia.org/wiki/Risograph</a></li>
+      <li>同類／溫和遊戲化：Gentler Streak（Apple Design Award）<a href="https://gentler.app/">gentler.app</a></li>
+      <li>設計獎：Apple Design Awards「Delight and Fun」手繪、玩心的介面 <a href="https://developer.apple.com/design/awards/">developer.apple.com/design/awards</a></li>
+    </ul></div>
+  </section>
+
+  <section class="dir" id="c" aria-labelledby="c-h">
+    <h2 id="c-h">C　螢光筆草稿</h2>
+    <p class="star">北極星：把英文當成一份越改越好的稿子，用螢光筆畫出今天又進步的地方。</p>
+    <ul class="kw"><li>好讀</li><li>手寫筆記感</li><li>一句一句進步</li></ul>
+    <div class="meta">
+      <div><h3>配色</h3><ul class="sw"><li><i style="background:#0F3B2E"></i>#0F3B2E 墨綠（字）</li><li><i style="background:#1F7A50"></i>#1F7A50 翠綠（按鈕）</li><li><i style="background:#A9EBCB"></i>#A9EBCB 薄荷螢光</li><li><i style="background:#FFC09F"></i>#FFC09F 蜜桃螢光</li><li><i style="background:#DCCBFF"></i>#DCCBFF 淡紫螢光</li><li><i style="background:#BDE3FF"></i>#BDE3FF 天藍螢光</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>英文內容（新聞、逐字稿、語塊）：Literata 400／600／Italic（襯線閱讀字，OFL，原型內附檔）</li><li>介面中文：Noto Sans TC（系統字）</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="c-marker/index.html"><img src="shots/c-mobile-360.png" width="360" height="800" alt="C 方向手機首頁截圖：大字英文句子用螢光筆畫出 traced it to，下面是劃記的連續天數與課表"></a><figcaption>手機 360｜今天（<a href="shots/c-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="c-marker/diagnosis.html"><img src="shots/c-desktop-1280.png" width="1280" height="800" alt="C 方向電腦版晚上診斷截圖：逐句左右對照，右側欄是數字與升級語塊勾選"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/c-home-desktop-1280.png">電腦首頁</a>、<a href="shots/c-diagnosis-mobile-360-full.png">手機診斷：逐句上下分段</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="c-marker/index.html">打開 C 首頁</a><a href="c-marker/diagnosis.html">打開 C 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>診斷最好讀：逐句對齊（像程式碼 diff 的左右對照），手機用逐句上下分段，最符合 AC-15。</li><li>長時間閱讀不累，英文內容用閱讀字型。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>遊戲化比較含蓄（劃記、螢光筆、里程碑小註記），可能不夠「活潑」。</li><li>需要一個新字型（Literata），要 Architect 決定。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>寫作標註：Hemingway Editor 用不同顏色標出難句、贅字、簡單字 <a href="https://hemingwayapp.com/">hemingwayapp.com</a></li>
+      <li>左右對照：GitHub 比較分支的 split diff <a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests">docs.github.com（about comparing branches）</a></li>
+      <li>閱讀與畫重點：Readwise Reader <a href="https://readwise.io/read">readwise.io/read</a></li>
+      <li>同類（英文口說）：Speak <a href="https://www.speak.com/">speak.com</a>、ELSA Speak <a href="https://elsaspeak.com/en/">elsaspeak.com</a></li>
+      <li>字型：Literata <a href="https://fonts.google.com/specimen/Literata">fonts.google.com/specimen/Literata</a></li>
+    </ul></div>
+  </section>
+
+  <section class="rec" id="rec" aria-labelledby="rec-h">
+    <h2 id="rec-h">Designer 的推薦：B 集章冊，診斷頁借用 C 的逐句對照</h2>
+    <p>理由：B 最符合「活潑、有遊戲化鼓勵」，而且鼓勵方式（蓋章）直接對應 PRD 早中晚三段打卡，不用新增徽章或點數功能；它同時離 Duolingo 和 Apple 健身圈最遠，也不用新字型。B 唯一的弱點是閱讀頁偏吵，所以晚上診斷建議改用 C 的逐句對照版面（保留 B 的配色與印章數字），電腦左右逐句、手機逐句上下分段。</p>
+    <p>如果你更想要「一眼看進度、運動感」，選 A；如果診斷好讀比活潑更重要，選 C。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>比較</th><th>A 三圈賽道</th><th>B 集章冊</th><th>C 螢光筆草稿</th></tr></thead>
+      <tbody>
+        <tr><td>版面</td><td>計分板＋底部分頁列；電腦上方計分板、兩欄</td><td>集章格＋票券；電腦上方導覽、錯位紙張</td><td>文件式清單＋下方「下一步」列；電腦左側圖示列＋右側欄</td></tr>
+        <tr><td>字體</td><td>窄體數字＋系統黑體</td><td>只用系統黑體（粗細對比）</td><td>襯線英文＋系統黑體</td></tr>
+        <tr><td>色彩</td><td>鈷藍＋檸檬黃</td><td>螢光粉＋藍綠＋黑</td><td>墨綠＋四色螢光</td></tr>
+        <tr><td>主視覺</td><td>三個進度圈</td><td>印章</td><td>螢光筆筆觸＋劃記</td></tr>
+        <tr><td>新字型依賴</td><td>要（Barlow Condensed）</td><td>不用</td><td>要（Literata）</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:.875rem;color:#555">請在手機和電腦上都點開看看，再回覆選哪一個（可以混搭），也可以說具體喜歡或不喜歡哪裡。</p>
+  </section>
+</div>
+</body>
+</html>
