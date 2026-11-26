@@ -51,6 +51,14 @@ export const CardScheduleSchema = z.discriminatedUnion('state', [
 ]);
 export type CardSchedule = z.infer<typeof CardScheduleSchema>;
 
+const CHUNK_WORD = /^[A-Za-z'-]+$/;
+const HAS_LETTER = /[A-Za-z]/;
+
+/** ARCHITECTURE §4.7 chunk 文字格式：單一空白分隔的 1 個以上的字；每字只含英文字母、`'`、`-`，且至少 1 個字母。 */
+export const ChunkTextSchema: z.ZodType<string> = z
+  .string()
+  .refine((s) => s.split(' ').every((w) => CHUNK_WORD.test(w) && HAS_LETTER.test(w)), { message: 'chunk text format' });
+
 /** POST /reviews 的請求（T-032 使用）。 */
 export const ReviewRequestSchema = z.object({ cardId: CardIdSchema, mode: ReviewModeSchema, rating: ReviewRatingSchema });
 export type ReviewRequest = z.infer<typeof ReviewRequestSchema>;
