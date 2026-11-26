@@ -109,7 +109,7 @@ run_case "(AC-O21-2) (TC-2) TechLead Review as a review comment -> failure, exit
 for title in "[G1] AC-15 x" "[G2] arch" "[D2] design system" "docs: O-021 任務單"; do
   setup "$title" "$TL" "" ""
   touch "$M/issue.fail" "$M/reviews.fail" "$M/review_comments.fail"
-  run_case "(AC-O21-1) (TC-1) (TC-8) non-G3 '$title' writes success; comments not read" 0 "$SKIP_REC"
+  run_case "(AC-O21-1) (TC-1) (AC-O21-5) (TC-8) non-G3 '$title' writes success; comments not read" 0 "$SKIP_REC"
 done
 
 # --- AC-O21-3 / TC-3: non-G3 then [G3] on the same SHA ---
