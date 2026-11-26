@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>R2-A 分組｜晚上口說診斷</title>
+<style>
+:root{
+  --bg:#F2F3F7; --surface:#FFFFFF; --fill:#E9EBF0; --label:#000000; --label-2:#595F6B; --label-3:#666C78;
+  --sep:rgba(60,64,80,.16); --accent:#2F5BEA; --accent-soft:#E6ECFD; --on-accent:#FFFFFF; --good:#1E8450;
+  --bar:rgba(246,247,250,.78);
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#000000; --surface:#1C1D21; --fill:#2C2D33; --label:#FFFFFF; --label-2:#A3A8B4; --label-3:#9298A5;
+  --sep:rgba(255,255,255,.12); --accent:#7B97FF; --accent-soft:#232B49; --on-accent:#0A1440; --good:#4FCB86;
+  --bar:rgba(22,23,26,.78);
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--label);line-height:1.45;-webkit-font-smoothing:antialiased}
+button,a,label{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{text-decoration:none}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:10px}
+svg{display:block}
+.tabs{display:none}
+.app{padding:0 16px 40px;max-width:1360px;margin:0 auto}
+.bar{position:sticky;top:0;z-index:10;display:flex;align-items:center;min-height:52px;margin:0 -16px;padding:0 8px;background:var(--bar);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-bottom:.5px solid var(--sep)}
+.back{display:flex;align-items:center;gap:2px;min-height:48px;padding:0 8px;color:var(--accent);font-size:1.0625rem;border-radius:10px}
+.back:hover{background:var(--accent-soft)}
+.bar .ttl{position:absolute;left:50%;transform:translateX(-50%);font-weight:600;font-size:1.0625rem}
+h1{font-size:1.75rem;line-height:1.15;letter-spacing:-.02em;margin:18px 0 4px}
+.q{margin:0 0 16px;color:var(--label-2);font-size:1rem}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);background:var(--surface);border-radius:var(--r);margin-bottom:18px}
+.stats div{padding:12px 14px;position:relative}
+.stats div+div::before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:1px;background:var(--sep)}
+.stats b{display:block;font-size:1.75rem;font-weight:300;letter-spacing:-.02em;line-height:1.1;font-variant-numeric:tabular-nums}
+.stats span{display:block;font-size:.8125rem;color:var(--label-2)}
+.stats em{font-style:normal;font-size:.75rem;color:var(--good);font-weight:600}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;list-style:none;margin:0 4px 10px;padding:0;font-size:.8125rem;color:var(--label-2)}
+.legend li{display:flex;align-items:center;gap:6px}
+.m-g{text-decoration:underline wavy #D23B2D;text-decoration-thickness:1.5px;text-underline-offset:4px}
+.m-f{color:var(--label-3);text-decoration:line-through;text-decoration-color:var(--label-3)}
+.m-p{background:color-mix(in srgb,#F5B700 26%,transparent);border-radius:4px;padding:0 3px}
+.pz{font-size:.75rem;font-weight:600;color:var(--label-2);background:var(--fill);border-radius:6px;padding:1px 6px;white-space:nowrap;vertical-align:1px}
+.up{color:var(--accent);font-weight:600}
+@media (prefers-color-scheme:dark){.m-g{text-decoration-color:#FF6B5E} .m-p{background:color-mix(in srgb,#F5B700 30%,transparent)}}
+.list{background:var(--surface);border-radius:var(--r);overflow:hidden}
+.colh{display:none}
+.srow{display:grid;grid-template-columns:22px 1fr;column-gap:10px;padding:14px 16px;position:relative}
+.srow+.srow::before{content:"";position:absolute;top:0;left:48px;right:0;height:1px;background:var(--sep)}
+.no{grid-row:1/3;font-size:.8125rem;color:var(--label-3);font-variant-numeric:tabular-nums;padding-top:3px}
+.srow p{margin:0;font-size:1.0625rem;line-height:1.6;overflow-wrap:anywhere}
+.srow p.s{margin-top:8px}
+.tg{display:block;font-size:.75rem;font-weight:600;color:var(--label-2);margin-bottom:1px}
+.insp .gh{font-size:.8125rem;color:var(--label-2);margin:22px 16px 7px;font-weight:500}
+.insp .gf{font-size:.8125rem;color:var(--label-2);margin:7px 16px 0}
+.crow{display:flex;align-items:center;gap:12px;min-height:52px;padding:0 16px;position:relative;cursor:pointer}
+.crow+.crow::before{content:"";position:absolute;top:0;left:52px;right:0;height:1px;background:var(--sep)}
+.crow input{position:absolute;opacity:0}
+.box{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--label-3);display:grid;place-items:center;color:transparent;flex:none}
+.crow input:checked+.box{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.crow input:focus-visible+.box{outline:2px solid var(--accent);outline-offset:3px}
+.crow:hover{background:color-mix(in srgb,var(--fill) 55%,transparent)}
+.ct{flex:1;font-size:1rem}
+kbd{display:none;font-family:inherit;font-size:.75rem;color:var(--label-2);border:1px solid var(--sep);border-radius:5px;padding:0 6px;background:var(--bg)}
+.primary{margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:50px;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:1.0625rem;cursor:pointer}
+.primary:hover{filter:brightness(1.06)}
+.primary:active{transform:scale(.98)}
+.hint{display:none}
+@media (min-width:900px){
+  .shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:100vh}
+  .tabs{display:flex;flex-direction:column;gap:2px;padding:24px 12px;border-right:.5px solid var(--sep);background:color-mix(in srgb,var(--surface) 55%,var(--bg));position:sticky;top:0;height:100vh}
+  .tabs a{display:flex;align-items:center;gap:10px;min-height:40px;padding:0 12px;border-radius:10px;font-size:.9375rem;color:var(--label-2)}
+  .tabs a:hover{background:var(--fill);color:var(--label)}
+  .tabs a[aria-current]{background:var(--surface);color:var(--label);font-weight:600}
+  .tabs a[aria-current] svg{color:var(--accent)}
+  .app{padding:0 32px 48px;display:grid;grid-template-columns:minmax(0,1fr) 320px;column-gap:28px;align-items:start;max-width:1280px;margin:0}
+  .bar{grid-column:1/-1;margin:0 -32px;padding:0 24px}
+  .bar .ttl{position:static;transform:none;margin-left:8px}
+  .head{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-end;gap:32px}
+  .head .stats{display:none}
+  h1{font-size:2.125rem;margin-top:24px}
+  .colh{display:grid;grid-template-columns:26px 1fr 1fr;column-gap:28px;font-size:.8125rem;color:var(--label-2);font-weight:500;padding:0 16px 7px}
+  .srow{grid-template-columns:26px 1fr 1fr;column-gap:28px;padding:16px}
+  .srow+.srow::before{left:16px}
+  .no{grid-row:auto}
+  .tg{display:none}
+  .srow p.s{margin-top:0}
+  .srow:hover,.srow:focus-visible{background:color-mix(in srgb,var(--accent-soft) 70%,transparent)}
+  .srow:focus-visible{outline-offset:-2px}
+  .insp{position:sticky;top:68px}
+  .insp>.gh:first-child{margin-top:0}
+  kbd{display:inline-block}
+  .hint{display:block;font-size:.8125rem;color:var(--label-2);margin:10px 4px 0}
+}
+@media (max-width:899px){.desk-only{display:none}}
+@media (prefers-reduced-motion:no-preference){.primary{transition:transform 120ms,filter 120ms} .srow,.crow{transition:background 150ms}}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="tabs" aria-label="主要導覽">
+    <a href="index.html" aria-current="page"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="3.5"/><path d="M3.5 9.5h17M8 2.75v3.5M16 2.75v3.5"/><circle cx="12" cy="15" r="1.6" fill="currentColor" stroke="none"/></svg>今天</a>
+    <a href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6.5" width="13" height="14" rx="3"/><path d="M8 3.5h9.5a3 3 0 0 1 3 3V16"/></svg>字卡</a>
+    <a href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5h16M6.5 16v-4M11 16V7M15.5 16v-6M20 16V4.5"/></svg>紀錄</a>
+    <a href="#"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.25"/><circle cx="8" cy="17" r="2.25"/></svg>設定</a>
+  </nav>
+  <div class="app">
+    <header class="bar"><a class="back" href="index.html"><svg width="12" height="20" viewBox="0 0 12 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2L2 10l8 8"/></svg>今天</a><span class="ttl">晚上｜第 2 步，共 3 步</span></header>
+    <div class="head">
+      <div><h1>這次回答的診斷</h1><p class="q" lang="en">Tell me about a time you debugged a production issue under pressure.</p></div>
+      <div class="stats">
+        <div><b>4</b><span>停頓 &gt;2 秒</span><em>上週 6</em></div>
+        <div><b>9</b><span>贅詞</span><em>上週 13</em></div>
+        <div><b>96</b><span>每分鐘字數</span><em>上週 88</em></div>
+      </div>
+    </div>
+    <main>
+      <ul class="legend" aria-label="標記說明">
+        <li><span class="m-g">have</span>文法錯誤</li>
+        <li><span class="m-f">um</span>卡頓、贅詞</li>
+        <li><span class="m-p">very bad</span>太口語或不精確</li>
+      </ul>
+      <div class="colh" aria-hidden="true"><span></span><span>你的回答（2 分 41 秒）</span><span>Senior 版，照你的故事順序</span></div>
+      <div class="list">
+        <div class="srow" tabindex="0" aria-label="第 1 句">
+          <span class="no">1</span>
+          <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">Um, so</span> last year our wafer handler, <span class="m-f">uh,</span> <span class="m-g" title="have → had">have</span> a problem that it <span class="m-g" title="stop → stopped">stop</span> randomly.</p>
+          <p class="s" lang="en"><span class="tg">Senior 版</span>Last year, one of our wafer handlers started halting at random,</p>
+        </div>
+        <div class="srow" tabindex="0" aria-label="第 2 句">
+          <span class="no">2</span>
+          <p class="o" lang="en"><span class="tg">你的回答</span>I think it's <span class="m-p" title="可換成 took the line down">very bad</span> because the line is down.</p>
+          <p class="s" lang="en"><span class="tg">Senior 版</span>which <span class="up">took the line down</span>.</p>
+        </div>
+        <div class="srow" tabindex="0" aria-label="第 3 句">
+          <span class="no">3</span>
+          <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">So</span> I <span class="m-g" title="check → checked">check</span> the log and <span class="pz">停 3.4 秒</span> I <span class="m-g" title="find → found">find</span> the timing is <span class="m-p" title="可換成 a race condition">not good</span> between two <span class="m-g" title="thread → threads">thread</span>.</p>
+          <p class="s" lang="en"><span class="tg">Senior 版</span>I <span class="up">dug into</span> the controller logs and <span class="up">traced it to</span> <span class="up">a race condition</span> between two threads.</p>
+        </div>
+        <div class="srow" tabindex="0" aria-label="第 4 句">
+          <span class="no">4</span>
+          <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">You know,</span> then I <span class="m-p" title="可換成 fixed the synchronization">fix it</span> and <span class="m-p" title="可換成 made it more reliable">make it more good</span>.</p>
+          <p class="s" lang="en"><span class="tg">Senior 版</span>I fixed the synchronization and added a regression test,</p>
+        </div>
+        <div class="srow" tabindex="0" aria-label="第 5 句">
+          <span class="no">5</span>
+          <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">Um,</span> after that <span class="pz">停 2.6 秒</span> it is okay.</p>
+          <p class="s" lang="en"><span class="tg">Senior 版</span>and we <span class="up">haven't seen it since</span>.</p>
+        </div>
+      </div>
+    </main>
+    <aside class="insp" aria-label="數字與升級語塊">
+      <div class="desk-only"><h2 class="gh" style="margin-top:0">這次的數字</h2>
+      <div class="stats">
+        <div><b>4</b><span>停頓</span><em>上週 6</em></div>
+        <div><b>9</b><span>贅詞</span><em>上週 13</em></div>
+        <div><b>96</b><span>字／分</span><em>上週 88</em></div>
+      </div></div>
+      <h2 class="gh">升級語塊</h2>
+      <form class="list" onsubmit="return false" id="f">
+        <label class="crow"><input type="checkbox" data-chunk checked><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ct" lang="en">took the line down</span><kbd>1</kbd></label>
+        <label class="crow"><input type="checkbox" data-chunk checked><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ct" lang="en">dug into</span><kbd>2</kbd></label>
+        <label class="crow"><input type="checkbox" data-chunk checked><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ct" lang="en">traced it to</span><kbd>3</kbd></label>
+        <label class="crow"><input type="checkbox" data-chunk><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ct" lang="en">a race condition</span><kbd>4</kbd></label>
+        <label class="crow"><input type="checkbox" data-chunk><span class="box"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="ct" lang="en">haven't seen it since</span><kbd>5</kbd></label>
+      </form>
+      <p class="gf">勾選的語塊會在明天中午變成新卡。</p>
+      <button class="primary" type="submit" form="f">加入明天的新卡（<span id="n">3</span>）</button>
+      <p class="hint">按 1～5 勾選，Enter 確認；滑過或 Tab 到一句，會一起標亮左右兩欄</p>
+    </aside>
+  </div>
+</div>
+<script>
+const boxes=[...document.querySelectorAll('[data-chunk]')];const n=document.getElementById('n');
+const upd=()=>n.textContent=boxes.filter(b=>b.checked).length;boxes.forEach(b=>b.addEventListener('change',upd));
+addEventListener('keydown',e=>{if(e.target.matches('input[type=text],textarea'))return;const i=+e.key;if(i>=1&&i<=boxes.length){boxes[i-1].checked=!boxes[i-1].checked;upd();}});
+</script>
+</body>
+</html>

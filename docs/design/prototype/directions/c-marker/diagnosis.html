@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FFFFFF">
+<title>C 螢光筆草稿｜晚上口說診斷</title>
+<style>
+@font-face{font-family:"Draft Serif";src:url(fonts/literata-400-normal.woff2) format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Draft Serif";src:url(fonts/literata-400-italic.woff2) format("woff2");font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:"Draft Serif";src:url(fonts/literata-600-normal.woff2) format("woff2");font-weight:600;font-display:swap}
+:root{
+  --ink:#0F3B2E; --ink-2:#3F5F55; --emerald:#1F7A50; --emerald-d:#17603F;
+  --paper:#FFFFFF; --mist:#EEF3EF; --rule:#CFDCD4;
+  --mint:#A9EBCB; --peach:#FFC09F; --lilac:#DCCBFF; --sky:#BDE3FF;
+  --ui:"Noto Sans TC","Noto Sans CJK TC","PingFang TC",system-ui,sans-serif;
+  --en:"Draft Serif",Georgia,"Noto Serif",serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--ui);color:var(--ink);background:var(--paper);line-height:1.55}
+button,a{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{text-decoration:none}
+:focus-visible{outline:3px solid var(--emerald);outline-offset:3px;border-radius:4px}
+svg{display:block}
+.en{font-family:var(--en)}
+/* highlighter stroke */
+.hl{background:linear-gradient(100deg,transparent 0 .2em,var(--c,var(--mint)) .3em calc(100% - .3em),transparent calc(100% - .15em));padding:0 .25em;margin:0 -.1em;border-radius:.3em .5em .4em .6em;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+
+.rail{display:none}
+.top{display:flex;align-items:center;gap:4px;min-height:56px;padding:0 16px 0 4px;border-bottom:1px solid var(--rule)}
+.back{width:48px;height:48px;display:grid;place-items:center;border-radius:50%}
+.back:hover{background:var(--mist)}
+.top .t{font-size:.875rem;color:var(--ink-2)}
+.top .t b{color:var(--ink);font-size:1rem;margin-right:8px}
+.wrap{padding:18px 16px 40px}
+h1{font-size:1.5rem;margin:0 0 4px;line-height:1.3}
+.qq{font-family:var(--en);font-style:italic;font-size:1.0625rem;margin:0 0 14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin-bottom:14px}
+.stats div{padding:10px 0}
+.stats div+div{padding-left:12px;border-left:1px solid var(--rule)}
+.stats b{display:block;font-family:var(--en);font-weight:600;font-size:1.75rem;line-height:1.1}
+.stats span{font-size:.75rem;color:var(--ink-2);display:block}
+.stats em{font-style:normal;font-size:.75rem;font-weight:700}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;list-style:none;margin:0 0 10px;padding:0;font-size:.8125rem}
+.legend li{display:flex;align-items:center;gap:6px}
+.m-g{background:var(--peach);border-bottom:2px solid #9A3B12;padding:0 2px;border-radius:2px}
+.m-f{background:var(--lilac);text-decoration:line-through;text-decoration-color:var(--ink);padding:0 2px;border-radius:2px}
+.m-p{background:var(--sky);border-bottom:2px dotted var(--ink);padding:0 2px;border-radius:2px}
+.pz{font-family:var(--ui);font-size:.75rem;font-weight:700;background:var(--lilac);border-radius:10px;padding:1px 7px;white-space:nowrap}
+.up{font-weight:600;background:linear-gradient(transparent 55%,var(--mint) 55%);padding:0 1px}
+.colh{display:none}
+.rows{border-top:1px solid var(--ink)}
+.row{display:grid;grid-template-columns:24px 1fr;column-gap:8px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.row:focus-visible{outline-offset:-2px}
+.no{grid-row:1/3;font-family:var(--en);font-size:.875rem;color:var(--ink-2);padding-top:3px}
+.row p{margin:0;font-family:var(--en);font-size:1.0625rem;line-height:1.7;overflow-wrap:anywhere}
+.row p.s{margin-top:6px;padding-left:10px;border-left:3px solid var(--emerald)}
+.tg{display:block;font-family:var(--ui);font-size:.6875rem;font-weight:700;color:var(--ink-2)}
+.side{margin-top:22px}
+.side h2{font-size:1rem;margin:0 0 2px}
+.side p.s{font-size:.8125rem;color:var(--ink-2);margin:0 0 8px}
+.ck{display:flex;align-items:center;gap:12px;min-height:52px;border-bottom:1px solid var(--rule);cursor:pointer}
+.ck input{width:22px;height:22px;accent-color:var(--emerald);margin:0;flex:none}
+.ck span{font-family:var(--en);font-size:1.0625rem}
+.ck:hover span{text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:4px}
+.ck kbd{display:none}
+.go{margin-top:14px;width:100%;min-height:52px;border:0;border-radius:12px;background:var(--emerald);color:#fff;font-weight:700;font-size:1rem;cursor:pointer}
+.go:hover{background:var(--emerald-d)}
+.tip{display:none}
+@media (min-width:900px){
+  .shell{display:grid;grid-template-columns:76px minmax(0,1fr) 320px;min-height:100vh}
+  .rail{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 0;border-right:1px solid var(--rule);position:sticky;top:0;height:100vh}
+  .rail a{width:56px;min-height:56px;display:grid;place-items:center;align-content:center;gap:2px;font-size:.6875rem;color:var(--ink-2);border-radius:12px}
+  .rail a:hover{background:var(--mist);color:var(--ink)}
+  .rail a[aria-current]{background:var(--mist);color:var(--ink);font-weight:700}
+  .top{padding:0 32px 0 24px}
+  .wrap{padding:28px 36px 48px}
+  h1{font-size:1.75rem}
+  .colh{display:grid;grid-template-columns:28px 1fr 1fr;column-gap:28px;font-size:.8125rem;font-weight:700;color:var(--ink-2);padding:0 0 8px}
+  .row{grid-template-columns:28px 1fr 1fr;column-gap:28px;padding:14px 0}
+  .row:hover{background:var(--mist)}
+  .no{grid-row:auto}
+  .tg{display:none}
+  .row p.s{margin-top:0;padding-left:16px}
+  .m-g,.m-f,.m-p{cursor:help}
+  .side{margin:0;border-left:1px solid var(--rule);padding:28px 24px;position:sticky;top:0;height:100vh;overflow:auto}
+  .side .stats{grid-template-columns:1fr;border:0;margin-bottom:24px}
+  .side .stats div{padding:8px 0;border-left:0!important;padding-left:0!important;border-bottom:1px solid var(--rule);display:flex;align-items:baseline;gap:10px}
+  .side .stats b{font-size:2.25rem;min-width:64px}
+  .ck kbd{display:inline-block;margin-left:auto;font-family:var(--ui);font-size:.75rem;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 6px;color:var(--ink-2)}
+  .tip{display:block;font-size:.75rem;color:var(--ink-2);margin:8px 0 0}
+  main .wrap .stats{display:none}
+}
+@media (max-width:899px){ .side .stats{display:none} }
+@media (prefers-reduced-motion:no-preference){ .go,.row{transition:background .15s} }
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="主要導覽">
+    <a href="index.html" aria-current="page"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M8 11h8M8 15h6"/></svg>今天</a>
+    <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 0 1 2 2v12"/></svg>字卡</a>
+    <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 20l6-7 4 4 8-10"/></svg>紀錄</a>
+    <a href="#"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>設定</a>
+  </nav>
+  <main>
+    <header class="top"><a class="back" href="index.html" aria-label="回到今天"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a><span class="t"><b>看診斷</b>晚上第 2 步／共 3 步</span></header>
+    <div class="wrap">
+      <h1>這次回答的診斷</h1>
+      <p class="qq" lang="en">Tell me about a time you debugged a production issue under pressure.</p>
+      <div class="stats">
+        <div><b>4</b><span>停頓 &gt;2 秒</span><em>上週 6</em></div>
+        <div><b>9</b><span>贅詞</span><em>上週 13</em></div>
+        <div><b>96</b><span>每分鐘字數</span><em>上週 88</em></div>
+      </div>
+      <ul class="legend" aria-label="標記說明">
+        <li><span class="m-g">have</span>文法錯誤</li>
+        <li><span class="m-f">um</span>卡頓、贅詞</li>
+        <li><span class="m-p">very bad</span>太口語或不精確</li>
+      </ul>
+      <div class="colh" aria-hidden="true"><span></span><span>你的回答（原逐字稿 2 分 41 秒）</span><span>Senior 版（照你的故事順序）</span></div>
+      <div class="rows">
+      <div class="row" tabindex="0" aria-label="第 1 句">
+        <span class="no">1</span>
+        <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">Um, so</span> last year our wafer handler, <span class="m-f">uh,</span> <span class="m-g" title="have → had">have</span> a problem that it <span class="m-g" title="stop → stopped">stop</span> randomly.</p>
+        <p class="s" lang="en"><span class="tg">Senior 版</span>Last year, one of our wafer handlers started halting at random,</p>
+      </div>
+      <div class="row" tabindex="0" aria-label="第 2 句">
+        <span class="no">2</span>
+        <p class="o" lang="en"><span class="tg">你的回答</span>I think it's <span class="m-p" title="可換成 took the line down">very bad</span> because the line is down.</p>
+        <p class="s" lang="en"><span class="tg">Senior 版</span>which <span class="up">took the line down</span>.</p>
+      </div>
+      <div class="row" tabindex="0" aria-label="第 3 句">
+        <span class="no">3</span>
+        <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">So</span> I <span class="m-g" title="check → checked">check</span> the log and <span class="pz">停 3.4 秒</span> I <span class="m-g" title="find → found">find</span> the timing is <span class="m-p" title="可換成 a race condition">not good</span> between two <span class="m-g" title="thread → threads">thread</span>.</p>
+        <p class="s" lang="en"><span class="tg">Senior 版</span>I <span class="up">dug into</span> the controller logs and <span class="up">traced it to</span> <span class="up">a race condition</span> between two threads.</p>
+      </div>
+      <div class="row" tabindex="0" aria-label="第 4 句">
+        <span class="no">4</span>
+        <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">You know,</span> then I <span class="m-p" title="可換成 fixed the synchronization">fix it</span> and <span class="m-p" title="可換成 made it more reliable">make it more good</span>.</p>
+        <p class="s" lang="en"><span class="tg">Senior 版</span>I fixed the synchronization and added a regression test,</p>
+      </div>
+      <div class="row" tabindex="0" aria-label="第 5 句">
+        <span class="no">5</span>
+        <p class="o" lang="en"><span class="tg">你的回答</span><span class="m-f">Um,</span> after that <span class="pz">停 2.6 秒</span> it is okay.</p>
+        <p class="s" lang="en"><span class="tg">Senior 版</span>and we <span class="up">haven't seen it since</span>.</p>
+      </div>
+      </div>
+    </div>
+  </main>
+  <aside class="side wrap" aria-label="數字與升級語塊">
+    <div class="stats">
+      <div><b>4</b><span>停頓 &gt;2 秒<br><em>上週 6</em></span></div>
+      <div><b>9</b><span>贅詞<br><em>上週 13</em></span></div>
+      <div><b>96</b><span>每分鐘字數<br><em>上週 88</em></span></div>
+    </div>
+    <form onsubmit="return false">
+      <h2>畫下要升級的語塊</h2>
+      <p class="s">勾選的語塊明天中午會變成新卡</p>
+      <label class="ck"><input type="checkbox" checked><span lang="en">took the line down</span><kbd>1</kbd></label>
+      <label class="ck"><input type="checkbox" checked><span lang="en">dug into</span><kbd>2</kbd></label>
+      <label class="ck"><input type="checkbox" checked><span lang="en">traced it to</span><kbd>3</kbd></label>
+      <label class="ck"><input type="checkbox"><span lang="en">a race condition</span><kbd>4</kbd></label>
+      <label class="ck"><input type="checkbox"><span lang="en">haven't seen it since</span><kbd>5</kbd></label>
+      <button class="go" type="submit">加入明天的新卡（<span id="n">3</span>）</button>
+      <p class="tip">按 1～5 勾選，Enter 確認；滑過或用 Tab 移到一句，左右兩欄同一句會一起亮起</p>
+    </form>
+  </aside>
+</div>
+<script>
+const boxes=[...document.querySelectorAll('.ck input')];const n=document.getElementById('n');
+const upd=()=>n.textContent=boxes.filter(b=>b.checked).length;boxes.forEach(b=>b.addEventListener('change',upd));
+addEventListener('keydown',e=>{if(e.target.matches('input,textarea'))return;const i=+e.key;if(i>=1&&i<=boxes.length){boxes[i-1].checked=!boxes[i-1].checked;upd();}});
+</script>
+</body>
+</html>
