@@ -194,7 +194,7 @@ h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em}
 .avatar span{width:34px;height:34px;border-radius:50%;background:var(--color-ink);color:var(--color-bg);display:grid;place-items:center;font-size:.8125rem;font-weight:600}
 .avatar:hover span{box-shadow:0 0 0 3px var(--color-track)}
 /* 流程頁的導覽列（手機：返回＋標題；電腦：同一列＋膠囊導覽） */
-.navbar{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--color-bg) 92%,transparent);border-bottom:1px solid transparent}
+.navbar{position:sticky;top:0;z-index:20;background:var(--color-bg);border-bottom:1px solid transparent}
 .navbar .in{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:4px;max-width:1240px;margin:0 auto;padding:max(4px,env(safe-area-inset-top)) 8px 4px}
 .navbar h1{font-size:.9375rem;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .navbar .side-r{min-width:48px;display:flex;justify-content:flex-end}
@@ -271,6 +271,13 @@ kbd{display:none;font-family:inherit;font-size:.6875rem;font-weight:600;line-hei
 .meter{position:relative;height:6px;border-radius:3px;background:var(--color-track)}
 .meter>i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--color-ink);transform-origin:left}
 .meter>b{position:absolute;right:0;top:-5px;width:2px;height:16px;border-radius:1px;background:var(--color-gold-text)}
+/* M2 目標刻度：Mastered 0～60，刻線在 15（第 4 週）與 60（第 12 週） */
+.m2 .meter>b{right:auto;left:calc(var(--at) * 100% - 2px);background:var(--color-ink-3)}
+.m2 .meter>b.hit{background:var(--color-gold-text)}
+.m2-lab{position:relative;height:34px;margin-top:6px;font-size:.75rem;color:var(--color-ink-2)}
+.m2-lab span{position:absolute;top:0;left:calc(var(--at) * 100%);transform:translateX(-50%);display:grid;justify-items:center;line-height:1.3;white-space:nowrap}
+.m2-lab span[style*="--at:1"]{left:auto;right:0;transform:none;justify-items:end}
+.m2-lab b{font-weight:600;color:var(--color-ink)}
 .hero .meter{background:var(--color-hero-track)} .hero .meter>i{background:var(--color-gold)}
 .spark{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;height:46px;align-items:end}
 .spark span{display:grid;grid-template-rows:1fr auto;height:100%;gap:3px;justify-items:center}
@@ -337,6 +344,21 @@ kbd{display:none;font-family:inherit;font-size:.6875rem;font-weight:600;line-hei
 .sheet .card-h h2{font-size:1.0625rem}
 
 /* ---------- 14. 診斷標記（AC-15：形狀＋顏色，不只靠顏色） ---------- */
+/* 可點的診斷標記：觸控點一下、鍵盤 Enter／Space 開關說明，Esc 關閉；點擊範圍用 ::before 撐到 48×48（與相鄰標記重疊處由字本身優先） */
+:where(button.mk){font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;display:inline;line-height:inherit;text-align:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:3px}
+button.mk{position:relative}
+button.mk::before{content:"";position:absolute;z-index:1;left:50%;top:50%;width:max(100%,48px);height:48px;transform:translate(-50%,-50%)}
+/* 字本身疊在所有擴大範圍之上：相鄰兩行的標記重疊時，看得到的字永遠點到自己 */
+button.mk>.w{position:relative;z-index:2}
+button.mk:focus-visible{outline:2px solid var(--color-gold-text);outline-offset:2px}
+button.mk[aria-expanded="true"]{box-shadow:0 0 0 2px var(--color-gold-text)}
+.mnote{display:flex;align-items:flex-start;gap:8px;margin-top:8px;padding:8px 4px 8px 12px;border-radius:10px;background:var(--color-hero);color:var(--color-on-hero);font-size:.8125rem;line-height:1.45}
+.mnote[hidden]{display:none}
+.mnote .mn-t{flex:1;padding-top:6px}
+.mnote .mn-t b{color:var(--color-gold)}
+.mnote .mn-x{flex:none;width:48px;height:48px;margin:-8px 0;border:0;background:none;color:var(--color-on-hero-2);display:grid;place-items:center;cursor:pointer;border-radius:8px;position:relative}
+.mnote .mn-x::before{content:"";position:absolute;left:0;right:0;top:50%;height:48px;transform:translateY(-50%)}
+.mnote .mn-x:focus-visible{outline:2px solid var(--color-gold);outline-offset:-2px}
 .m-g{text-decoration:underline wavy var(--color-grammar);text-decoration-thickness:1.5px;text-underline-offset:4px}
 .m-f{color:var(--color-ink-2);text-decoration:line-through;text-decoration-color:var(--color-ink-3)}
 .m-p{background:var(--color-gold-soft);border-radius:4px;padding:0 3px}

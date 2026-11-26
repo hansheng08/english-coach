@@ -6,7 +6,7 @@
 | [login.md](login.md) | `login.html` | 登入 → 首頁 |
 | [home.md](home.md) | `index.html` | 首頁今日任務（早／中／晚） |
 | [morning.md](morning.md) | `news.html` → `shadow.html` | 早上閱讀 → 跟讀闖關 |
-| [noon.md](noon.md) | `review.html` → `review-order.html` | 中午複習 |
+| [noon.md](noon.md) | `review.html` → `review-order.html`；`review-short.html` | 中午複習；今天只有 N 張 |
 | [evening.md](evening.md) | `evening.html` → `evening-record.html` → `diagnosis.html` → `retell.html` → `retell-cue.html` → `result.html` | 晚上口說 |
 | [theme.md](theme.md) | 任一頁 `#account`、`system.html` | 主題三段切換 |
 

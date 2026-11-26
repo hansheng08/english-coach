@@ -11,6 +11,9 @@
 <link rel="stylesheet" href="app.css">
 <style>
 .fin-t{font-size:1.75rem;margin:12px 0 16px}
+.ms-v{font-size:2.25rem;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:4px 0 14px}.ms-v small{font-size:.9375rem;font-weight:500;color:var(--color-ink-2);margin-left:4px}
+.up-n{color:var(--color-good)}
+.ms-note{margin-top:12px}
 .gold-n{color:var(--color-gold);font-size:2.75rem;letter-spacing:-.02em}
 .fin-sub{margin-top:14px}
 .rlist .res{display:grid;grid-template-columns:28px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--color-line)}
@@ -41,19 +44,19 @@
 </div></header>
 <main class="page flow result-pg">
   <section class="hero fin" aria-labelledby="fin-h">
-    <div class="eyebrow"><span>今天三段都完成了</span><span>21:34</span></div>
+    <div class="eyebrow"><span>今天三段都打開了</span><span>21:34</span></div>
     <h2 id="fin-h" class="fin-t">連續 <span class="num gold-n">24</span> 天</h2>
     <div class="segs fin-segs" role="img" aria-label="早上、中午、晚上都已打開"><i class="done"></i><i class="done"></i><i class="done"></i></div>
     <div class="seglab" aria-hidden="true"><span class="on">早上</span><span class="on">中午</span><span class="on">晚上</span></div>
-    <p class="sub t-callout fin-sub">中午跳過的「手動新增」不算完成，但三段都有打開，所以 streak 照算。</p>
+    <p class="sub t-callout fin-sub">中午跳過的「手動新增」不算完成；早中晚都有進入第一步，所以 streak 不中斷。</p>
   </section>
   <section class="panel" aria-labelledby="rs-h">
     <div class="panel-h"><h3 id="rs-h">無稿重答：目標語塊</h3><span class="t-callout num"><b>2</b>／3 講出・<b class="gold">+20</b></span></div>
-    <ul class="list rlist"><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">took the line down</span><span class="r-m">有講出</span></div><span class="pts num">+10</span></li><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">dug into</span><span class="r-m">有講出・<b class="gold">升到 Mastered</b></span></div><span class="pts num">+10</span></li><li class="res miss"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span><div><span class="r-t" lang="en">traced it to</span><span class="r-m">這次沒講到，明天中午會再出現</span></div><span class="pts num">—</span></li></ul>
+    <ul class="list rlist"><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">took the line down</span><span class="r-m">有講出</span></div><span class="pts num">+10</span></li><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">dug into</span><span class="r-m">有講出・<b class="gold">升到 Mastered</b></span></div><span class="pts num">+10</span></li><li class="res miss"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span><div><span class="r-t" lang="en">traced it to</span><span class="r-m">這次沒講到，下次再試</span></div><span class="pts num">—</span></li></ul>
     <p class="t-caption muted">分數記入成長曲線。模型：Gemini 2.5 Flash・STT：Groq Whisper</p>
   </section>
   <div class="rail">
-    <div class="milestone" role="status"><span class="mk"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l2.4 5.6 6.1.5-4.6 4 1.4 6-5.3-3.2-5.3 3.2 1.4-6-4.6-4 6.1-.5z"/></svg></span><div><b>Mastered 49</b><p class="t-callout muted">「dug into」講出來了，升到 Mastered。再 1 個就到 50。</p></div></div>
+    <section class="panel ms-pg" aria-labelledby="ms-h"><div class="panel-h"><h3 id="ms-h">Mastered</h3><span class="t-callout up-n"><b class="num">+1</b></span></div><p class="ms-v num">49<small>個</small></p><div class="m2" role="img" aria-label="Mastered 49 個；目標：第 4 週 15 個（已達成）、第 12 週 60 個（還差 11 個）"><div class="meter"><i style="width:81.7%"></i><b style="--at:.25" class="hit"></b><b style="--at:1" class=""></b></div><div class="m2-lab" aria-hidden="true"><span style="--at:.25"><b class="num">15</b>第 4 週</span><span style="--at:1"><b class="num">60</b>第 12 週</span></div></div><p class="t-callout muted ms-note">「dug into」講出來了，升到 Mastered。</p></section>
     <section class="panel">
       <div class="panel-h"><h3>和首答比</h3></div>
       <dl class="cmp2"><div><dt>停頓 &gt;2 秒</dt><dd class="num">4 → <b>1</b></dd></div><div><dt>贅詞</dt><dd class="num">9 → <b>3</b></dd></div><div><dt>每分鐘字數</dt><dd class="num">96 → <b>104</b></dd></div></dl>

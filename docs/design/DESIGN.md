@@ -1,6 +1,7 @@
-# DESIGN：english-coach 設計系統（D2a，v1.0）
+# DESIGN：english-coach 設計系統（D2a，v1.1）
 
-- 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.2、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE §9.1／ADR-014（PR #53，尚未合併）。
+- 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE §9.1／ADR-014（PR #53，9194b83，尚未合併）。
+- v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。字卡／紀錄／設定完整頁屬 D2b（原型以 `later.html` 佔位）。
@@ -8,7 +9,7 @@
 ## 1. 原則
 1. **一次只聚焦一件事**。每個畫面頂部一個深藍「焦點卡」（hero），只放「現在要做的那一步」和一個主按鈕；其餘資訊在下方淺色面板。
 2. **安靜的高級感，不是 AI 樣子**。不用紫色漸層、玻璃擬態、發光、emoji 圖示、吉祥物、彩帶。顏色只有深藍（墨）、一個金色強調、語意綠紅。
-3. **鼓勵要真實、要節制**。只顯示 PRD 有的東西：streak、Mastered 里程碑、三段完成、語塊升級（AC-10/11/16）。數字是主角，不用誇張文案，不用「太棒了！」。
+3. **鼓勵要真實、要節制**。只顯示 PRD 有的東西：streak（AC-21、AC-26）、Mastered 數與 M2 目標刻度（AC-20、AC-21、PRD §3 M2）、目標語塊有沒有講出與加分（AC-18）。數字是主角，不用誇張文案，不用「太棒了！」。
 4. **手機與電腦同樣用心**。手機 360 是單欄＋底部分頁；電腦 1280 是頂部導覽＋主欄＋右側 rail，不是把手機版放大。
 5. **狀態不只靠顏色**。卡片狀態、對錯、診斷標記都用形狀／線型／文字區分，色盲與深色模式下仍可辨識。
 
@@ -70,8 +71,8 @@
 |---|---|---|
 | ec-fill | 進度條、三段進度 | scaleX 0→1 |
 | ec-rise | 7 天長條 | scaleY 0→1 |
-| ec-breathe | 「進行中」圓點 | opacity 1↔.55 |
-| ec-up | 里程碑、結果 | translateY＋opacity |
+| ec-breathe | 「下一步／進行中」圓點 | opacity 1↔.55 |
+| ec-up | 里程碑（待確認，見 §14）、結果 | translateY＋opacity |
 | ec-in | 列表出現 | translateY 4px＋opacity |
 | ec-level | 錄音音量條 | scaleY |
 | ec-ring | 錄音中外環 | ::after scale＋opacity |
@@ -81,20 +82,28 @@
 ## 7. 元件規格（展示：`system.html`）
 - **按鈕**：`.btn`（52px 高，圓角 md）、`.btn-lg`（56px）、`.btn-gold`（焦點卡內主動作）、`.btn-2`（次要，sunken 底）、`.btn-ghost`、`disabled`（ink-3 文字＋說明原因，如「還差 2 個語塊」）。`.icon-btn` 48×48。電腦版按鈕右側可帶 `kbd` 快捷鍵。
 - **焦點卡 `.hero`**：深藍漸層＋右上微弱放射光（::before）；結構＝時段標籤（gold）→ 標題 → 內容 → 進度 → 主按鈕 → 一句鼓勵（on-hero-2）。
-- **步驟狀態 `.dot`**：完成＝綠底勾、進行中＝金環＋呼吸點、未開始＝空心環、已跳過＝虛線環＋略過圖示＋「已跳過，不算完成」文字。
-- **字卡狀態 `.state`**（AC-10）：收集中＝空心、學習中＝¼、複習中＝½、Mastered＝實心＋勾；形狀＋文字，不靠顏色。
-- **進度**：`.segs` 三段（錄音／診斷／跟讀重答）、`.meter`（Mastered 進度＋金色目標刻度）、`.spark` 7 天長條（今天＝外框）、`.pips` 次數點（跟唸 0/2、TTS 3/3）。
+- **步驟狀態 `.dot`**（AC-26）：完成＝綠底白勾、下一步／進行中＝金框＋實心點（呼吸）、未做＝空心圈（可「跳過」）、已跳過＝跳過圖示＋刪除線＋「已跳過」文字。
+- **字卡狀態 `.state`**（AC-19）：名稱照 PRD 用英文 Collected／Learning／Reviewing／Mastered；形狀＝空心圈 → 半滿 → 實心 → 金色菱形；形狀＋文字，不靠顏色。
+- **進度**：`.segs` 三段（錄音／診斷／跟讀重答）、`.m2`（Mastered 累積，量尺 0～60，刻線在 15＝第 4 週、60＝第 12 週，PRD §3 M2；達成的刻線變金色，下方標數字與週次；`aria-label` 讀出是否達成）、`.meter`（一般進度，如複習 8／25）、`.spark` 7 天長條（今天＝外框）、`.pips` 次數點（跟唸 0/2、TTS 3/3）。
 - **清單 `.item`**：左圖示＋主文字＋說明＋右側時間或動作；「跳過」按鈕 ≥48px。
 - **分段控制 `.seg`**：radio 實作，每格 ≥48px 高；用在主題切換、AC-15 手機檢視切換。
 - **底部 sheet `.sheet`**：手機從底部升起（scrim＋把手）；電腦版置中對話框，帳號 sheet 改為右上 popover（`.pop`）。
 - **表單**：`.field` 標籤在上、輸入框 52px、錯誤＝bad 文字＋圖示＋框線，訊息寫原因與下一步。
 - **診斷標記**（AC-15）：文法＝`grammar` 波浪底線、贅詞＝刪除線、太口語＝`gold-soft` 底色、停頓＝`停 3.4 秒` 膠囊、升級語塊＝`up` 粗底線。每種都有圖例；電腦版 hover 顯示說明（`data-tip`）。
+  - **可點的說明（觸控與鍵盤等效）**：文法、贅詞、太口語三種標記是 `<button class="mk">`。點一下（或 Tab 到標記按 Enter／Space）在該句下方開一則說明（`.mnote`，深藍底，例：「have　文法：have → had」），`aria-expanded` 同步；再點同一個、按說明的 ✕（48×48）或按 Esc 關閉，焦點回到標記。一次只開一則。電腦（`hover:hover and pointer:fine`）hover 仍顯示同樣的短提示。
+  - **點擊範圍**：標記用 `::before` 擴大到 48×48（置中）。相鄰兩行的標記擴大範圍會重疊，所以字本身（`.w`）疊在所有擴大範圍之上：看得到的字永遠點到自己，重疊的邊緣由相鄰標記共用（符合 WCAG 2.5.8 的間距規則）。停頓膠囊本身就寫秒數，不做成按鈕。
+  - **沒有 JS 時**：按鈕不會開說明，但圖例仍說明每種標記。
+- **AC-15 手機切換的退回**：切換用 `:has()` 隱藏欄位。瀏覽器不支援 `:has()` 時，`@supports not selector(:has(*))` 把切換列整個藏起來，畫面固定是預設的「逐句對照」（原逐字稿＋Senior 版上下排），所以一定看得到原逐字稿；`:has()` 的隱藏規則在不支援的瀏覽器會整條失效，不會誤藏。
 - **語塊 `.chunk`**：內文中點狀底線，可點開 sheet（意思、例句、播放、跟唸、收錄）。
 
 ## 8. 遊戲化鼓勵的呈現
-- 只用 PRD 功能：streak（連續天數，含 7 天長條）、Mastered 數與 50 目標刻度、三段完成、語塊升級（說到＝勾＋點數、沒說到＝空心＋「下次再試」）、跟讀解鎖（「達標，解鎖下一句」）。
-- 樣式：數字大、文案短、語氣平實（「再完成這段，今天三段就都打開了」）。里程碑用 `.milestone`（金色細框＋ec-up 一次），不放彩帶、不放動畫角色、不放音效。
-- 跳過不懲罰：顯示「已跳過，不算完成；streak 不受影響」（依 PRD 規則；文字由 PM 確認）。
+- 只用 PRD 功能：streak（連續天數，含 7 天長條）、Mastered 數＋M2 刻度（第 4 週 15、第 12 週 60；Hansheng 2026-11-26 19:48 決定，取代舊的單一目標刻度）、目標語塊講出與否（講出＝綠勾＋點數；沒講到＝空心 ✕＋「這次沒講到，下次再試」；不承諾哪天出現，到期日照 AC-09）、跟讀解鎖（「第 4 句解鎖了」）。
+- 樣式：數字大、文案短、語氣平實。里程碑 `.milestone`（金色細框＋ec-up 一次）只在 `system.html` 示範「跨過 M2 刻度時出現一次」，產品要不要做待 Hansheng 確認（§14）；不放彩帶、不放動畫角色、不放音效。
+- **streak 條件文案**（AC-26；Hansheng 19:48 定義「打開時段」＝在該時段內進入該時段的第一步）：
+  - 已跳過的步驟：「已跳過，不算完成；早中晚都有進入第一步，streak 就不中斷」。
+  - 首頁晚上還沒開始時，焦點卡：「按下開始就算進入晚上這段，連續會變成 24 天」（晚上這段顯示「還沒開始」，第一步標「下一步」）。
+  - 結果頁：「今天三段都打開了」（不用「完成」）＋「中午跳過的『手動新增』不算完成；早中晚都有進入第一步，所以 streak 不中斷。」
+  - 「完成」只用在步驟與時段本身（例：早上 2／2 完成），「打開」只用在 streak 條件，兩者不混用。
 
 ## 9. 主題（深色模式）規格，對齊 ADR-014
 - 三個狀態：淺色、深色、跟隨系統（預設）。
@@ -105,7 +114,7 @@
 
 ## 10. 無障礙
 - 對比：所有文字 ≥4.5:1（大字 ≥3:1），淺色、深色都檢查過（token 配對表＋逐頁實際文字檢查，見 PR）。
-- 觸控目標 ≥48×48。例外：英文內文中的語塊連結（24px 高，屬 WCAG 2.5.8 行內例外），同一頁下方語塊清單另有 48px 的入口。
+- 觸控目標 ≥48×48。例外：英文內文中的語塊連結（24px 高，屬 WCAG 2.5.8 行內例外），同一頁下方語塊清單另有 48px 的入口。診斷標記用擴大點擊範圍（§7）。
 - 標記與狀態都用形狀＋文字，不只靠顏色。
 - 圖示一律 inline SVG（`currentColor`），按鈕有文字或 `aria-label`；裝飾圖示 `aria-hidden`。
 - 焦點：`:focus-visible` 2px `gold-text` 外框（焦點卡上改 `gold`）＋2px 位移。
@@ -118,14 +127,14 @@
   - 名稱 `[a-z0-9-]`；字串值＝兩種主題共用；`{ "light": …, "dark": … }`＝分主題。
   - 輸出 `--<group>-<name>`，例如 `--color-ink`、`--space-4`、`--radius-lg`。
 - Designer 的補充規則：
-  1. **`$` 開頭的 key 一律是說明**（目前只有頂層 `$meta`），產生器應略過（ARCH 說「略過未知欄位」；這裡請 Architect 確認 `$meta` 屬於可略過，不會被當成群組報錯）。
+  1. **`$` 開頭的 key 一律是說明**（目前只有頂層 `$meta`），產生器略過（Architect 已在 PR #53 9194b83 確認：`$` 開頭的 key 略過，#54 的 token 形狀完全相符）。
   2. 不新增群組，子類別寫進名稱：字級 `font-size-*`、字重 `font-weight-*`、行高 `font-leading-*`；版面尺寸放 `space`（`space-tap-min`、`space-content-max`、`space-rail`、`space-read-max`、`space-gutter-*`）；時長與曲線 `motion-duration-*`、`motion-ease-*`。
   3. `color-theme-bar` 給 theme-color meta 用（manifest `theme_color` 照 ADR-014 用淺色 `--color-hero`）。
   4. 斷點、z-index 不進 tokens（不能當 media query 變數），寫在本文件。
   5. 元件內部的臨時變數（如 `--h`、`--l`、`--d`，長條高度與延遲）不是 token，不受 css-literals 限制以外的規則影響。
 - 目前 82 個 token，其中 29 個有深色值。
 
-## 12. 字型堆疊與 Segoe UI（U-5 建議：加入，放在 Roboto 之後、中文字型之前）
+## 12. 字型堆疊與 Segoe UI（U-5：已加入，放在 Roboto 之後、中文字型之前；tokens.json `font-sans`、`app.css` 由 token 產生）
 - **拉丁／中文退回順序**：瀏覽器逐字找字型。拉丁字母在 Mac/iOS 用 SF（`-apple-system`／`BlinkMacSystemFont`）、Android 用 Roboto、Windows 用 Segoe UI；中文字落到後面的 Noto Sans TC／Noto Sans CJK TC（Android）、PingFang TC（Apple）、Microsoft JhengHei（Windows）。不加 Segoe UI 時，Windows 的英文會改用 Microsoft JhengHei 內附的拉丁字，字距與數字形狀較差，和其他平台差很多。
 - **字重**：Segoe UI 有 Light 300／Semilight／Regular／Semibold 600／Bold，正好對應本系統用到的 300/400/600；Microsoft JhengHei 只有 Light／Regular／Bold，中文 600 會用 Bold 顯示（略重，可接受）。
 - **Windows 太細的疑慮**：之前擔心的是「中文細字在 Windows 上發虛」。R2-C 的中文只用 400／600，300 只用在拉丁數字（計時），而 Segoe UI Light 在 ClearType 下清楚，所以疑慮基本消失。
@@ -135,13 +144,14 @@
 ## 13. 原型與檔案
 - `prototype/screens/index.html` 首頁；其他畫面與流程連結見 `screens/README.md`。直接用瀏覽器開檔即可，不需伺服器、不連外。
 - `app.css` 的 token 區塊由 tokens.json 產生（Designer 本機產生器，不進 repo）；其餘 CSS 引用 token，不寫死顏色（頁面內只有長條高度等元件變數）。
-- inline JS（不確定，交 Architect）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。無函式庫、無網路請求。產品端由 Architect／TechLead 依 ADR-014 實作，不照抄原型 JS。
+- inline JS（不確定，交 Architect）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。無函式庫、無網路請求。產品端由 Architect／TechLead 依 ADR-014 實作，不照抄原型 JS。
 
 ## 14. 不確定（待確認）
 1. 原型 inline JS（§13）是否符合產品端寫法 → Architect。
 2. 主題偏好只存在這台裝置（ADR-014 localStorage）；是否要跨裝置同步 → PR #53「需要 Hansheng 確認」中。
 3. Windows 字型呈現未真機驗證（§12）。
-4. AC-15 手機切換用 CSS `:has()`（Android Chrome 105+ 支援）；產品可改用狀態切換。
-5. 診斷標記的 hover 說明在鍵盤／觸控上沒有等效入口（圖例已說明每種標記）；產品是否要點擊顯示 → D2b／TechLead。
-6. 「已跳過，不算完成；streak 不受影響」等鼓勵文案需 PM 對 PRD 規則確認。
+4. 「在該時段內進入第一步」的時段邊界（例如晚上時段到幾點結束、跨午夜怎麼算）→ Architect 落實 streak 計算時定義；文案目前不寫時間邊界。
+5. 「跨過 M2 刻度（15、60）時出現一次」的里程碑提示要不要做（只在 `system.html` 示範，畫面上沒用）→ Hansheng。
+6. 「今天只有 N 張」頁的說明文案與組成（舊卡／新卡／種子庫剩餘）→ PM 確認。
 7. D2b 畫面（字卡清單／搜尋、紀錄、設定、錯誤與額度用完狀態）尚未設計。
+8. 診斷標記點擊範圍：相鄰標記重疊處共用邊緣（字本身一定點得到），若 QA 要求每個標記都有完整不重疊的 48×48，需要加大行高（會讓逐字稿變鬆）→ QA／TechLead。
