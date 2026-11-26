@@ -348,3 +348,7 @@ gh version 2.103.0 (2026-10-21)
   - 原因：GitHub 對**被略過（`conclusion: skipped`）的 job** 常回 `started_at` 比 `completed_at` 晚 1～10 秒。另外逐一掃 11/23～11/25 的 jobs，這樣的 job 至少 111 個，全部是 skipped（docs／light 模式略過的 `check`、`bundle`、`db`、`e2e`，以及沒有 @claude 的 `claude`）。腳本依 O-016 規格把它判成資料錯誤，所以當時每天都會 exit 1。這要改規則（skipped 的 job 一律 0 分鐘、不看時間），由 O-018 處理。
 - 實測紀錄（box，`task/O-018` 的 5028c6c；`GH_BIN` 指向只記錄 exit code 的 gh 包裝，用來看有沒有重試）：
   - O-018，2026-11-26 01:02:55～01:18:37 台北時間：週期起點 11/1（`node tooling/actions-usage.mjs --repo hansheng08/english-coach --date 2026-11-25 --included 3000`）exit 0、942 秒、413 次 gh 呼叫、1 次失敗（`net/http: TLS handshake timeout`，有觸發重試且成功）。stderr 空；stdout 一行 JSON，`status` 是 `stop`（`reasons` 為 `daily-stop`），當天 `day.billed_minutes` 889，週期 `cycle.billed_minutes` 2001。
+
+### 6.6 O-023：`bundle` 的 mock 資料模式守衛
+
+- `bundle` job（`full` 且 `has_web=true` 才跑）在 `pnpm build` 之前跑 `node tooling/data-mode-guard.mjs`，守衛與建置步驟都設 `VITE_DATA_MODE=mock`，不設任何 `VITE_SUPABASE_*`；`has_web=false` 時仍略過。`timeout-minutes` 仍為 10，不新增 job。
