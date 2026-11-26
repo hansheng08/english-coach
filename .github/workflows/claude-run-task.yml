@@ -79,6 +79,43 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
         run: bash .github/scripts/run-task-pre-head.sh
 
+      # O-026: if the named task/fix branch already exists, check out that
+      # PRE_HEAD before Claude so a fix/rerun lands on the existing head.
+      # The dispatch checkout already used fetch-depth: 0 (full history for
+      # ancestry) and persist-credentials: false (RUNBOOK §1.1); this step
+      # only switches HEAD. Restore the linted docs/tasks/<TASK>.md from this
+      # dispatch (main); do not merge main. First run (no remote branch)
+      # stays on the dispatch checkout.
+      - name: Check out existing task branch
+        if: ${{ steps.pre_head.outcome == 'success' }}
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+          NAMED_BRANCH: ${{ steps.pre_head.outputs.branch }}
+          NAMED_PRE_HEAD: ${{ steps.pre_head.outputs.pre_head }}
+        run: |
+          set -euo pipefail
+          BRANCH="${NAMED_BRANCH}"
+          PRE_HEAD="${NAMED_PRE_HEAD}"
+          if ! git rev-parse --verify -q "refs/remotes/origin/${BRANCH}^{commit}"; then
+            echo "run-task: ${BRANCH} does not exist yet; staying on dispatch checkout"
+            exit 0
+          fi
+          if [[ ! "$PRE_HEAD" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "ERROR: PRE_HEAD '${PRE_HEAD}' is not a 40-hex SHA"
+            exit 1
+          fi
+          mkdir -p "${RUNNER_TEMP}"
+          cp "docs/tasks/${TASK}.md" "${RUNNER_TEMP}/linted-task.md"
+          git switch --detach "$PRE_HEAD"
+          if [[ "$(git rev-parse HEAD)" != "$PRE_HEAD" ]]; then
+            echo "ERROR: HEAD $(git rev-parse HEAD) != PRE_HEAD ${PRE_HEAD}"
+            exit 1
+          fi
+          mkdir -p docs/tasks
+          cp "${RUNNER_TEMP}/linted-task.md" "docs/tasks/${TASK}.md"
+          echo "run-task: checked out ${BRANCH} at ${PRE_HEAD}; restored linted docs/tasks/${TASK}.md"
+
+      # O-010: start the local Supabase stack before Claude so a task whose
       # O-010: start the local Supabase stack before Claude so a task whose
       # 驗證方式 lists `pnpm db:test` can run pgTAP (psql) against it.
       # Fail-closed: a failed install/start skips Claude (default success()
@@ -177,6 +214,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           TASK: ${{ github.event.client_payload.task }}
+          PRE_HEAD: "${{ steps.pre_head.outputs.pre_head }}"
         run: bash .github/scripts/verify-push.sh
 
       # O-009: workflow-side checks on the tree Claude pushed (Claude cannot

@@ -24,10 +24,18 @@
 #   VERIFY_PUSH_ATTEMPTS  positive integer, default 12
 #   VERIFY_PUSH_SLEEP     non-negative integer seconds, default 15
 #   GITHUB_OUTPUT       optional; receives verify_reason=<code>
+#   PRE_HEAD            required, 40-hex SHA recorded before Claude
+#                       (workflow: steps.pre_head.outputs.pre_head)
 #
 # verify_reason codes (for Notify / 幕僚長 routing):
 #   ok | bad_input | branch_missing | api_auth | api_error | bad_ref_json |
-#   run_list_error | bad_run_json | no_push_run
+#   head_mismatch | stale_head | run_list_error | bad_run_json | no_push_run
+#
+# O-026: after reading the remote tip, require remote == local HEAD
+# (git rev-parse HEAD; no git fetch) and remote != PRE_HEAD before looking
+# for a ci.yml event=push run for that SHA. The push run need only have been
+# triggered (in_progress or conclusion=failure still counts). A missing run
+# is no_push_run. A push CI for an earlier SHA is not ok.
 set -euo pipefail
 
 REASON="bad_input"
@@ -114,6 +122,25 @@ if ! SHA="$(jq -er --arg ref "refs/heads/${BRANCH}" '
   fail bad_ref_json "gh api response is not a single ref object refs/heads/${BRANCH} with a 40-hex commit sha"
 fi
 echo "remote ${BRANCH} = ${SHA}"
+
+# --- 1b. O-026: this run's local HEAD, not an earlier tip -----------------
+# No git fetch (O-007): local HEAD is whatever this workspace has. The
+# remote tip comes from gh api above.
+if ! LOCAL_HEAD="$(git rev-parse HEAD 2>"$TMP/head.err")"; then
+  echo "----- git rev-parse HEAD -----"
+  cat "$TMP/head.err"
+  fail bad_input "git rev-parse HEAD failed"
+fi
+if [[ ! "$LOCAL_HEAD" =~ ^[0-9a-f]{40}$ ]]; then
+  fail bad_input "local HEAD '${LOCAL_HEAD}' is not a 40-hex SHA"
+fi
+if [[ ! "${PRE_HEAD:-}" =~ ^[0-9a-f]{40}$ ]]; then
+  fail bad_input "PRE_HEAD must be a 40-hex SHA (pass steps.pre_head.outputs.pre_head), got '${PRE_HEAD:-}'"
+fi
+echo "local HEAD = ${LOCAL_HEAD}"
+echo "PRE_HEAD = ${PRE_HEAD}"
+[[ "$SHA" != "$LOCAL_HEAD" ]] && fail head_mismatch "remote ${BRANCH} ${SHA} != local HEAD ${LOCAL_HEAD}"
+[[ "$SHA" == "$PRE_HEAD" ]] && fail stale_head "remote ${BRANCH} ${SHA} equals PRE_HEAD (nothing new was pushed this run)"
 
 # --- 2. a push-triggered ci.yml run for that exact SHA --------------------
 echo "Looking for ci.yml run event=push branch=${BRANCH} sha=${SHA}"

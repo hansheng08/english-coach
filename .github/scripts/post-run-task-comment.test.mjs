@@ -62,11 +62,13 @@ test('403 on gh pr comment falls back to a commit comment', () => {
     assert.equal(result.posted, 'commit-fallback');
     assert.equal(result.sha, 'deadbeef');
     assert.equal(result.prError, '403');
-    assert.equal(calls.length, 2);
+    assert.equal(calls.length, 3);
     assert.equal(calls[0].args[0], 'pr');
     assert.equal(calls[1].args[0], 'api');
-    assert.match(calls[1].args.join(' '), /repos\/o\/r\/commits\/deadbeef\/comments/);
-    assert.match(calls[1].input, /run-task summary/);
+    assert.deepEqual(calls[1].args, ['api', 'repos/o/r/commits/deadbeef']);
+    assert.equal(calls[2].args[0], 'api');
+    assert.match(calls[2].args.join(' '), /repos\/o\/r\/commits\/deadbeef\/comments/);
+    assert.match(calls[2].input, /run-task summary/);
   });
 });
 
