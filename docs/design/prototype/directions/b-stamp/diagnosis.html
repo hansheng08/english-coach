@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#FFFFFF">
+<title>B 集章冊｜晚上口說診斷</title>
+<style>
+:root{
+  --pink:#FF48B0; --pink-ink:#B8166F; --pink-tint:#FFD6EC;
+  --teal:#00838A; --teal-ink:#00666B; --teal-tint:#D9F1F1;
+  --ink:#000000; --paper:#FFFFFF; --grey:#5C5C5C;
+  --font:"Noto Sans TC","Noto Sans CJK TC","PingFang TC",Roboto,system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--ink);background:var(--paper);line-height:1.5}
+button,a,label{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{text-decoration:none}
+:focus-visible{outline:3px solid var(--teal-ink);outline-offset:3px}
+svg{display:block}
+.page{max-width:1240px;margin:0 auto;padding:0 16px 40px}
+.top{display:flex;align-items:center;gap:4px;min-height:56px;border-bottom:3px solid var(--ink)}
+.back{width:48px;height:48px;display:grid;place-items:center;margin-left:-12px}
+.back:hover{background:var(--pink-tint)}
+.top .t{font-weight:900}
+.nav{display:none;margin-left:auto}
+
+.head{margin:16px 0 12px}
+.head .k{font-size:.8125rem;font-weight:900;display:inline-block;background:var(--ink);color:#fff;padding:1px 8px}
+h1{font-size:2rem;font-weight:900;line-height:1.15;margin:8px 0 6px;letter-spacing:-.01em}
+.q{margin:0;font-size:1rem;font-weight:500;max-width:40em}
+.stamps{display:flex;gap:10px;margin:16px 0 4px}
+.sc{width:96px;height:96px;flex:none;border-radius:50%;display:grid;place-items:center;text-align:center;border:3px solid currentColor;position:relative}
+.sc::after{content:"";position:absolute;inset:5px;border-radius:50%;border:1.5px solid currentColor}
+.sc b{display:block;font-size:2rem;font-weight:900;line-height:1}
+.sc span{display:block;font-size:.6875rem;font-weight:900;line-height:1.2}
+.sc small{display:block;font-size:.6875rem;font-weight:700}
+.sc.p{color:var(--pink-ink);transform:rotate(-6deg)}
+.sc.t{color:var(--teal-ink);transform:rotate(4deg)}
+.sc.n{color:var(--ink);transform:rotate(-2deg)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:18px 0 10px;padding:0;list-style:none;font-size:.875rem;font-weight:700}
+.legend li{display:flex;align-items:center;gap:6px}
+.m-g{background:var(--pink-tint);box-shadow:inset 0 -3px 0 var(--pink-ink);padding:0 2px}
+.m-f{color:var(--teal-ink);text-decoration:line-through 2px var(--teal-ink)}
+.m-p{border-bottom:3px dotted var(--ink)}
+.m-p::after{content:"換";font-size:.625rem;font-weight:900;vertical-align:super;margin-left:1px;color:#fff;background:var(--ink);padding:0 2px;line-height:1}
+.m-pause{font-size:.75rem;font-weight:900;color:var(--teal-ink);border:2px solid var(--teal-ink);padding:0 5px;border-radius:12px;white-space:nowrap}
+
+/* sheet tabs mobile */
+.tabs{display:flex;gap:0;margin-top:6px}
+.tabs input{position:absolute;opacity:0;pointer-events:none}
+.tabs label{flex:1;min-height:48px;display:grid;place-items:center;font-weight:900;border:3px solid var(--ink);border-bottom:0;cursor:pointer;background:#F2F2F2}
+.tabs label+input+label{border-left:0}
+#s1:checked+label{background:var(--paper);box-shadow:inset 0 5px 0 var(--pink)}
+#s2:checked+label{background:var(--paper);box-shadow:inset 0 5px 0 var(--teal)}
+#s1:focus-visible+label,#s2:focus-visible+label{outline:3px solid var(--teal-ink);outline-offset:-6px}
+.sheets{display:grid;gap:28px}
+.sheet{border:3px solid var(--ink);padding:16px;position:relative;background:var(--paper)}
+.sheet::after{content:"";position:absolute;inset:7px -10px -10px 7px;z-index:-1}
+.sheet.o::after{background:var(--pink)}
+.sheet.s::after{background:var(--teal)}
+.sheet h2{font-size:1.0625rem;font-weight:900;margin:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.sheet h2 small{font-weight:700;color:var(--grey);font-size:.8125rem}
+.sheet p{font-size:1.0625rem;line-height:1.8;margin:10px 0 0;overflow-wrap:anywhere}
+.sheet.s .up{font-weight:900;box-shadow:inset 0 -.45em 0 var(--teal-tint)}
+body:has(#s1:checked) .sheet.s{display:none}
+body:has(#s2:checked) .sheet.o{display:none}
+.sheets .sheet:first-child{border-top-width:3px}
+
+/* coupons */
+.coupons{margin-top:36px}
+.coupons h2{font-size:1.25rem;font-weight:900;margin:0 0 4px}
+.coupons p.s{margin:0 0 12px;font-size:.875rem;color:var(--grey);font-weight:500}
+.cg{display:grid;gap:10px}
+.cp{position:relative}
+.cp input{position:absolute;opacity:0}
+.cp span{display:flex;align-items:center;gap:12px;min-height:56px;padding:6px 14px;border:3px dashed var(--ink);font-weight:900;font-size:1rem;cursor:pointer;background:var(--paper)}
+.cp span::before{content:"";width:26px;height:26px;border:3px solid var(--ink);border-radius:50%;flex:none}
+.cp input:checked+span{border-style:solid;background:var(--teal-tint)}
+.cp input:checked+span::before{background:var(--teal-ink);border-color:var(--teal-ink);box-shadow:inset 0 0 0 4px var(--teal-tint)}
+.cp input:focus-visible+span{outline:3px solid var(--pink-ink);outline-offset:3px}
+.cp span:hover{background:#F6F6F6}
+.cp input:checked+span:hover{background:#C8EAEA}
+.go{margin-top:16px;width:100%;min-height:56px;border:3px solid var(--ink);background:var(--ink);color:#fff;font-weight:900;font-size:1.125rem;cursor:pointer}
+.go:hover{background:#222}
+.go:active{transform:translateY(2px)}
+.keys{display:none}
+
+@media (min-width:900px){
+  .page{padding:0 40px 56px}
+  .nav{display:flex;gap:4px}
+  .nav a{min-height:44px;display:flex;align-items:center;padding:0 16px;font-weight:900;border:3px solid transparent}
+  .nav a:hover{border-color:var(--ink)}
+  .head{display:grid;grid-template-columns:1fr auto;gap:32px;align-items:end;margin:28px 0 8px}
+  h1{font-size:3rem}
+  .stamps{margin:0}
+  .sc{width:120px;height:120px}
+  .sc b{font-size:2.5rem}
+  .sc span,.sc small{font-size:.75rem}
+  .tabs{display:none}
+  .sheets{grid-template-columns:1fr 1fr;gap:40px;align-items:start}
+  body:has(#s1:checked) .sheet.s, body:has(#s2:checked) .sheet.o{display:block}
+  .sheet{padding:22px 26px 26px}
+  .sheet p{font-size:1.125rem}
+  .m-g,.m-p,.m-f{cursor:help}
+  .m-g:hover,.m-p:hover,.m-f:hover{outline:2px solid var(--ink);outline-offset:2px}
+  .bottom{display:grid;grid-template-columns:1fr 280px;gap:40px;align-items:end}
+  .cg{grid-template-columns:repeat(5,1fr)}
+  .cp span{min-height:96px;flex-direction:column;align-items:flex-start;justify-content:space-between;padding:12px 14px}
+  .keys{display:block;font-size:.8125rem;color:var(--grey);font-weight:700;margin:10px 0 0}
+  kbd{font-family:inherit;font-weight:900;border:2px solid var(--ink);padding:0 5px;color:var(--ink)}
+}
+@media (prefers-reduced-motion:no-preference){
+  .go{transition:transform .08s, box-shadow .08s}
+  .cp input:checked+span::before{animation:press .25s ease-out}
+  @keyframes press{from{transform:scale(1.5)}}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <a class="back" href="index.html" aria-label="回到今天"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <span class="t">晚上第 2 步／共 3 步</span>
+    <nav class="nav" aria-label="主要導覽"><a href="index.html">今天</a><a href="#">字卡</a><a href="#">紀錄</a><a href="#">設定</a></nav>
+  </header>
+
+  <section class="head">
+    <div>
+      <span class="k">看診斷</span>
+      <h1>這次回答的診斷</h1>
+      <p class="q" lang="en">Tell me about a time you debugged a production issue under pressure.</p>
+    </div>
+    <div class="stamps" aria-label="這次的數字">
+      <div class="sc p"><div><b>4</b><span>停頓 &gt;2 秒</span><small>上週 6</small></div></div>
+      <div class="sc t"><div><b>9</b><span>贅詞</span><small>上週 13</small></div></div>
+      <div class="sc n"><div><b>96</b><span>每分鐘字數</span><small>上週 88</small></div></div>
+    </div>
+  </section>
+
+  <ul class="legend" aria-label="標記說明">
+    <li><span class="m-g">have</span>文法錯誤</li>
+    <li><span class="m-f">um</span>卡頓、贅詞</li>
+    <li><span class="m-p">very bad</span>太口語或不精確</li>
+  </ul>
+
+  <div class="tabs" role="radiogroup" aria-label="切換顯示">
+    <input type="radio" name="v" id="s1" checked><label for="s1">你的回答</label>
+    <input type="radio" name="v" id="s2"><label for="s2">Senior 版</label>
+  </div>
+  <div class="sheets">
+    <section class="sheet o" aria-labelledby="h-o">
+      <h2 id="h-o">你的回答 <small>原逐字稿 2 分 41 秒</small></h2>
+      <p lang="en"><span class="m-f">Um, so</span> last year our wafer handler, <span class="m-f">uh,</span> <span class="m-g" title="have → had">have</span> a problem that it <span class="m-g" title="stop → stopped">stop</span> randomly. I think it's <span class="m-p" title="可換成 took the line down">very bad</span> because the line is down. <span class="m-f">So</span> I <span class="m-g" title="check → checked">check</span> the log and <span class="m-pause">停 3.4 秒</span> I <span class="m-g" title="find → found">find</span> the timing is <span class="m-p" title="可換成 a race condition">not good</span> between two <span class="m-g" title="thread → threads">thread</span>. <span class="m-f">You know,</span> then I <span class="m-p" title="可換成 fixed the synchronization">fix it</span> and <span class="m-p" title="可換成 made it more reliable">make it more good</span>. <span class="m-f">Um,</span> after that <span class="m-pause">停 2.6 秒</span> it is okay.</p>
+    </section>
+    <section class="sheet s" aria-labelledby="h-s">
+      <h2 id="h-s">Senior 版 <small>照你的故事順序改寫</small></h2>
+      <p lang="en">Last year, one of our wafer handlers started halting at random, which <span class="up">took the line down</span>. I <span class="up">dug into</span> the controller logs and <span class="up">traced it to</span> <span class="up">a race condition</span> between two threads. I fixed the synchronization, added a regression test, and we <span class="up">haven't seen it since</span>.</p>
+    </section>
+  </div>
+
+  <form class="coupons" onsubmit="return false">
+    <div class="bottom">
+      <div>
+        <h2>撕下想升級的語塊</h2>
+        <p class="s">勾選的語塊明天中午會變成新卡</p>
+        <div class="cg">
+          <label class="cp"><input type="checkbox" checked><span lang="en">took the line down</span></label>
+          <label class="cp"><input type="checkbox" checked><span lang="en">dug into</span></label>
+          <label class="cp"><input type="checkbox" checked><span lang="en">traced it to</span></label>
+          <label class="cp"><input type="checkbox"><span lang="en">a race condition</span></label>
+          <label class="cp"><input type="checkbox"><span lang="en">haven't seen it since</span></label>
+        </div>
+      </div>
+      <div>
+        <button class="go" type="submit">加入明天的新卡（<span id="n">3</span>）</button>
+        <p class="keys"><kbd>1</kbd>～<kbd>5</kbd> 勾選，<kbd>Enter</kbd> 確認</p>
+      </div>
+    </div>
+  </form>
+</div>
+<script>
+const boxes=[...document.querySelectorAll('.cp input')];const n=document.getElementById('n');
+const upd=()=>n.textContent=boxes.filter(b=>b.checked).length;boxes.forEach(b=>b.addEventListener('change',upd));
+addEventListener('keydown',e=>{if(e.target.matches('input,textarea'))return;const i=+e.key;if(i>=1&&i<=boxes.length){boxes[i-1].checked=!boxes[i-1].checked;upd();}});
+</script>
+</body>
+</html>
