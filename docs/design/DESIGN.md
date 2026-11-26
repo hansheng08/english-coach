@@ -155,10 +155,10 @@
 ## 13. 原型與檔案
 - `prototype/screens/index.html` 首頁；其他畫面與流程連結見 `screens/README.md`。直接用瀏覽器開檔即可，不需伺服器、不連外。
 - `app.css` 的 token 區塊由 tokens.json 產生（Designer 本機產生器，不進 repo）；其餘 CSS 引用 token，不寫死顏色（頁面內只有長條高度等元件變數）。
-- inline JS（不確定，交 Architect）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。無函式庫、無網路請求。產品端由 Architect／TechLead 依 ADR-014 實作，不照抄原型 JS。
+- inline JS（Architect 判定：附條件可接受，PR #54 留言 7192055349）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。條件：只用 inline 原生 JS、不連網路、不放外部 script／CDN（之後 D2 增補也照這個標準）；產品不 import、也不複製這些 JS，互動由 React 重寫。只屬於原型、不是產品規格：`?theme=` 網址參數（產品主題 script 照 ARCHITECTURE §9.1.4，不讀網址參數）、註記用 `innerHTML` 組字串（產品改用 React 文字渲染）。AC-15 的 `:has()` 切換可照用（ARCHITECTURE §9.1.5.1）。快捷鍵見 §14 #1。
 
 ## 14. 不確定（待確認）
-1. 原型 inline JS（§13）是否符合產品端寫法 → Architect。
+1. 快捷鍵是否進產品：Architect 判定寫「數字鍵和 R 鍵 DESIGN.md／screens 沒寫成規格，產品就不做」，但 §10 鍵盤一行與 morning.md 有寫電腦快捷鍵（只是加速、不取代按鈕；PRD 沒有對應 AC）。這版不改，待確認是否刪除 §10 該行或保留為規格 → PM／Hansheng（Architect 已判定 inline JS 本身可接受，見 §13）。
 2. （已解決）主題偏好只存在這台裝置、不跨裝置同步（ADR-014，PR #53 合併）。
 3. Windows 字型呈現未真機驗證（§12）。
 4. 時段邊界照 PRD v1.4（PR #56，未合併）寫入文案；若 #56 內容改變，首頁焦點卡的「23:59 前」與 §8 需跟著改 → PM。
