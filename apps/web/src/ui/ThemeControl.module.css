@@ -1,0 +1,62 @@
+.root {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--color-sunken);
+  border-radius: var(--radius-md);
+}
+
+.cell {
+  position: relative;
+  display: block;
+  min-height: var(--space-tap-min);
+}
+
+/* 輸入框鋪滿整格，點哪裡都是它；視覺由 .face 負責 */
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--space-tap-min);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-2);
+  font-size: var(--font-size-callout);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.input:checked + .face {
+  background: var(--color-raised);
+  color: var(--color-ink);
+  box-shadow: var(--shadow-seg);
+}
+
+.input:focus-visible + .face {
+  outline: 2px solid var(--color-gold-text);
+  outline-offset: 2px;
+}
+
+.note {
+  margin: 0;
+  color: var(--color-ink-2);
+  font-size: var(--font-size-callout);
+  line-height: var(--font-leading-body);
+}

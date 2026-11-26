@@ -1,0 +1,116 @@
+.wrap {
+  position: relative;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: var(--space-tap-min);
+  height: var(--space-tap-min);
+  padding: 0;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.avatar:focus-visible {
+  outline: 2px solid var(--color-gold-text);
+  outline-offset: 2px;
+}
+
+/* 手機：底部 sheet（scrim＋把手） */
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: 0;
+  border: 0;
+  background: var(--color-scrim);
+}
+
+.panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 11;
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-float);
+  color: var(--color-ink);
+}
+
+.handle {
+  justify-self: center;
+  width: var(--space-10);
+  height: var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-track);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-headline);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* 電腦：頭像下方、靠右的 popover，不要 scrim 遮罩 */
+@media (min-width: 900px) {
+  .scrim {
+    background: transparent;
+  }
+
+  .panel {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    bottom: auto;
+    left: auto;
+    width: 360px;
+    padding: var(--space-5);
+    border-radius: var(--radius-xl);
+  }
+
+  .handle {
+    display: none;
+  }
+}
+
+@keyframes ec-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ec-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: ec-up var(--motion-duration-base) var(--motion-ease-out);
+  }
+
+  @media (min-width: 900px) {
+    .panel {
+      animation-name: ec-fade;
+    }
+  }
+}

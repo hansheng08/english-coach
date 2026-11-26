@@ -4,9 +4,11 @@
   "type": "module",
   "packageManager": "pnpm@12.21.0",
   "engines": {
-    "node": "^22.13.0 || ^24.0.0 || >=26.0.0"
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
   },
   "scripts": {
+    "build": "pnpm --filter web build",
+    "e2e": "playwright test",
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "arch": "depcruise --config .dependency-cruiser.cjs .",
@@ -15,6 +17,7 @@
     "check": "pnpm typecheck && pnpm lint && pnpm arch && pnpm test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "dependency-cruiser": "^18.8.0",
     "eslint": "^10.15.0",
     "typescript": "^5.9.3",

@@ -117,6 +117,13 @@ module.exports = {
       from: { path: '^supabase/functions/_shared/news/', pathNot: TEST },
       to: { path: '^supabase/functions/_shared/(providers|db)/' },
     },
+    {
+      name: 'adr001r1-no-test-libs-in-web-production',
+      comment: 'ADR-001 rev 1: apps/web production code must not import jsdom or @testing-library/* (devDependencies for tests only)',
+      severity: 'error',
+      from: { path: '^apps/web/src/', pathNot: TEST },
+      to: { path: ['^jsdom($|/)', '^@testing-library/', 'node_modules/jsdom/', 'node_modules/@testing-library/'] },
+    },
   ],
   options: {
     // 目錄不存在也不會讓指令失敗：掃描根目錄 "."，只用 exclude 排除非產品程式。
