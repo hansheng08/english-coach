@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>R2-B 留白｜今天</title>
+<style>
+:root{
+  --bg:#FFFFFF; --side:#F7F6F4; --ink:#1F1B16; --ink-2:#655D54; --ink-3:#8A8178; --line:#ECE8E3; --track:#E4DFD8;
+  --amber:#CC7A00; --amber-text:#9A5800; --btn:#1F1B16; --on-btn:#FFFFFF; --amber-soft:#FDF1DE;
+  --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,"Noto Sans TC","Noto Sans CJK TC","PingFang TC","Microsoft JhengHei",sans-serif;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#171513; --side:#1F1C19; --ink:#F3EEE7; --ink-2:#B3ABA1; --ink-3:#8F877D; --line:#2E2A26; --track:#34302B;
+  --amber:#F5A524; --amber-text:#F5B04A; --btn:#F3EEE7; --on-btn:#171513; --amber-soft:#3A2A10;
+}}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+button,a{font:inherit;color:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+a{text-decoration:none}
+:focus-visible{outline:2px solid var(--amber);outline-offset:3px;border-radius:8px}
+svg{display:block}
+.side{display:none}
+.week{display:none}
+.week dl{margin:0}
+.week dl div{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0;border-bottom:1px solid var(--line)}
+.week dt{color:var(--ink-2);font-size:.875rem}
+.week dd{margin:0;font-size:2rem;font-weight:300;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.week dd small{font-size:.8125rem;color:var(--ink-2);margin-left:4px;letter-spacing:0}
+.page{padding:max(4px,env(safe-area-inset-top)) 20px 128px;max-width:680px}
+.tool{display:flex;justify-content:space-between;margin:0 -12px}
+.ib{width:48px;height:48px;display:grid;place-items:center;border:0;background:none;border-radius:12px;color:var(--ink-2);cursor:pointer}
+.ib:hover{background:var(--side);color:var(--ink)}
+
+.date{display:flex;align-items:flex-end;gap:14px;margin:18px 0 6px}
+.date .d{font-size:4.5rem;font-weight:200;line-height:.82;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.date .m{font-size:.9375rem;color:var(--ink-2);line-height:1.35;padding-bottom:2px}
+.date .m b{display:block;color:var(--ink);font-weight:600;font-size:1.0625rem}
+
+.streak{margin:28px 0 36px}
+.ruler{display:grid;grid-template-columns:repeat(30,1fr);gap:4px;align-items:end;height:30px}
+.ruler i{height:16px;border-radius:2px;background:var(--track)}
+.ruler i.on{background:var(--amber)}
+.ruler i.today{height:30px}
+.ruler i:nth-child(30){height:24px;background:none;box-shadow:inset 0 0 0 1.5px var(--ink-3)}
+.streak .cap{display:flex;justify-content:space-between;margin-top:10px;font-size:.875rem;color:var(--ink-2)}
+.streak .cap b{color:var(--ink);font-weight:600}
+
+h2{font-size:.9375rem;font-weight:600;margin:0;padding-bottom:8px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+h2 span{font-weight:400;color:var(--ink-2);font-size:.8125rem}
+.sec{margin-bottom:30px}
+.item{display:flex;gap:14px;align-items:flex-start;padding:12px 0;min-height:48px}
+a.item:hover .tt{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:4px}
+.cb{width:22px;height:22px;flex:none;border-radius:7px;border:1.5px solid var(--ink-3);display:grid;place-items:center;margin-top:1px;color:transparent}
+.cb.now{border:2px solid var(--amber);box-shadow:0 0 0 4px var(--amber-soft)}
+.cb.done{background:var(--amber);border-color:var(--amber);color:#fff}
+.cb.skip{border-style:dashed}
+.tt{flex:1;font-size:1.0625rem}
+.tt small{display:block;font-size:.875rem;color:var(--ink-2);margin-top:2px}
+.done-t{color:var(--ink-2)}
+.skip-t{color:var(--ink-2);text-decoration:line-through;text-decoration-color:var(--ink-3)}
+.en{font-size:.9375rem;color:var(--ink-2);margin:4px 0 0;line-height:1.5}
+.when{font-size:.8125rem;color:var(--amber-text);font-weight:600;margin-bottom:2px;display:block}
+
+.ms{border-top:1px solid var(--line);padding-top:22px}
+.ms p{margin:0;font-size:1.25rem;line-height:1.45;font-weight:300;letter-spacing:-.01em}
+.ms p b{font-weight:600}
+.ms small{display:block;margin-top:8px;font-size:.875rem;color:var(--ink-2)}
+
+.fab{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:10px;min-height:56px;padding:0 26px;border:0;border-radius:28px;background:var(--btn);color:var(--on-btn);font-weight:600;font-size:1.0625rem;cursor:pointer;box-shadow:0 10px 30px -10px rgba(31,27,22,.45),0 2px 6px rgba(31,27,22,.12);z-index:10;white-space:nowrap}
+.fab:hover{transform:translateX(-50%) translateY(-1px)}
+.fab:active{transform:translateX(-50%) scale(.98)}
+kbd{display:none;font-family:inherit;font-size:.75rem;border:1px solid color-mix(in srgb,var(--on-btn) 40%,transparent);border-radius:5px;padding:0 6px}
+
+@media (min-width:900px){
+  .shell{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+  .side{display:block;background:var(--side);padding:28px 14px;position:sticky;top:0;height:100vh}
+  .side a{display:flex;align-items:center;gap:12px;min-height:40px;padding:0 12px;border-radius:9px;color:var(--ink-2);font-size:.9375rem}
+  .side a:hover{background:color-mix(in srgb,var(--line) 70%,transparent);color:var(--ink)}
+  .side a[aria-current]{background:var(--bg);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(31,27,22,.06)}
+  .side a[aria-current] svg{color:var(--amber)}
+  .side .k{margin:22px 12px 6px;font-size:.75rem;color:var(--ink-3)}
+  .tool{display:none}
+  .page{padding:56px 56px 80px;max-width:1080px;display:grid;grid-template-columns:minmax(0,1fr) 280px;column-gap:72px;grid-auto-flow:row dense;align-content:start}
+  .page>*{grid-column:1}
+  .page>.rail{grid-column:2}
+  .page>.r1{grid-row:1;align-self:end;margin-bottom:44px}
+  .page>.r2{grid-row:2/span 3;align-self:start}
+  .date .d{font-size:6rem}
+  .streak{margin:0 0 40px}
+  .fab{position:static;left:auto;transform:none;margin:-8px 0 40px 36px;justify-self:start}
+  .date{margin:0 0 44px}
+  .week{display:block;margin-top:44px}
+  .ms{border-top:0;padding-top:0;margin-top:8px}
+  .fab:hover{transform:translateY(-1px)} .fab:active{transform:scale(.98)}
+  kbd{display:inline-block}
+}
+@media (max-width:899px){.rail{display:contents}}
+@media (prefers-reduced-motion:no-preference){
+  .ruler i.on{animation:rise 600ms cubic-bezier(.22,1,.36,1) both;animation-delay:calc(var(--k,0)*18ms)}
+  @keyframes rise{from{transform:scaleY(.2);opacity:0}}
+  .ruler i{transform-origin:bottom}
+  .fab{transition:transform 140ms ease}
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <nav class="side" aria-label="主要導覽">
+    <a href="#" aria-current="page"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></svg>今天</a>
+    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="6.5" width="13" height="14" rx="3"/><path d="M8 3.5h9.5a3 3 0 0 1 3 3V16"/></svg>字卡</a>
+    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5h16M6.5 16v-4M11 16V7M15.5 16v-6M20 16V4.5"/></svg>紀錄</a>
+    <a href="#"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.25"/><circle cx="8" cy="17" r="2.25"/></svg>設定</a>
+    <p class="k">今晚</p>
+    <a href="#">錄音回答</a><a href="diagnosis.html">看診斷</a><a href="#">跟讀與重答</a>
+  </nav>
+  <main class="page">
+    <div class="tool"><button class="ib" type="button" aria-label="開啟選單"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg></button><button class="ib" type="button" aria-label="更多"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/></svg></button></div>
+    <header class="date"><span class="d">26</span><span class="m">十一月<b>星期四</b></span></header>
+
+    <div class="rail r1">
+      <section class="streak" aria-label="連續天數">
+        <div class="ruler" role="img" aria-label="連續 23 天，目標 30 天"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i class="on today"></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i><i class=""></i></div>
+        <div class="cap"><span><b>連續 23 天</b>，每天三段都有打開</span><span>30</span></div>
+      </section>
+    </div>
+
+    <section class="sec" aria-labelledby="s-now">
+      <h2 id="s-now">現在<span>晚上 21:00</span></h2>
+      <div class="item"><span class="cb now"></span><div class="tt"><span class="when">第 1 步，共 3 步</span>錄音回答今晚題目<p class="en" lang="en">Tell me about a time you debugged a production issue under pressure.</p></div></div>
+      <a class="item" href="diagnosis.html"><span class="cb"></span><span class="tt">看診斷、勾選升級語塊</span></a>
+      <a class="item" href="#"><span class="cb"></span><span class="tt">跟讀改寫版，再無稿重答</span></a>
+    </section>
+
+    <button class="fab" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11.5" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></svg>開始錄音<kbd>R</kbd></button>
+
+    <section class="sec" aria-labelledby="s-done">
+      <h2 id="s-done">稍早完成<span>早上、中午</span></h2>
+      <a class="item" href="#"><span class="cb done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="tt done-t">讀新聞並收錄語塊<small>收錄 3 個</small></span></a>
+      <a class="item" href="#"><span class="cb done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="tt done-t">跟讀闖關 5 句<small>平均正確率 86%</small></span></a>
+      <a class="item" href="#"><span class="cb done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span class="tt done-t">複習 25 張字卡<small>秒答 17、猶豫 6、忘記 2</small></span></a>
+      <a class="item" href="#"><span class="cb skip"></span><span class="tt"><span class="skip-t">手動新增字卡</span><small>已跳過</small></span></a>
+    </section>
+
+    <div class="rail r2">
+      <section class="ms" aria-label="里程碑">
+        <p>第 <b>48</b> 個語塊，已經是你的了。</p>
+        <small>再 2 個就到 50。今晚講出 Reviewing 的語塊就算數。</small>
+      </section>
+      <section class="week" aria-labelledby="s-week">
+        <h2 id="s-week">這一週<span>11/23 – 11/29</span></h2>
+        <dl>
+          <div><dt>開口說英文</dt><dd>112<small>分鐘</small></dd></div>
+          <div><dt>複習字卡</dt><dd>148<small>張</small></dd></div>
+          <div><dt>新收錄語塊</dt><dd>9<small>個</small></dd></div>
+        </dl>
+      </section>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>
