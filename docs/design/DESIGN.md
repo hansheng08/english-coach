@@ -1,8 +1,9 @@
-# DESIGN：english-coach 設計系統（D2a，v1.2）
+# DESIGN：english-coach 設計系統（D2a，v1.3）
 
 - 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE v1.9 §9.1／ADR-014（PR #53 已於 2026-11-26 20:03 合併，f1a6077）。
 - v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
 - v1.2（D2 第 3 輪，2026-11-26）：M2 里程碑（Hansheng 20:25 決定）、時段標示三態（AC-21 v1.4）、PM 第 2 輪文案（PR #54 留言 7191990644）。
+- v1.3（2026-11-26 22:14）：電腦快捷鍵標為「加分項、不屬 AC」（Hansheng 決定，幕僚長轉達）；§14 #1 已解決。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。字卡／紀錄／設定完整頁屬 D2b（原型以 `later.html` 佔位）。
@@ -129,7 +130,7 @@
 - 標記與狀態都用形狀＋文字，不只靠顏色。
 - 圖示一律 inline SVG（`currentColor`），按鈕有文字或 `aria-label`；裝飾圖示 `aria-hidden`。
 - 焦點：`:focus-visible` 2px `gold-text` 外框（焦點卡上改 `gold`）＋2px 位移。
-- 鍵盤：電腦版主要動作有快捷鍵（R 開始錄音、1–3 評分、1–5 勾語塊、Space 停止、N 無稿）；只是加速，不取代按鈕。
+- 鍵盤（**加分項、不屬 AC**（Hansheng 2026-11-26 決定保留；產品可選做，不列入驗收））：電腦版主要動作有快捷鍵（R 開始錄音、1–3 評分、1–5 勾語塊、Space 停止、N 無稿）；只是加速，不取代按鈕。
 - 減少動態見 §6。語言標示：英文內容 `lang="en"`。
 
 ## 11. Token 格式（U-4，Designer 決定）
@@ -155,10 +156,10 @@
 ## 13. 原型與檔案
 - `prototype/screens/index.html` 首頁；其他畫面與流程連結見 `screens/README.md`。直接用瀏覽器開檔即可，不需伺服器、不連外。
 - `app.css` 的 token 區塊由 tokens.json 產生（Designer 本機產生器，不進 repo）；其餘 CSS 引用 token，不寫死顏色（頁面內只有長條高度等元件變數）。
-- inline JS（Architect 判定：附條件可接受，PR #54 留言 7192055349）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。條件：只用 inline 原生 JS、不連網路、不放外部 script／CDN（之後 D2 增補也照這個標準）；產品不 import、也不複製這些 JS，互動由 React 重寫。只屬於原型、不是產品規格：`?theme=` 網址參數（產品主題 script 照 ARCHITECTURE §9.1.4，不讀網址參數）、註記用 `innerHTML` 組字串（產品改用 React 文字渲染）。AC-15 的 `:has()` 切換可照用（ARCHITECTURE §9.1.5.1）。快捷鍵見 §14 #1。
+- inline JS（Architect 判定：附條件可接受，PR #54 留言 7192055349）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。條件：只用 inline 原生 JS、不連網路、不放外部 script／CDN（之後 D2 增補也照這個標準）；產品不 import、也不複製這些 JS，互動由 React 重寫。只屬於原型、不是產品規格：`?theme=` 網址參數（產品主題 script 照 ARCHITECTURE §9.1.4，不讀網址參數）、註記用 `innerHTML` 組字串（產品改用 React 文字渲染）。AC-15 的 `:has()` 切換可照用（ARCHITECTURE §9.1.5.1）。快捷鍵為加分項、不屬 AC（§10）。
 
 ## 14. 不確定（待確認）
-1. 快捷鍵是否進產品：Architect 判定寫「數字鍵和 R 鍵 DESIGN.md／screens 沒寫成規格，產品就不做」，但 §10 鍵盤一行與 morning.md 有寫電腦快捷鍵（只是加速、不取代按鈕；PRD 沒有對應 AC）。這版不改，待確認是否刪除 §10 該行或保留為規格 → PM／Hansheng（Architect 已判定 inline JS 本身可接受，見 §13）。
+1. （已解決）快捷鍵是否進產品：Hansheng 2026-11-26 22:14 決定保留電腦快捷鍵（1–5、R 等），標為「加分項、不屬 AC」，產品可選做，不列入驗收（§10）。
 2. （已解決）主題偏好只存在這台裝置、不跨裝置同步（ADR-014，PR #53 合併）。
 3. Windows 字型呈現未真機驗證（§12）。
 4. （已解決）時段邊界照 PRD v1.4 寫入文案；PR #56 已合併（9b220d1，2026-11-26 20:36 台北），合併內容與先前對照的 a811cb2 相同。
