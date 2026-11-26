@@ -158,6 +158,128 @@ describe('run-mutants judging', () => {
   });
 });
 
+// O-019：純記憶體假 spawn。runner = ['fake', '{report}']，之後附加的 argv 是相關測試檔。
+// 行為由 behave(args, text) 決定：回傳失敗測試名稱陣列（空陣列＝通過）。
+function fakeSpawn(p, behave) {
+  const calls = [];
+  const spawn = (cmd, args) => {
+    calls.push(args);
+    const failed = behave(args.slice(1), readFileSync(p.a, 'utf8') + readFileSync(p.b, 'utf8'));
+    const names = failed.length > 0 ? failed : ['suite passes'];
+    writeFileSync(args[0], JSON.stringify({ testResults: [{ name: 'x', assertionResults: names.map((fullName) => ({ fullName, status: failed.length > 0 ? 'failed' : 'passed' })) }] }));
+    return { status: failed.length > 0 ? 1 : 0 };
+  };
+  return { calls, spawn, runner: ['fake', '{report}'] };
+}
+const mutated = (text) => text.includes('= 9');
+
+describe('run-mutants related tests (O-019)', () => {
+  it('(AC-O19-1) (TC-1) only the related test files are run and an expectFail hit is KILLED', () => {
+    const p = project([M1], []);
+    const f = fakeSpawn(p, (tests, text) => (mutated(text) && tests.includes('src/a.test.ts') ? ['s (AC-X-1) a'] : []));
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: () => ({ tests: ['src/a.test.ts'] }) });
+    expect(r.findings).toEqual([]);
+    expect(r.report.results.map((x) => x.status)).toEqual(['killed']);
+    const mutantCall = f.calls[1];
+    expect(mutantCall).toContain('src/a.test.ts');
+    expect(mutantCall).not.toContain('src/b.test.ts');
+    expect(f.calls[0]).toEqual([expect.any(String)]);
+  });
+
+  it('(AC-O19-1) (TC-2) each file gets its own list; resolution is cached per file', () => {
+    const p = project([M1, { ...M1, id: 'M3', before: 'a = 1', after: 'a = 8' }, M2], []);
+    const f = fakeSpawn(p, (tests, text) => (/= [89]/.test(text) && tests.length > 0 ? ['s (AC-X-1) x'] : []));
+    let resolved = 0;
+    const lists = { 'src/a.ts': ['src/a.test.ts'], 'src/b.ts': ['src/b.test.ts'] };
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: (file) => { resolved += 1; return { tests: lists[file] }; } });
+    expect(r.report.results.map((x) => x.status)).toEqual(['killed', 'killed', 'killed']);
+    expect(f.calls.slice(1).map((c) => c.slice(1))).toEqual([['src/a.test.ts'], ['src/a.test.ts'], ['src/b.test.ts']]);
+    expect(resolved).toBe(2);
+  });
+
+  it('(AC-O19-2) (TC-3) (TC-4) zero related tests -> the full suite runs, never judged on an empty report', () => {
+    const p = project([M1], []);
+    const f = fakeSpawn(p, (tests, text) => (mutated(text) ? ['s (AC-X-1) a'] : []));
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: () => ({ tests: [] }) });
+    expect(f.calls.length).toBe(2);
+    expect(f.calls[1].length).toBe(f.calls[0].length);
+    expect(f.calls[1].slice(1)).toEqual([]);
+    expect(r.report.results.map((x) => x.status)).toEqual(['killed']);
+    // 完整套件通過時是 SURVIVED，不是跳過
+    const q = project([M1], []);
+    const g = fakeSpawn(q, () => []);
+    const r2 = execute({ file: q.file, root: q.root, runner: g.runner, spawn: g.spawn, resolveRelated: () => ({ tests: [] }) });
+    expect(rules(r2.findings)).toEqual(['MU-SURVIVED']);
+    expect(g.calls.length).toBe(2);
+  });
+
+  it('(AC-O19-3) (TC-5) related tests pass -> MU-SURVIVED, exit 1; unlisted tests are not called', () => {
+    const p = project([M1], []);
+    const f = fakeSpawn(p, (tests, text) => (mutated(text) && tests.includes('src/b.test.ts') ? ['s (AC-X-1) b'] : []));
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: () => ({ tests: ['src/a.test.ts'] }) });
+    expect(rules(r.findings)).toEqual(['MU-SURVIVED']);
+    expect(r.report.results[0].status).toBe('survived');
+    expect(f.calls.flat()).not.toContain('src/b.test.ts');
+    const q = project([M1], []);
+    const res = run(['--file', q.file, '--out', q.out, '--root', q.root, '--', ...q.runner]);
+    expect(res.code).toBe(1);
+    expect(res.stderr).toContain('MU-SURVIVED');
+  });
+
+  it('(AC-O19-5) (TC-8) a custom runner without resolveRelated keeps the O-009 full-suite behaviour', () => {
+    const p = project([M1], killRules);
+    const spy = countingSpawn();
+    const r = execute({ file: p.file, root: p.root, runner: p.runner, spawn: spy.spawn });
+    expect(r.findings).toEqual([]);
+    expect(spy.calls).toBe(2);
+  });
+
+  it('(AC-O19-4) (TC-6) a resolver error -> MU-RELATED, unexpected, target restored, never KILLED', () => {
+    const p = project([M1], []);
+    const f = fakeSpawn(p, (tests, text) => (mutated(text) ? ['s (AC-X-1) a'] : []));
+    const before = sha(p.a);
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: () => ({ rule: 'MU-RELATED', error: 'boom' }) });
+    expect(rules(r.findings)).toEqual(['MU-RELATED']);
+    expect(r.report.results.map((x) => x.status)).toEqual(['unexpected']);
+    expect(r.report.killed).toBe(0);
+    expect(sha(p.a)).toBe(before);
+    expect(readFileSync(p.a, 'utf8')).toBe(A_SRC);
+    expect(f.calls.length).toBe(1);
+  });
+
+  it('(AC-O19-4) (TC-7) a thrown resolver or a timed-out default resolver -> MU-RELATED, restored', () => {
+    const p = project([M1], []);
+    const f = fakeSpawn(p, () => []);
+    const r = execute({ file: p.file, root: p.root, runner: f.runner, spawn: f.spawn, resolveRelated: () => { throw new Error('x'); } });
+    expect(rules(r.findings)).toEqual(['MU-RELATED']);
+    expect(readFileSync(p.a, 'utf8')).toBe(A_SRC);
+
+    const q = project([M1], []);
+    const base = fakeSpawn(q, () => []);
+    const spawn = (cmd, args, opts) => (cmd === 'pnpm' ? { status: null, error: new Error('ETIMEDOUT') } : base.spawn(cmd, args, opts));
+    const r2 = execute({ file: q.file, root: q.root, spawn, runner: undefined });
+    expect(rules(r2.findings)).toEqual(['MU-BASELINE']); // 預設執行器也是 pnpm，被假 spawn 擋下；基線先失敗
+    const s = project([M1], []);
+    const calls = [];
+    const spawn2 = (cmd, args) => {
+      calls.push(cmd + ' ' + args.join(' '));
+      if (args.includes('related')) return { status: null, error: new Error('ETIMEDOUT') };
+      writeFileSync(args.find((a) => a.startsWith('--outputFile=')).slice(13), JSON.stringify({ testResults: [{ name: 'x', assertionResults: [{ fullName: 'ok', status: 'passed' }] }] }));
+      return { status: 0 };
+    };
+    const r3 = execute({ file: s.file, root: s.root, spawn: spawn2 });
+    expect(rules(r3.findings)).toEqual(['MU-RELATED']);
+    expect(r3.report.results.map((x) => x.status)).toEqual(['unexpected']);
+    expect(readFileSync(s.a, 'utf8')).toBe(A_SRC);
+  });
+
+  it('(AC-O19-6) (TC-9) timeout cap and fail-closed guards are unchanged', () => {
+    const src = readFileSync(fileURLToPath(new URL('./run-mutants.mjs', import.meta.url)), 'utf8');
+    expect(src).toMatch(/DEFAULT_TIMEOUT_MS = 600_000;/);
+    expect(src).not.toMatch(/\|\| true|continue-on-error/);
+  });
+});
+
 describe('run-mutants restore', () => {
   it('(AC-O9-3) (TC-11) a timeout or a thrown error still restores the target and exits 1', () => {
     const hang = project([M1, M2], [{ file: 'src/a.ts', contains: 'a = 9', hang: true }, killRules[1]]);
