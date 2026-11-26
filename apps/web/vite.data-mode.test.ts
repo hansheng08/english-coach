@@ -1,10 +1,31 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { assertDataModeEnv } from '../../tooling/data-mode-guard.mjs';
+import viteConfig from './vite.config.ts';
 import { dataModeOrThrow } from './vite.data-mode.ts';
 
 const FAKE = 'https://example.invalid';
 const SUPABASE_OK = { VITE_DATA_MODE: 'supabase', VITE_SUPABASE_URL: FAKE, VITE_SUPABASE_PUBLISHABLE_KEY: 'fake-publishable' };
+
+describe('vite.config.ts data-mode check', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  const configFor = (command: 'build' | 'serve', isPreview: boolean) => {
+    if (typeof viteConfig !== 'function') throw new Error('vite.config.ts must export a config function');
+    return viteConfig({ command, mode: 'production', isPreview });
+  };
+
+  it('(AC-T18-29) (TC-52) the check is not relaxed for build or preview, and mock still rejects VITE_SUPABASE_*', () => {
+    vi.stubEnv('VITE_DATA_MODE', undefined);
+    expect(() => configFor('build', false)).toThrow('VITE_DATA_MODE is not set (no default)');
+    expect(() => configFor('serve', true)).toThrow('VITE_DATA_MODE is not set (no default)');
+    vi.stubEnv('VITE_DATA_MODE', 'mock');
+    vi.stubEnv('VITE_SUPABASE_URL', FAKE);
+    expect(() => configFor('build', false)).toThrow('mock mode must not define: VITE_SUPABASE_URL');
+  });
+});
 
 describe('dataModeOrThrow', () => {
   it('(AC-T18-1) (TC-1) returns the mode for valid environments', () => {

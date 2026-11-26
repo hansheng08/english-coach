@@ -11,7 +11,8 @@ export default defineConfig({
   reporter: 'list',
   use: { baseURL: `http://localhost:${String(PORT)}`, browserName: 'chromium' },
   webServer: {
-    command: `VITE_DATA_MODE=mock pnpm --filter @english-coach/web build && pnpm --filter @english-coach/web exec vite preview --port ${String(PORT)} --strictPort`,
+    command: `pnpm --filter @english-coach/web build && pnpm --filter @english-coach/web exec vite preview --port ${String(PORT)} --strictPort`,
+    env: { VITE_DATA_MODE: 'mock' },
     url: `http://localhost:${String(PORT)}`,
     reuseExistingServer: true,
     timeout: 180_000,

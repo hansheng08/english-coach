@@ -75,6 +75,32 @@ describe('tokens-css.mjs', () => {
     });
   }
 
+  it('(AC-T18-33) (TC-59) output follows the key order of the source text, integer-like keys included', () => {
+    const names = (css) => (rootBlock(css).match(/--[a-z0-9-]+(?=:)/g) ?? []).join(' ');
+    expect(names(generate('{"space":{"gutter":"8px","10":"40px","2":"8px"}}').css)).toBe('--space-gutter --space-10 --space-2');
+    expect(names(generate('{"font":{"size":{"10":"a","body":"b","2":"c"}}}').css)).toBe('--font-size-10 --font-size-body --font-size-2');
+  });
+
+  it('(AC-T18-33) (TC-60) a duplicated key in one object fails (exit 1, stdout empty, reason on stderr)', () => {
+    const { r } = generate('{"space":{"2":"8px","2":"9px"}}');
+    expect(r.status).toBe(1);
+    expect(r.stdout).toBe('');
+    expect(r.stderr).not.toBe('');
+  });
+
+  for (const [text, path] of [
+    ['{"color":{}}', 'color'],
+    ['{"color":{"x":{}}}', 'color.x'],
+    ['{"color":{"x":{"$description":"d"}}}', 'color.x'],
+  ]) {
+    it(`(AC-T18-34) (TC-61) an empty group or sub-category fails and names ${path}: ${text}`, () => {
+      const { r } = generate(text);
+      expect(r.status).toBe(1);
+      expect(r.stdout).toBe('');
+      expect(r.stderr).toContain(path);
+    });
+  }
+
   it('(AC-T18-13) (TC-28) header, color-scheme lines, block selectors, byte-identical reruns', () => {
     const first = generate(MINIMAL);
     const second = generate(MINIMAL);

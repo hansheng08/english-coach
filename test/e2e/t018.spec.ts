@@ -193,10 +193,11 @@ for (const vp of VIEWPORTS) {
 test.describe('desktop focus, hover and motion', () => {
   test.use({ viewport: { width: 1280, height: 800 }, hasTouch: false, colorScheme: 'light', reducedMotion: 'no-preference' });
 
-  test('(AC-T18-19) (TC-36) light: focus ring is 2px gold-text with a 2px offset; hover turns the button btn-hover', async ({ page }) => {
+  test('(AC-T18-19) (AC-T18-30) (TC-36) (TC-54) light: focus ring is 2px gold-text with a 2px offset; hover turns the button btn-hover', async ({ page }) => {
     await page.goto('/login');
-    for (let i = 0; i < 3; i += 1) await page.keyboard.press('Tab');
     const button = page.getByRole('button', { name: '登入' });
+    await expect(button).toBeVisible();
+    for (let i = 0; i < 3; i += 1) await page.keyboard.press('Tab');
     await expect(button).toBeFocused();
     await expect(button).toHaveCSS('outline-width', '2px');
     await expect(button).toHaveCSS('outline-offset', '2px');
@@ -216,9 +217,17 @@ test.describe('desktop focus, hover and motion', () => {
 test.describe('desktop dark focus', () => {
   test.use({ viewport: { width: 1280, height: 800 }, hasTouch: false, colorScheme: 'dark' });
 
-  test('(AC-T18-19) (TC-36) dark: the focus ring is the gold color', async ({ page }) => {
+  test('(AC-T18-19) (AC-T18-30) (TC-36) (TC-54) dark: the focus ring is the gold color', async ({ page }) => {
     await page.goto('/login');
+    const button = page.getByRole('button', { name: '登入' });
+    await expect(button).toBeVisible();
     for (let i = 0; i < 3; i += 1) await page.keyboard.press('Tab');
-    await expect(page.getByRole('button', { name: '登入' })).toHaveCSS('outline-color', 'rgb(242, 193, 78)');
+    await expect(button).toBeFocused();
+    await expect(button).toHaveCSS('outline-color', 'rgb(242, 193, 78)');
+  });
+
+  test('(AC-T18-29) (TC-51) the served build is the mock build', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByText(BANNER).first()).toBeVisible();
   });
 });

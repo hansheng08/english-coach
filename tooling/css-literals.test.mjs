@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { findViolations } from './css-literals.mjs';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = join(REPO, 'tooling/css-literals.mjs');
@@ -49,6 +50,27 @@ describe('css-literals.mjs', () => {
   it('(AC-T18-15) (TC-31) exits 1 when apps/web/src does not exist', () => {
     const r = scan({ 'other/file.txt': 'x' });
     expect(r.status).toBe(1);
+  });
+
+  const lines = (...rows) => findViolations(rows.join('\n'));
+
+  it('(AC-T18-31) (TC-55) a multi-line box-shadow reports the lines holding the literals', () => {
+    expect(lines('.a {', '  box-shadow:', '    0 1px 2px #0f2236,', '    0 2px rgba(0, 0, 0, 0.2);', '}')).toEqual([3, 4]);
+  });
+
+  it('(AC-T18-31) (TC-56) a multi-line gradient reports the lines holding the literals', () => {
+    expect(lines('.a {', '  background: linear-gradient(', '    #fff,', '    hsl(0 0% 0%)', '  );', '}')).toEqual([3, 4]);
+  });
+
+  it('(AC-T18-31) (TC-57) a declaration nested in an at-rule is checked, the at-rule prelude is not', () => {
+    expect(lines('@media (min-width: 900px) {', '  .a {', '    border-color:', '      #123456;', '  }', '}')).toEqual([4]);
+  });
+
+  it('(AC-T18-32) (TC-58) selectors with ids or :not(#…) are not declarations; declarations in the same block still are', () => {
+    expect(lines('a:not(#abc) {', '  color: var(--color-ink);', '}')).toEqual([]);
+    expect(lines('.x:not(#fade) { color: var(--a); }')).toEqual([]);
+    expect(lines('#app { color: var(--a); }')).toEqual([]);
+    expect(lines('a:not(#abc) { color: #fff; }')).toEqual([1]);
   });
 
   it('(AC-T18-15) (TC-32) the repository itself passes', () => {

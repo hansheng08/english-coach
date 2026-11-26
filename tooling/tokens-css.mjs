@@ -8,21 +8,89 @@ const GROUPS = ['color', 'space', 'radius', 'font', 'shadow', 'motion'];
 const NAME = /^[a-z0-9-]+$/;
 const HEADER = `/* 自動產生，不要手改。來源：${INPUT}；產生器：tooling/tokens-css.mjs */`;
 
-const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
-const dataKeys = (obj) => Object.keys(obj).filter((k) => !k.startsWith('$'));
+// 物件以 Map 表示：保留原文鍵的順序（JSON.parse 會把 "10"、"2" 這類整數鍵排到最前面）。
+const isPlainObject = (v) => v instanceof Map;
+const dataKeys = (obj) => [...obj.keys()].filter((k) => !k.startsWith('$'));
+
+/** 讀 JSON 原文，物件變 Map（鍵依出現順序）。語法先由 JSON.parse 驗過；同一物件重複的鍵 → 失敗。 */
+function parseOrdered(text) {
+  let i = 0;
+  const skip = () => {
+    while (i < text.length && ' \t\n\r'.includes(text[i])) i += 1;
+  };
+  const string = () => {
+    const start = i;
+    i += 1;
+    while (text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+    i += 1;
+    return JSON.parse(text.slice(start, i));
+  };
+  const value = () => {
+    skip();
+    const ch = text[i];
+    if (ch === '{') {
+      i += 1;
+      const map = new Map();
+      skip();
+      if (text[i] === '}') {
+        i += 1;
+        return { value: map };
+      }
+      for (;;) {
+        skip();
+        const key = string();
+        if (map.has(key)) return { duplicate: key };
+        skip();
+        i += 1; // ':'
+        const member = value();
+        if ('duplicate' in member) return member;
+        map.set(key, member.value);
+        skip();
+        const sep = text[i];
+        i += 1;
+        if (sep === '}') return { value: map };
+      }
+    }
+    if (ch === '[') {
+      i += 1;
+      const list = [];
+      skip();
+      if (text[i] === ']') {
+        i += 1;
+        return { value: list };
+      }
+      for (;;) {
+        const item = value();
+        if ('duplicate' in item) return item;
+        list.push(item.value);
+        skip();
+        const sep = text[i];
+        i += 1;
+        if (sep === ']') return { value: list };
+      }
+    }
+    if (ch === '"') return { value: string() };
+    const start = i;
+    while (i < text.length && !',]} \t\n\r'.includes(text[i])) i += 1;
+    return { value: JSON.parse(text.slice(start, i)) };
+  };
+  return value();
+}
 
 /** 解析 tokens.json（ARCHITECTURE §9.1.5 規則 1～7）。成功回 { ok: true, tokens: [{ name, light, dark, split }] }。 */
 export function parseTokens(text) {
-  let json;
   try {
-    json = JSON.parse(text);
+    JSON.parse(text);
   } catch (e) {
     return { ok: false, reason: `tokens.json 無法解析：${e instanceof Error ? e.message : String(e)}` };
   }
+  const parsed = parseOrdered(text);
+  if ('duplicate' in parsed) return { ok: false, reason: `同一個物件裡的鍵重複：${parsed.duplicate}` };
+  const json = parsed.value;
   if (!isPlainObject(json)) return { ok: false, reason: 'tokens.json 頂層不是物件' };
   for (const key of dataKeys(json)) {
     if (!GROUPS.includes(key)) return { ok: false, reason: `不認得的群組：${key}（只能是 ${GROUPS.join('、')}）` };
-    if (!isPlainObject(json[key])) return { ok: false, reason: `群組 ${key} 必須是物件` };
+    if (!isPlainObject(json.get(key))) return { ok: false, reason: `群組 ${key} 必須是物件` };
   }
 
   const tokens = [];
@@ -38,16 +106,18 @@ export function parseTokens(text) {
     for (const key of dataKeys(node)) {
       const where = [...path, key];
       if (!NAME.test(key)) return `名稱只能是小寫英數和 -：${where.join('.')}`;
-      const value = node[key];
+      const value = node.get(key);
       let failure;
       if (typeof value === 'string') {
         failure = add(where, value, value, false);
       } else if (isPlainObject(value)) {
         const keys = dataKeys(value);
-        if (keys.includes('light') || keys.includes('dark')) {
-          const exact = keys.length === 2 && typeof value.light === 'string' && typeof value.dark === 'string';
+        if (keys.length === 0) {
+          failure = `群組或子類別是空的（去掉 $ 鍵後沒有任何鍵）：${where.join('.')}`;
+        } else if (keys.includes('light') || keys.includes('dark')) {
+          const exact = keys.length === 2 && typeof value.get('light') === 'string' && typeof value.get('dark') === 'string';
           failure = exact
-            ? add(where, value.light, value.dark, true)
+            ? add(where, value.get('light'), value.get('dark'), true)
             : `物件含 light 或 dark，但不是剛好兩個字串值 { light, dark }：${where.join('.')}`;
         } else {
           failure = walk(value, where);
@@ -60,7 +130,7 @@ export function parseTokens(text) {
     return null;
   };
   for (const group of dataKeys(json)) {
-    const failure = walk({ [group]: json[group] }, []);
+    const failure = walk(new Map([[group, json.get(group)]]), []);
     if (failure !== null) return { ok: false, reason: failure };
   }
   return { ok: true, tokens };
