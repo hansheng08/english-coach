@@ -104,6 +104,82 @@ test('no PR number posts a commit comment', () => {
   });
 });
 
+const UNPUSHED = '7fb74cce397e9b84de590497893677260662590c';
+const PUSHED = '28367c8c2e7dace35fda16b7c697cda11f27e7ee';
+
+// Fake gh: only PUSHED exists on the remote. Lookups of other SHAs are 404 and a
+// POST to .../comments for them answers 422 (as GitHub does) and is recorded.
+function fakeRemoteGh(posts) {
+  return (args, opts = {}) => {
+    const joined = args.join(' ');
+    const isPost = args.includes('POST') && /\/comments(\s|$)/.test(joined);
+    if (isPost) {
+      posts.push({ args, input: opts.input });
+      if (!joined.includes(PUSHED)) {
+        return { status: 1, stdout: '', stderr: `gh: No commit found for SHA: ${UNPUSHED} (HTTP 422)` };
+      }
+      return { status: 0, stdout: '{"id":1}', stderr: '' };
+    }
+    if (args[0] === 'pr') return { status: 0, stdout: '', stderr: '' };
+    if (joined.includes(PUSHED)) return { status: 0, stdout: `{"sha":"${PUSHED}"}`, stderr: '' };
+    return { status: 1, stdout: '', stderr: 'gh: Not Found (HTTP 404)' };
+  };
+}
+
+test('(AC-O26-5) (TC-7) unpushed SHA gets no commit comment and does not throw', () => {
+  withBody((bodyFile) => {
+    const posts = [];
+    const result = postRunTaskComment({
+      repo: 'o/r', prNumber: '', sha: UNPUSHED, bodyFile, runGh: fakeRemoteGh(posts),
+    });
+    assert.equal(posts.length, 0);
+    assert.notEqual(result.posted, 'commit');
+    assert.notEqual(result.posted, 'commit-fallback');
+  });
+});
+
+test('(AC-O26-5) (TC-7) PR 403 fallback with an unpushed SHA posts no commit comment', () => {
+  withBody((bodyFile) => {
+    const posts = [];
+    const base = fakeRemoteGh(posts);
+    const result = postRunTaskComment({
+      repo: 'o/r', prNumber: '18', sha: UNPUSHED, bodyFile,
+      runGh: (args, opts) => (args[0] === 'pr'
+        ? { status: 1, stdout: '', stderr: 'HTTP 403: Resource not accessible by integration' }
+        : base(args, opts)),
+    });
+    assert.equal(posts.length, 0);
+    assert.notEqual(result.posted, 'commit-fallback');
+  });
+});
+
+test('(AC-O26-5) pushed SHA still gets a commit comment', () => {
+  withBody((bodyFile) => {
+    const posts = [];
+    const result = postRunTaskComment({
+      repo: 'o/r', prNumber: '', sha: PUSHED, bodyFile, runGh: fakeRemoteGh(posts),
+    });
+    assert.equal(result.posted, 'commit');
+    assert.equal(posts.length, 1);
+    assert.match(posts[0].args.join(' '), new RegExp(`repos/o/r/commits/${PUSHED}/comments`));
+  });
+});
+
+test('(AC-O26-5) pushed SHA with PR 403 still falls back to a commit comment', () => {
+  withBody((bodyFile) => {
+    const posts = [];
+    const base = fakeRemoteGh(posts);
+    const result = postRunTaskComment({
+      repo: 'o/r', prNumber: '18', sha: PUSHED, bodyFile,
+      runGh: (args, opts) => (args[0] === 'pr'
+        ? { status: 1, stdout: '', stderr: 'HTTP 403: Resource not accessible by integration' }
+        : base(args, opts)),
+    });
+    assert.equal(result.posted, 'commit-fallback');
+    assert.equal(posts.length, 1);
+  });
+});
+
 test('missing body file fails closed', () => {
   assert.throws(() => postRunTaskComment({
     repo: 'o/r',

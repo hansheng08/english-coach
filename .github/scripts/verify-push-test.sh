@@ -16,6 +16,8 @@ CASES=0
 SENTINEL="ghs_O007_FAKE_TOKEN_SENTINEL_DO_NOT_PRINT"
 SHA_A="1a2ef4c4ded3241f9583f1e9d7a55e63080af29d"
 SHA_B="3b1ccfa67a4b9803a17dda6a553bf0e9c67d5707"
+SHA_PRE="28367c8c2e7dace35fda16b7c697cda11f27e7ee" # archive/T-018-run1 tip (fixture)
+SHA_LOCAL="7fb74cce397e9b84de590497893677260662590c" # unpushed local HEAD of run 45852999547
 
 cat >"$FAKEBIN/gh" <<'FAKE'
 #!/usr/bin/env bash
@@ -52,6 +54,7 @@ set -euo pipefail
 printf 'git %s\n' "$*" >>"${MOCK_DIR:?}/calls.log"
 case "${1:-} ${2:-}" in
   "branch --show-current") echo "${MOCK_BRANCH:-task/T-003}"; exit 0 ;;
+  "rev-parse HEAD") echo "${MOCK_HEAD:?}"; exit 0 ;;
 esac
 if [[ "${1:-}" == "fetch" ]]; then
   echo "fatal: FAKE git fetch called - verify-push.sh must not run git fetch" >&2
@@ -65,8 +68,8 @@ chmod +x "$FAKEBIN/gh" "$FAKEBIN/git"
 ref_obj() { # <ref> <sha> [type]
   printf '{"ref":"%s","object":{"sha":"%s","type":"%s"}}' "$1" "$2" "${3:-commit}"
 }
-run_obj() { # <event> <branch> <sha>
-  printf '{"databaseId":45324530991,"event":"%s","headBranch":"%s","headSha":"%s","status":"completed","conclusion":"success","url":"https://example.invalid/run","createdAt":"2026-11-24T04:10:29Z"}' "$1" "$2" "$3"
+run_obj() { # <event> <branch> <sha> [status] [conclusion]
+  printf '{"databaseId":45324530991,"event":"%s","headBranch":"%s","headSha":"%s","status":"%s","conclusion":"%s","url":"https://example.invalid/run","createdAt":"2026-11-24T04:10:29Z"}' "$1" "$2" "$3" "${4:-completed}" "${5-success}"
 }
 
 # new_case: fresh mock dir with default "happy" responses.
@@ -94,6 +97,7 @@ check() {
   local ec
   set +e
   env PATH="$FAKEBIN:$PATH" MOCK_DIR="$M" GITHUB_OUTPUT="$M/github_output" \
+    MOCK_HEAD="$SHA_A" PRE_HEAD="$SHA_PRE" \
     GH_TOKEN="$SENTINEL" GITHUB_REPOSITORY="hansheng08/english-coach" \
     VERIFY_PUSH_SLEEP=0 VERIFY_PUSH_ATTEMPTS=3 TASK=T-003 "${envs[@]}" \
     bash "$SCRIPT" "${args[@]}" >"$M/out.txt" 2>&1
@@ -197,6 +201,60 @@ new_case
 check "VERIFY_PUSH_ATTEMPTS=0 -> 1" 1 bad_input VERIFY_PUSH_ATTEMPTS=0 -- task/T-003
 new_case
 check "VERIFY_PUSH_SLEEP=abc -> 1" 1 bad_input VERIFY_PUSH_SLEEP=abc -- task/T-003
+
+# ---------------------------------------------------------------- O-026
+# Regression of run 45852999547: local HEAD 7fb74cc was never pushed, remote and
+# PRE_HEAD are 28367c8, and an older push CI run exists for 28367c8.
+new_case
+ref_obj refs/heads/task/T-003 "$SHA_PRE" >"$M/ref.json"
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_PRE" completed failure)" >"$M/runs.json"
+check "(AC-O26-3) (TC-4) remote=PRE_HEAD != local HEAD, stale push CI -> head_mismatch" 1 head_mismatch MOCK_HEAD="$SHA_LOCAL" PRE_HEAD="$SHA_PRE" -- task/T-003
+new_case
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_A")" >"$M/runs.json"
+check "(AC-O26-3) remote head != local HEAD (push CI exists for remote sha) -> head_mismatch" 1 head_mismatch MOCK_HEAD="$SHA_B" -- task/T-003
+new_case
+ref_obj refs/heads/task/T-003 "$SHA_PRE" >"$M/ref.json"
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_PRE")" >"$M/runs.json"
+check "(AC-O26-3) remote == local == PRE_HEAD (nothing new pushed) -> stale_head" 1 stale_head MOCK_HEAD="$SHA_PRE" PRE_HEAD="$SHA_PRE" -- task/T-003
+new_case
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_A" in_progress "")" >"$M/runs.json"
+check "(AC-O26-3) (TC-5) pushed, push CI in_progress -> ok" 0 ok -- task/T-003
+new_case
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_A" completed failure)" >"$M/runs.json"
+check "(AC-O26-3) (TC-5) pushed, push CI conclusion=failure -> ok" 0 ok -- task/T-003
+new_case
+printf '[%s]' "$(run_obj push task/T-003 "$SHA_B")" >"$M/runs.json"
+check "(AC-O26-3) (TC-9) pushed, only an earlier sha has push CI -> no_push_run" 1 no_push_run -- task/T-003
+new_case
+echo '[]' >"$M/runs.json"
+check "(AC-O26-3) (TC-9) pushed, no push CI run at all -> no_push_run" 1 no_push_run -- task/T-003
+
+# (AC-O26-6) (TC-8) mutant: drop every line naming the head_mismatch/stale_head
+# reasons; the TC-4 regression (local 7fb74cc, remote 28367c8) must then no
+# longer be rejected on those grounds, and the mutant is reported as caught only
+# if the real script differs from it AND the real script rejects the case.
+MUT="$ROOT/mutant.sh"
+set +e
+grep -vE 'head_mismatch|stale_head' "$SCRIPT" >"$MUT"
+set -e
+if cmp -s "$MUT" "$SCRIPT"; then
+  echo "ERROR: (AC-O26-6) verify-push.sh has no head_mismatch/stale_head checks to mutate"; FAIL=1
+else
+  new_case
+  ref_obj refs/heads/task/T-003 "$SHA_PRE" >"$M/ref.json"
+  printf '[%s]' "$(run_obj push task/T-003 "$SHA_PRE" completed failure)" >"$M/runs.json"
+  set +e
+  env PATH="$FAKEBIN:$PATH" MOCK_DIR="$M" GITHUB_OUTPUT="$M/github_output" MOCK_HEAD="$SHA_LOCAL" PRE_HEAD="$SHA_PRE" \
+    GH_TOKEN="$SENTINEL" GITHUB_REPOSITORY="hansheng08/english-coach" VERIFY_PUSH_SLEEP=0 VERIFY_PUSH_ATTEMPTS=1 TASK=T-003 \
+    bash "$MUT" task/T-003 >"$M/out.txt" 2>&1
+  MUT_EC=$?
+  set -e
+  if [[ "$MUT_EC" -eq 0 ]]; then
+    echo "MUTANT KILLED: (AC-O26-6) without the head checks the stale CI run is accepted (exit 0), so the TC-4 case guards it"
+  else
+    echo "ERROR: (AC-O26-6) mutant without head checks is still rejected; TC-4 would not detect the weakening"; FAIL=1
+  fi
+fi
 
 # ---------------------------------------------------------------- static
 echo "===== STATIC: verify-push.sh has no git fetch command ====="
