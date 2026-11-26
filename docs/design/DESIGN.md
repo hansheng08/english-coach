@@ -1,9 +1,10 @@
-# DESIGN：english-coach 設計系統（D2a，v1.3）
+# DESIGN：english-coach 設計系統（D2a，v1.4）
 
 - 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE v1.9 §9.1／ADR-014（PR #53 已於 2026-11-26 20:03 合併，f1a6077）。
 - v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
 - v1.2（D2 第 3 輪，2026-11-26）：M2 里程碑（Hansheng 20:25 決定）、時段標示三態（AC-21 v1.4）、PM 第 2 輪文案（PR #54 留言 7191990644）。
 - v1.3（2026-11-26 22:14）：電腦快捷鍵標為「加分項、不屬 AC」（Hansheng 決定，幕僚長轉達）；§14 #1 已解決。
+- v1.4（D-004，D2a 增補，2026-11-26；分支 `design/pwa-assets`）：PWA manifest 與圖示、系統提示（斷線、新版、預覽假資料）規格見新檔 `pwa.md`；登入錯誤狀態補齊（`screens/login.md`）。沒有新增 token。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。字卡／紀錄／設定完整頁屬 D2b（原型以 `later.html` 佔位）。
@@ -97,6 +98,8 @@
   - **點擊範圍**：標記用 `::before` 擴大到 48×48（置中）。相鄰兩行的標記擴大範圍會重疊，所以字本身（`.w`）疊在所有擴大範圍之上：看得到的字永遠點到自己，重疊的邊緣由相鄰標記共用（符合 WCAG 2.5.8 的間距規則）。停頓膠囊本身就寫秒數，不做成按鈕。
   - **沒有 JS 時**：按鈕不會開說明，但圖例仍說明每種標記。
 - **AC-15 手機切換的退回**：切換用 `:has()` 隱藏欄位，選擇器錨在對照區塊 `.cmp`（不錨在 `:root`／`body`，照 ARCH §9.1）。瀏覽器不支援 `:has()` 時，`@supports not selector(:has(*))` 把切換列整個藏起來，畫面固定是預設的「逐句對照」（原逐字稿＋Senior 版上下排），所以一定看得到原逐字稿；`:has()` 的隱藏規則在不支援的瀏覽器會整條失效，不會誤藏。
+- **系統提示**（`pwa.md` §3）：`.sysbars`（頁面頂端 sticky）裡的「預覽：假資料」條 `.pv-bar`（`sunken`＋虛線下緣）與「需要連網」條 `.net-bar`（反白：`ink` 底 `bg` 字）；底部「有新版本」卡片 `.upd`（`surface` 卡片＋次要按鈕「更新」）。
+- **表單訊息 `.alert`**：表單最上面，`bad-soft` 底＋1px `bad` 框＋圖示＋粗體標題＋一句說明，`role="alert"`；用在不是某一欄寫錯的錯誤（離線、服務錯誤，見 `screens/login.md`）。
 - **語塊 `.chunk`**：內文中點狀底線，可點開 sheet（意思、例句、播放、跟唸、收錄）。
 
 ## 8. 遊戲化鼓勵的呈現
@@ -156,6 +159,7 @@
 ## 13. 原型與檔案
 - `prototype/screens/index.html` 首頁；其他畫面與流程連結見 `screens/README.md`。直接用瀏覽器開檔即可，不需伺服器、不連外。
 - `app.css` 的 token 區塊由 tokens.json 產生（Designer 本機產生器，不進 repo）；其餘 CSS 引用 token，不寫死顏色（頁面內只有長條高度等元件變數）。
+- PWA 圖示來源 `assets/icons/*.svg`＋PNG（192／512，any＋maskable），規格與預覽頁見 `pwa.md` §2、`prototype/screens/pwa-icons.html`。D-004 的新原型頁沒有新增 JS（沿用各頁共用的主題 script；由首頁衍生的提示頁帶著首頁原有的 R 鍵示意）。
 - inline JS（Architect 判定：附條件可接受，PR #54 留言 7192055349）：(a) 主題切換（head 防閃＋切換／同步）；(b) 診斷頁勾選語塊的計數與診斷標記說明的開關（Esc 關閉）；(c) 首頁 R 鍵、診斷頁 1–5 鍵快捷鍵示意。條件：只用 inline 原生 JS、不連網路、不放外部 script／CDN（之後 D2 增補也照這個標準）；產品不 import、也不複製這些 JS，互動由 React 重寫。只屬於原型、不是產品規格：`?theme=` 網址參數（產品主題 script 照 ARCHITECTURE §9.1.4，不讀網址參數）、註記用 `innerHTML` 組字串（產品改用 React 文字渲染）。AC-15 的 `:has()` 切換可照用（ARCHITECTURE §9.1.5.1）。快捷鍵為加分項、不屬 AC（§10）。
 
 ## 14. 不確定（待確認）
@@ -167,3 +171,4 @@
 6. （PM 第 2 輪已確認並修正）「今天只有 N 張」說明：「新卡和種子庫都用完了，多的到期舊卡也補不滿，今天是舊卡 14＋新卡 4，共 18 張。」
 7. D2b 畫面（字卡清單／搜尋、紀錄、設定、錯誤與額度用完狀態）尚未設計。
 8. 診斷標記點擊範圍：相鄰標記重疊處共用邊緣（字本身一定點得到），若 QA 要求每個標記都有完整不重疊的 48×48，需要加大行高（會讓逐字稿變鬆）→ QA／TechLead。
+9. PWA 與登入錯誤的待確認項目見 `pwa.md` §4 與 `screens/login.md`「不確定」。
