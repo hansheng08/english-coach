@@ -262,11 +262,12 @@ gh version 2.103.0 (2026-10-21)
 
 | 檢查 | 何時跑 | 失敗時 |
 |---|---|---|
-| `run-mutants`（QA 的 `docs/qa/mutants/<基礎編號>.json`；O-013 起修正輪 `T-015-fix1` 也用 `T-015.json`） | `ci.yml` `taskcheck`：`task/**`、`fix/**` 的 push 與 PR，檔案存在才跑；不存在時 log 印「run-mutants: 未執行（沒有 …）」 | 存活（`MU-SURVIVED`）、非預期失敗、基準失敗、錨點錯、還原比對不符都 exit 1 → `ci-ok` 紅叉。QA 判定是否退件；等價突變由 QA 從 JSON 移除 |
+| `run-mutants`（QA 的 `docs/qa/mutants/<基礎編號>.json`；O-013 起修正輪 `T-015-fix1` 也用 `T-015.json`） | `ci.yml` `taskcheck`：`task/**`、`fix/**` 的 push 與 PR，檔案存在才跑；不存在時 log 印「run-mutants: 未執行（沒有 …）」 | 存活（`MU-SURVIVED`）、解析失敗（`MU-RELATED`）、非預期失敗、基準失敗、錨點錯、還原比對不符都 exit 1 → `ci-ok` 紅叉。QA 判定是否退件；等價突變由 QA 從 JSON 移除 |
 | `report-lint` | `taskcheck`：本分支新增或修改的 `docs/reports/*.md`；`claude-run-task.yml`「Report lint and automatic verification summary」步驟：`docs/reports/$TASK.md` | taskcheck：`ci-ok` 紅叉；run-task：Notify `outcome=post_check_failed` |
 | `verify-summary`（自動驗證摘要：測試數、突變、權限被拒、變更檔案） | `taskcheck` 寫進 job summary；run-task 寫進 job summary 並附在 run-task 留言（PR 留言或 commit comment） | 輸入缺漏或結構錯 exit 1（taskcheck 紅叉／run-task `post_check_failed`） |
 | `comment-lint` | 新 workflow `g3-comment-guard.yml`：`pull_request`（opened／edited／reopened／synchronize）、`issue_comment`、`pull_request_review`、`pull_request_review_comment`；只處理標題 `[G3]` 開頭的 PR | 寫 PR head 的 commit status `g3-comment-guard`＝failure，job exit 1。讀 API 失敗也判 failure |
 
+- O-019：每筆突變改跑該目標檔的相關測試（Vitest import graph，`vitest related`）；0 個相關測試改跑完整套件；解析失敗為 `MU-RELATED`（fail-closed，不判 KILLED）；相關測試沒抓到仍為 `MU-SURVIVED`。baseline 仍先跑一次完整套件。`ci.yml` `taskcheck` 的 `timeout-minutes: 40` 不變。
 - 接線腳本：`taskcheck.sh`（測試 `taskcheck-test.sh`，新增 fix 分支、report-lint、run-mutants、verify-summary 案例）、`run-task-post-check.sh`（測試 `run-task-post-check-test.sh`，用真的 report-lint／verify-summary）、`g3-comment-guard.sh`（測試 `g3-comment-guard-test.sh`，假 gh＋真的 comment-lint）、`run-task-outcome.sh` 新增 `--post-check`（`post_check_failed`、`post_check_outcome`）、`run-task-summary-step.sh` 附上自動驗證摘要。全部在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
 - `g3-comment-guard` **不屬於 `ci-ok`**：留言事件不會重跑 `ci.yml`。結果是 commit status；要不要在 main 分支保護設成必要檢查，由 Hansheng 在 G3 決定。`issue_comment`／review 事件從預設分支執行 workflow（不 checkout PR 程式），所以要等 O-009 合併後才會對留言事件生效。
 - O-015（retro §3.7 C8）：**light 模式的 push run 綠燈不算數**，以同一個 head 的 pull_request run 為準；push run 的彙總檢查名稱是 `ci-ok (push)`，不是必過的 `ci-ok`。**PR 有合併衝突時 GitHub 不會觸發 pull_request run**，這段期間只剩 light 的 push run，它的綠燈不能當成「CI 過了」；解完衝突後的 push 才會觸發 PR run。**docs 模式（純文件推 main）的 `check` 是「未驗證」**，`ci-ok (push)` 摘要會寫出來；以下一個 pull_request run 為準。詳見 §6.3。
