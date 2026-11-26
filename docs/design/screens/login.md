@@ -6,7 +6,7 @@
 - 截圖：`shots/login-*`。
 
 ## 錯誤狀態（D-004 增補，2026-11-26）
-依據：ARCHITECTURE §6 錯誤碼表（`unauthenticated`＝帳密錯；其他）、§7（Supabase Auth email＋密碼、關閉註冊）、T-018「介面」（`signInWithPassword` 錯誤對應：帳密錯 → `unauthenticated`，其他 → `internal`）、NFR-06（需連網）、T-019（`subscribeOnlineStatus`）。
+依據：ARCHITECTURE §6 錯誤碼表（`unauthenticated`＝帳密錯；其他）、§7（v1.9.1：Supabase Auth 只用 email＋密碼、不用 magic link、關閉註冊）、T-018「介面」（`signInWithPassword` 錯誤對應：帳密錯 → `unauthenticated`，其他 → `internal`）、NFR-06（需連網）、T-019（`subscribeOnlineStatus`）。
 
 兩種位置：
 - **欄位訊息**（`.hint.err`）：欄位下方，`bad` 字＋警告圖示；輸入框 2px `bad` 框；欄位 `aria-invalid="true"`，訊息用 `aria-describedby` 連到欄位。
