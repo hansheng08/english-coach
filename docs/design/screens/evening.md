@@ -14,5 +14,12 @@
 ## 跟讀改寫版（`retell.html`）→ 無稿重答（`retell-cue.html`）→ 結果（`result.html`）
 - retell：TTS 播放 Senior 版全文（勾選的語塊粗底線）、再播一次、跟讀 3／3、「3 遍完成，可以切換到無稿提示模式」、「切換到無稿提示模式」（N）。
 - retell-cue：題目＋計時＋只顯示勾選的大字語塊（編號）＋停止鈕（Space）。
-- result（AC-18、AC-20、AC-26）：「今天三段都打開了」＋連續 24 天（大數字）＋三段；跳過說明「中午跳過的『手動新增』不算完成；早中晚都在時段內進入過第一步，所以 streak 不中斷。」；目標語塊 2／3 講出（圖示＋文字＋點數，沒講到＝「這次沒講到，下次再試」）；Mastered 面板 49 個（+1）＋M2 刻度＋「『dug into』講出來了，升到 Mastered。」；和首答比（停頓 4→1、贅詞 9→3、每分鐘字數 96→104）；模型標示；「回今天」。
-- 截圖：`shots/evening-*`、`shots/evening-record-*`、`shots/diagnosis-*`、`shots/retell-*`、`shots/retell-cue-*`、`shots/result-*`。
+- result（AC-18、AC-20、AC-21、AC-26）：「今天三段都打開了」＋連續 24 天（大數字）＋三段標示：早上、晚上＝實心＋勾，中午＝斜紋＋跳過圖示＋「中午・有跳過」（AC-21 v1.4：有進入但未全部完成，不用完成樣式）；跳過說明「中午跳過的『手動新增』不算完成；早中晚都在時段內進入過第一步，所以 streak 不中斷。」；目標語塊 2／3 講出（圖示＋文字＋點數，沒講到＝「這次沒講到，下次再試」）；Mastered 面板 49 個（+1）＋M2 刻度＋「『dug into』講出來了，升到 Mastered。」；和首答比（停頓 4→1、贅詞 9→3、每分鐘字數 96→104）；模型標示；「回今天」。
+## 結果頁的 M2 里程碑（`result-milestone.html`、`result-milestone-seen.html`、`result-milestone-60.html`）｜Hansheng 20:25 決定、AC-22 v1.4 刻度
+- 何時：這次結果讓 Mastered 跨過 15 或 60。每個刻度只出現一次。
+- 第一次（`result-milestone.html`，假資料 14→15）：Mastered 面板加金色細框，頂部是里程碑：刻線圖示＋「M2 第一個刻度」＋「Mastered 跨過 15 個」＋「M2 的目標是第 4 週 15 個。下一個刻度：第 12 週 60 個。」；下面照常是 15 個（+1）與 M2 刻度，15 的刻線變金色並由下往上長出。手機排在 streak 焦點卡之後；電腦在右欄最上面。
+- 再次打開（`result-milestone-seen.html`）：一般 Mastered 面板，沒有里程碑，15 的刻線維持金色。兩頁之間有「原型示範」連結（只在原型）。
+- 60（`result-milestone-60.html`）：「M2 第二個刻度／Mastered 跨過 60 個／M2 的目標是第 12 週 60 個，兩個刻度都過了。」
+- 減少動態：不動，直接顯示最終畫面。
+- 「只出現一次」怎麼記：不確定，交 Architect。
+- 截圖：`shots/evening-*`、`shots/evening-record-*`、`shots/diagnosis-*`、`shots/retell-*`、`shots/retell-cue-*`、`shots/result-*`、`shots/result-milestone-*`、`shots/result-milestone-seen-*`。

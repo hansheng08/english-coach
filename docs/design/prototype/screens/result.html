@@ -29,10 +29,24 @@
 .cmp2 div:first-child{border-top:0}
 .cmp2 dt{color:var(--color-ink-2)} .cmp2 dd{margin:0}
 @media (min-width:900px){
-  .result-pg{grid-template-columns:minmax(0,1fr) 360px;align-items:start}
+  .result-pg{grid-template-columns:minmax(0,1fr) 360px;grid-template-rows:auto 1fr;align-items:start}
   .result-pg .rail{grid-column:2;grid-row:1/span 2}
   .fin-t{font-size:2.25rem}
   .gold-n{font-size:3.5rem}
+}
+
+.fin-lab span{display:flex;align-items:center;gap:4px}
+.fin-lab .part{color:var(--color-on-hero-2)}
+.proto-note{display:flex;align-items:center;gap:10px;min-height:48px;margin-top:14px;padding:6px 12px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-line);font-size:.8125rem;color:var(--color-ink-2)}
+.proto-note span:nth-child(2){flex:1}
+.proto-note .pn-k{font-size:.6875rem;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--color-sunken);color:var(--color-ink-2);white-space:nowrap}
+.proto-note:hover{background:var(--color-sunken)}
+/* 手機：里程碑緊接在 streak 之後（rail 拆開排序）；電腦：照常在右欄最上面 */
+@media (max-width:899px){
+  .has-ms .rail{display:contents}
+  .has-ms>*,.has-ms .rail>*{order:2}
+  .has-ms .hero{order:0}
+  .has-ms .rail>.ms-pg{order:1}
 }
 </style>
 </head>
@@ -46,11 +60,11 @@
   <section class="hero fin" aria-labelledby="fin-h">
     <div class="eyebrow"><span>今天三段都打開了</span><span>21:34</span></div>
     <h2 id="fin-h" class="fin-t">連續 <span class="num gold-n">24</span> 天</h2>
-    <div class="segs fin-segs" role="img" aria-label="早上、中午、晚上都已打開"><i class="done"></i><i class="done"></i><i class="done"></i></div>
-    <div class="seglab" aria-hidden="true"><span class="on">早上</span><span class="on">中午</span><span class="on">晚上</span></div>
+    <div class="segs fin-segs" role="img" aria-label="早上：全部完成；中午：有進入，但有步驟跳過；晚上：全部完成"><i class="done"></i><i class="part"></i><i class="done"></i></div>
+    <div class="seglab fin-lab" aria-hidden="true"><span class="on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>早上</span><span class="part"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 6.5l6 5.5-6 5.5M16.5 6.5v11"/></svg>中午・有跳過</span><span class="on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>晚上</span></div>
     <p class="sub t-callout fin-sub">中午跳過的「手動新增」不算完成；早中晚都在時段內進入過第一步，所以 streak 不中斷。</p>
   </section>
-  <section class="panel" aria-labelledby="rs-h">
+  <section class="panel res-pg" aria-labelledby="rs-h">
     <div class="panel-h"><h3 id="rs-h">無稿重答：目標語塊</h3><span class="t-callout num"><b>2</b>／3 講出・<b class="gold">+20</b></span></div>
     <ul class="list rlist"><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">took the line down</span><span class="r-m">有講出</span></div><span class="pts num">+10</span></li><li class="res hit"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><span class="r-t" lang="en">dug into</span><span class="r-m">有講出・<b class="gold">升到 Mastered</b></span></div><span class="pts num">+10</span></li><li class="res miss"><span class="mk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></span><div><span class="r-t" lang="en">traced it to</span><span class="r-m">這次沒講到，下次再試</span></div><span class="pts num">—</span></li></ul>
     <p class="t-caption muted">分數記入成長曲線。模型：Gemini 2.5 Flash・STT：Groq Whisper</p>
