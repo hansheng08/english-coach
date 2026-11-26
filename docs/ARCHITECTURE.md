@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.9**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`）｜日期：2026-11-26｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.9.1**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1）｜日期：2026-11-26｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -42,7 +42,7 @@
 | 前端 | React 19＋Vite＋`vite-plugin-pwa`（Workbox） | SvelteKit、Vue | 主流穩定；Vite 建置快 |
 | 後端 | Supabase（Auth、Postgres、Storage、Edge Functions、pg_cron） | Cloudflare Workers＋D1＋R2＋Access；Firebase（不建議） | ADR-002：免費方案不綁卡、超量只會被擋不會計費 |
 | 執行期驗證 | `zod`（AI 回傳 JSON、API 請求/回應都過 schema） | 手寫型別守衛 | AI 輸出不可信，必須在邊界驗證 |
-| 測試 | Vitest（單元、契約）、Playwright（E2E，Android Chrome 模擬） | Jest | 與 Vite 同生態、速度快 |
+| 測試 | Vitest（單元、契約；前端元件測試用 `jsdom`＋Testing Library，ADR-001 修訂 1）、Playwright（E2E，Android Chrome 模擬） | Jest；happy-dom、Vitest Browser Mode | 與 Vite 同生態、速度快；jsdom 的規格符合度和範例最多 |
 | Lint／架構 | ESLint＋typescript-eslint（strict-type-checked）＋dependency-cruiser | eslint-plugin-boundaries | 讓「錯的 import」在 CI 失敗（第 3 節） |
 | 套件管理 | pnpm workspaces | npm workspaces | 嚴格的依賴隔離，避免偷用未宣告套件 |
 依賴總表與每個依賴的理由見 ADR-001 §依賴清單。供應商選擇見 ADR-003、ADR-004。
@@ -903,7 +903,11 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
 - **前端只拿得到公開金鑰**：Supabase 的 publishable/anon key 設計上可以公開，安全靠 RLS；Vite 只會把 `VITE_` 開頭的變數打包進前端，所以規定：任何 `VITE_` 變數名稱不得含 `KEY`、`SECRET`、`TOKEN`（`VITE_SUPABASE_PUBLISHABLE_KEY` 例外，寫死在白名單；舊的 anon 金鑰 Supabase 將於 2026 年底淘汰，不使用），由 CI 測試檢查。
 - **Azure 金鑰不下發**：跟讀錄音由前端上傳到 Edge Function，再由伺服器呼叫 Azure（金鑰不出伺服器）。
 - **CI 秘密掃描**：建置後掃 `dist/` 與 repo，命中已知金鑰格式（例如 `AIza`、`gsk_` 前綴）即失敗。工具選擇（gitleaks 或自寫腳本）由 O-001 決定。
-- **登入**：Supabase Auth email＋密碼（或 magic link），**關閉註冊**；只有 Hansheng 一個帳號（Q-01）。
+- **登入**：Supabase Auth **email＋密碼**，**關閉註冊**；只有 Hansheng 一個帳號（Q-01）。**不用 magic link**（v1.9.1）：
+  - Supabase 內建的寄信服務一個專案每小時只能寄 2 封、沒有 SLA（官方 Rate limits、Custom SMTP 頁）。用 magic link，每次登入都要寄信，會受這個限制；要避開就得另外設定 SMTP。
+  - 在 Android 上，信裡的連結會開在 PWA 還是瀏覽器分頁，要看 Android 版本、預設瀏覽器和郵件 App（WebAPK 會註冊 intent filter，但 Android 12 起交給預設瀏覽器判斷）。這點**未驗證**；開在瀏覽器分頁的話，登入流程會跑到 App 外面。
+  - 用密碼的話，E2E 可以直接登入，不用收信。
+  - PRD 沒有要求 magic link（AC-23 只要求手機和電腦都能登入同一帳號）。
 - **個資（NFR-04、Q-06）**：
   - 履歷在**瀏覽器端**解析成文字（PDF 用 `pdfjs-dist`、DOCX 用 `mammoth`），用規則移除電話、Email、地址後，只把 `redacted_text` 送後端與 AI；原檔存在私有 Storage bucket（AC-12 可刪）。
   - 錄音只送 STT／發音供應商，不送 Gemini；送 Gemini 的是逐字稿。
@@ -1474,6 +1478,8 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 - Gemini REST（`generateContent`、`streamGenerateContent`、`FinishReason`、`BlockReason`、`thinkingConfig`）、API 錯誤、疑難排解、模型、Interactions API（2026-11-25 讀取）：見 ADR-012「驗證」表
 - T-023 新聞判定與改寫的決策（2026-11-25）：ADR-013；token 估計依據為 A-003 樣本
 - PoC A-003（Hansheng 手動實測，2026-11-25，31 次呼叫）：`docs/poc/A-003/REPORT.md`、樣本索引 `docs/poc/A-003/README.md`
+- 登入方式（2026-11-26 讀取）：Supabase Auth 寄信限制 https://supabase.com/docs/guides/auth/rate-limits 、https://supabase.com/docs/guides/auth/auth-smtp ；WebAPK intent filter https://web.dev/articles/webapks
+- 前端測試依賴（2026-11-26 讀取）：見 ADR-001 修訂 1「參考」
 - 前端設計基礎（2026-11-26 讀取）：Cloudflare Pages 建置與環境變數 https://developers.cloudflare.com/pages/configuration/build-configuration/ 、https://developers.cloudflare.com/pages/functions/bindings/ ；Pages `_headers`（CSP）https://developers.cloudflare.com/pages/configuration/headers/ ；Supabase Auth Redirect URLs 萬用字元 https://supabase.com/docs/guides/auth/redirect-urls ；`:has()` https://developer.mozilla.org/en-US/docs/Web/CSS/:has ；Vite `build.target` https://vite.dev/guide/migration 、https://v7.vite.dev/config/build-options ；決策見 ADR-014
 
 ## 18. 變更紀錄
@@ -1492,3 +1498,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.7.1 | 2026-11-25 | 依 PoC A-003 實測修訂 §5.4（Hansheng 用免費金鑰手動實測 31 次，不是 workflow run；報告和樣本放 `docs/poc/A-003/`）：<br>• §5.4.6 SSE：CRLF 切段、沒有 `event:`／`[DONE]`、`usageMetadata` 累計只取最後一段、`finishReason` 只在最後一段且文字為空、非 2xx 不管 `content-type` 一律當 JSON 解析<br>• §5.4.3：回應 zod 不用 strict（`thoughtSignature`）、`thoughtsTokenCount` 可省略；adapter 自己逾時中止改為必要條件（3.8-flash 實測 20.9 秒 503，以及 40～60 秒沒有回應）；模型 ID 已實測<br>• §5.4.4：`error.details` 可省略；金鑰錯誤 400 `API_KEY_INVALID`、沒帶金鑰 403，兩者都是 `auth`，401 沒出現<br>• 仍未驗證：429 `details`、`region_blocked` 訊息、3.8-flash 成功回應與思考預設、`SAFETY`／`blockReason` |
 | v1.8 | 2026-11-25 | T-023 寫單前 TechLead 的 Q1～Q5：新增 §11.3 新聞類別判定與改寫、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6（第 20 條）。<br>• Q1 採 (b)：判定是只看標題和前 300 字的小呼叫，只改寫通過的那篇；T-022 不用改<br>• Q2：jsonb 用 snake_case；`sentences: string[]`、「/」是單獨的 token；`sentence_index` 和 `rewritten_text` 由程式產生；沿用原文標題<br>• Q3：用 `rewritten_text` 和原文相同的空白切字規則算 250～300 字<br>• Q4：所有檢查都寫進 `generate` 的 schema，T-023 不自己重試<br>• Q5：`_shared/news/rewrite.ts`，`LlmProvider` 由 `daily-prep` 注入<br>另改 §3.1 news 列、§4 `news_article` 列、§6 第 6、7 點、§10、§11.1.1 第 1 點 |
 | v1.9 | 2026-11-26 | 前端設計基礎（Designer 計畫第 5 步；D1 決定 R2-C、只用系統字、深色模式三態）：新增 §9.1 與 ADR-014。<br>• 預覽：`VITE_DATA_MODE` 只能是 `mock`／`supabase`（沒有預設值），前端 PR 預覽只用假資料，不連任何 Supabase；`dist/` 雙向掃描<br>• 字型：只用系統字，Q-35 結案，不新增依賴<br>• 動畫：只用 CSS／原生 Web Animations API，包在 `prefers-reduced-motion: no-preference` 裡<br>• 主題：`localStorage['ec-theme']` 三態，`<head>` 最前面的 inline script 設 `data-theme`，`color-scheme`／`theme-color` meta；加 CSP 時用 sha256<br>• token：`tooling/tokens-css.mjs` 產生 `apps/web/src/ui/tokens.css`（commit，CI `--check`），命名 `--<群組>-<名稱>`，CSS Modules 不寫色碼（`css-literals.mjs`）<br>另改：§4.6 選句字數統一用 contracts `newsWords`（ADR-013，和 T-010 一致）；§7 加預覽不連後端；§12 目錄；§17 參考；檔頭版本改正為 v1.9（v1.8 時檔頭仍寫 v1.7）<br>• 依 D2a PR #54（`e6b7866`）補充：§9.1.5「解析規則」（任何一層的 `$` 鍵都略過、頂層只能是 6 個群組、巢狀子類別用 `-` 攤平、斷點不進 tokens），U-4 已解決；§9.1.2 字型堆疊加 `"Segoe UI"`（U-5 仍未驗證）；新增 §9.1.5.1 瀏覽器範圍與 `:has()` 判斷（U-7 不確定） |
+| v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1） |
