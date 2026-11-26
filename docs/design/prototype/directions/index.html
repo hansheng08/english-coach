@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>english-coach D1 風格方向比較（第 2 輪）</title>
+<style>
+/* 比較頁外殼刻意保持中性，不代表任何方向 */
+:root{--fg:#1F1F1F;--muted:#555;--line:#DDD;--bg:#FFF;--soft:#F5F5F5;--font:"Noto Sans TC","Noto Sans CJK TC","PingFang TC",system-ui,sans-serif}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:var(--font);color:var(--fg);background:var(--bg);line-height:1.6}
+a{color:#1A4FB4}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:3px solid #1A4FB4;outline-offset:2px}
+.wrap{max-width:1200px;margin:0 auto;padding:20px 16px 64px}
+h1{font-size:1.5rem;line-height:1.3;margin:0 0 6px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:52em}
+.jump{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px;padding:0;list-style:none}
+.jump a{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--fg);font-weight:700}
+.jump a:hover{background:var(--soft)}
+.dir{border-top:2px solid var(--fg);padding:24px 0 8px;margin-top:16px}
+.dir h2{font-size:1.375rem;margin:0}
+.star{font-size:1.0625rem;margin:6px 0 12px;font-weight:700}
+.kw{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+.kw li{border:1px solid var(--line);border-radius:14px;padding:1px 10px;font-size:.875rem}
+.meta{display:grid;gap:14px;margin-bottom:16px}
+.meta h3{font-size:.875rem;margin:0 0 6px;color:var(--muted)}
+.sw{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
+.sw li{display:flex;align-items:center;gap:6px;font-size:.8125rem;font-family:ui-monospace,Menlo,monospace}
+.sw i{width:28px;height:28px;border-radius:6px;border:1px solid rgba(0,0,0,.15);flex:none}
+.fonts{margin:0;padding-left:1.1em;font-size:.9375rem}
+.shots{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin:8px 0 16px}
+figure{margin:0}
+figure img{display:block;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;background:var(--soft)}
+figure.m img{max-width:360px}
+figcaption{font-size:.8125rem;color:var(--muted);margin-top:4px}
+.open{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.open a{display:inline-flex;align-items:center;min-height:48px;padding:0 16px;border-radius:8px;background:var(--fg);color:#fff;text-decoration:none;font-weight:700}
+.open a:hover{background:#000}
+.fit{display:grid;gap:12px;margin-bottom:12px}
+.fit div{background:var(--soft);border-radius:8px;padding:12px 14px}
+.fit h3{font-size:.9375rem;margin:0 0 4px}
+.fit ul,.refs ul{margin:0;padding-left:1.1em}
+.refs{font-size:.9375rem}
+.refs h3{font-size:.9375rem;margin:0 0 4px}
+.refs li{margin:2px 0;overflow-wrap:anywhere}
+.rec{border:2px solid var(--fg);border-radius:10px;padding:16px;margin-top:32px}
+.rec h2{margin:0 0 8px;font-size:1.25rem}
+table{border-collapse:collapse;width:100%;font-size:.875rem;margin:12px 0}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+.tablewrap{overflow-x:auto}
+@media (min-width:900px){
+  .wrap{padding:32px 32px 80px}
+  h1{font-size:2rem}
+  .meta{grid-template-columns:1.2fr 1fr}
+  .shots{grid-template-columns:300px minmax(0,1fr);align-items:start}
+  .fit{grid-template-columns:1fr 1fr}
+}
+.shots3{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:8px 0 16px}
+.shots3 figure.d{grid-column:1/-1}
+.shots3 figure.m img{max-width:none}
+.fit p{margin:0}
+.refs a{display:inline-flex;align-items:center;min-height:48px}
+details.r1{border-top:2px solid var(--fg);margin-top:40px;padding-top:12px}
+details.r1>summary{cursor:pointer;font-weight:700;font-size:1.125rem;min-height:48px;display:flex;align-items:center}
+@media (min-width:900px){.shots3{grid-template-columns:220px 220px minmax(0,1fr);align-items:start}.shots3 figure.d{grid-column:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>english-coach D1 風格方向比較（第 2 輪，最後一輪）</h1>
+  <p class="lead">第 1 輪回饋：「硬要選會選 A，但都不理想；想要明顯更高級、精緻，接近 Apple iOS 的設計精神。」這一輪三個方向都在「iOS 式高級、精緻」的範圍內，但在材質、色溫、強調色、密度和鼓勵的呈現方式上刻意不同。全部只用系統字；不用 SF Symbols、不用 Apple 圖像、不學活動圈，圖示都是自己畫的。截圖是在 Roboto＋Noto Sans TC 下產生，就是你 Android 手機上的樣子。</p>
+  <ul class="jump"><li><a href="#r2a">R2-A 分組</a></li><li><a href="#r2b">R2-B 留白</a></li><li><a href="#r2c">R2-C 夜幕焦點</a></li><li><a href="#r2rec">推薦</a></li><li><a href="#r1">第 1 輪</a></li></ul>
+
+  <section class="dir" id="r2a" aria-labelledby="r2a-h">
+    <h2 id="r2a-h">R2-A　分組</h2>
+    <p class="star">一眼看完今天：像 iOS 健康摘要一樣，把今天收成幾組安靜、整齊的清單。</p>
+    <ul class="kw"><li>整齊</li><li>冷靜</li><li>熟悉</li></ul>
+    <div class="open"><a href="r2-a-grouped/index.html">打開手機首頁</a><a href="r2-a-grouped/diagnosis.html">打開晚上診斷</a></div>
+    <div class="meta">
+      <div><h3>色票（淺色）</h3><ul class="sw"><li><i style="background:#F2F3F7"></i>#F2F3F7 頁底</li><li><i style="background:#FFFFFF"></i>#FFFFFF 卡片</li><li><i style="background:#000000"></i>#000000 內文</li><li><i style="background:#595F6B"></i>#595F6B 次要</li><li><i style="background:#2F5BEA"></i>#2F5BEA 鈷藍強調</li><li><i style="background:#1E8450"></i>#1E8450 完成</li></ul><h3 style="margin-top:12px">色票（深色）</h3><ul class="sw"><li><i style="background:#000000"></i>#000000 頁底</li><li><i style="background:#1C1D21"></i>#1C1D21 卡片</li><li><i style="background:#FFFFFF"></i>#FFFFFF 內文</li><li><i style="background:#A3A8B4"></i>#A3A8B4 次要</li><li><i style="background:#7B97FF"></i>#7B97FF 鈷藍強調</li><li><i style="background:#4FCB86"></i>#4FCB86 完成</li></ul></div>
+      <div><h3>字型角色（全部系統字，無打包字型）</h3><ul class="fonts"><li>大標題：系統黑體 34px／700（今天）</li><li>內文：系統黑體 17px／400，次要 15px</li><li>數字：系統黑體 300 細字＋等寬數字（2／3、48／50）</li><li>英文題目：同一套系統字，不另加字型</li></ul></div>
+    </div>
+    <div class="shots3">
+      <figure class="m"><img src="shots/r2-a-mobile-360.png" alt="R2-A　分組 手機今天首頁（淺色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（淺色）</figcaption></figure>
+      <figure class="m"><img src="shots/r2-a-mobile-360-dark.png" alt="R2-A　分組 手機今天首頁（深色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（深色）</figcaption></figure>
+      <figure class="d"><img src="shots/r2-a-desktop-1280.png" alt="R2-A　分組 電腦晚上診斷（1280 寬）" loading="lazy"><figcaption>電腦 1280｜晚上診斷</figcaption></figure>
+    </div>
+    <div class="fit">
+      <div><h3>高級在哪裡（留白、層次、材質、動態）</h3><p>大標題＋分組清單的層次；半透明上下列與髮絲分隔線；週膠囊用三段小格表示早中晚，細字數字收斂情緒。</p></div>
+      <div><h3>和 round 1 的 A 差在哪裡</h3><p>保留 A 的鈷藍與「一週一眼看完」，但拿掉三圈、窄體字和檸檬黃計分板；改成 iOS 式分組清單與細字數字，從運動感變成整齊感。</p></div>
+      <div><h3>適合</h3><ul><li>想要「打開就懂」、和手機設定頁一樣熟悉</li><li>早中晚狀態要逐項看清楚</li></ul></div>
+      <div><h3>不適合</h3><ul><li>想要更有個性、一眼記得住的畫面</li><li>分組卡片多，晚上診斷頁資訊量大時略擠</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（都有實際打開）</h3><ul><li><a href="https://developer.apple.com/design/human-interface-guidelines/lists-and-tables">Apple HIG — Lists and tables（inset grouped）</a></li><li><a href="https://developer.apple.com/design/human-interface-guidelines/materials">Apple HIG — Materials（半透明列）</a></li><li><a href="https://www.apple.com/ios/health/">Apple 健康 App（摘要頁、重點句）</a></li><li><a href="https://gentler.app/">Gentler Streak（溫和的連續紀錄）</a></li><li><a href="https://streaksapp.com/">Streaks（習慣格）</a></li></ul></div>
+  </section>
+  <section class="dir" id="r2b" aria-labelledby="r2b-h">
+    <h2 id="r2b-h">R2-B　留白</h2>
+    <p class="star">少即是多：像 Things 一樣，用大量留白和一條琥珀色刻度，讓每天的練習像一頁乾淨的手帳。</p>
+    <ul class="kw"><li>安靜</li><li>溫暖</li><li>文字感</li></ul>
+    <div class="open"><a href="r2-b-airy/index.html">打開手機首頁</a><a href="r2-b-airy/diagnosis.html">打開晚上診斷</a></div>
+    <div class="meta">
+      <div><h3>色票（淺色）</h3><ul class="sw"><li><i style="background:#FFFFFF"></i>#FFFFFF 頁底</li><li><i style="background:#F7F6F4"></i>#F7F6F4 側欄</li><li><i style="background:#1F1B16"></i>#1F1B16 內文</li><li><i style="background:#655D54"></i>#655D54 次要</li><li><i style="background:#CC7A00"></i>#CC7A00 琥珀（圖形）</li><li><i style="background:#9A5800"></i>#9A5800 琥珀（文字）</li></ul><h3 style="margin-top:12px">色票（深色）</h3><ul class="sw"><li><i style="background:#171513"></i>#171513 頁底</li><li><i style="background:#1F1C19"></i>#1F1C19 側欄</li><li><i style="background:#F3EEE7"></i>#F3EEE7 內文</li><li><i style="background:#B3ABA1"></i>#B3ABA1 次要</li><li><i style="background:#F5A524"></i>#F5A524 琥珀（圖形）</li><li><i style="background:#F5B04A"></i>#F5B04A 琥珀（文字）</li></ul></div>
+      <div><h3>字型角色（全部系統字，無打包字型）</h3><ul class="fonts"><li>日期大數字：系統黑體 200 極細 72–96px</li><li>分段標題：系統黑體 15px／600</li><li>清單：系統黑體 17px／400</li><li>週統計：系統黑體 300 細字 32px</li></ul></div>
+    </div>
+    <div class="shots3">
+      <figure class="m"><img src="shots/r2-b-mobile-360.png" alt="R2-B　留白 手機今天首頁（淺色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（淺色）</figcaption></figure>
+      <figure class="m"><img src="shots/r2-b-mobile-360-dark.png" alt="R2-B　留白 手機今天首頁（深色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（深色）</figcaption></figure>
+      <figure class="d"><img src="shots/r2-b-desktop-1280.png" alt="R2-B　留白 電腦晚上診斷（1280 寬）" loading="lazy"><figcaption>電腦 1280｜晚上診斷</figcaption></figure>
+    </div>
+    <div class="fit">
+      <div><h3>高級在哪裡（留白、層次、材質、動態）</h3><p>幾乎不用卡片，只靠留白、極細大數字和髮絲線分層；唯一的顏色是琥珀；浮起的石墨色按鈕是唯一的「材質」。</p></div>
+      <div><h3>和 round 1 的 A 差在哪裡</h3><p>A 是滿版色塊和三圈；B 把顏色降到只剩一個琥珀點綴，用 30 格刻度代替圈圈，用文字句子代替計分板。</p></div>
+      <div><h3>適合</h3><ul><li>喜歡安靜、不想被畫面催促</li><li>重視閱讀感，晚上診斷頁要舒服好讀</li></ul></div>
+      <div><h3>不適合</h3><ul><li>想要明顯的遊戲感、「拿到東西」的感覺</li><li>手機沒有底部分頁列，切換頁面要多點一下</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（都有實際打開）</h3><ul><li><a href="https://culturedcode.com/things/">Things 3（留白、方角勾選框、側欄）</a></li><li><a href="https://bear.app/">Bear（暖色、文字為主）</a></li><li><a href="https://www.craft.do/">Craft（文件式層次）</a></li><li><a href="https://developer.apple.com/design/human-interface-guidelines/typography">Apple HIG — Typography（大小與粗細階層）</a></li><li><a href="https://www.oakmeditation.com/">Oak（安靜的進度表現）</a></li></ul></div>
+  </section>
+  <section class="dir" id="r2c" aria-labelledby="r2c-h">
+    <h2 id="r2c-h">R2-C　夜幕焦點</h2>
+    <p class="star">現在就做這一件：像鎖定畫面上的即時動態，一張深墨藍焦點卡告訴你此刻該做什麼。</p>
+    <ul class="kw"><li>專注</li><li>沉穩</li><li>有份量</li></ul>
+    <div class="open"><a href="r2-c-focus/index.html">打開手機首頁</a><a href="r2-c-focus/diagnosis.html">打開晚上診斷</a></div>
+    <div class="meta">
+      <div><h3>色票（淺色）</h3><ul class="sw"><li><i style="background:#F4F5F7"></i>#F4F5F7 頁底</li><li><i style="background:#FFFFFF"></i>#FFFFFF 卡片</li><li><i style="background:#0F2236"></i>#0F2236 墨藍（內文、焦點卡）</li><li><i style="background:#56657A"></i>#56657A 次要</li><li><i style="background:#F2C14E"></i>#F2C14E 金（只在墨藍上）</li><li><i style="background:#8A6200"></i>#8A6200 金（淺底文字）</li></ul><h3 style="margin-top:12px">色票（深色）</h3><ul class="sw"><li><i style="background:#0A1420"></i>#0A1420 頁底</li><li><i style="background:#13202F"></i>#13202F 卡片</li><li><i style="background:#1A2E45"></i>#1A2E45 焦點卡</li><li><i style="background:#F3F5F8"></i>#F3F5F8 內文</li><li><i style="background:#A7B1BF"></i>#A7B1BF 次要</li><li><i style="background:#F2C14E"></i>#F2C14E 金</li></ul></div>
+      <div><h3>字型角色（全部系統字，無打包字型）</h3><ul class="fonts"><li>標題：系統黑體 22px／600（電腦 28px）</li><li>數字：系統黑體 600 粗字＋等寬數字，金色只在深底</li><li>內文：系統黑體 15px／400，資料密度較高</li><li>標籤：12–13px／600</li></ul></div>
+    </div>
+    <div class="shots3">
+      <figure class="m"><img src="shots/r2-c-mobile-360.png" alt="R2-C　夜幕焦點 手機今天首頁（淺色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（淺色）</figcaption></figure>
+      <figure class="m"><img src="shots/r2-c-mobile-360-dark.png" alt="R2-C　夜幕焦點 手機今天首頁（深色，360 寬）" loading="lazy"><figcaption>手機 360｜今天首頁（深色）</figcaption></figure>
+      <figure class="d"><img src="shots/r2-c-desktop-1280.png" alt="R2-C　夜幕焦點 電腦晚上診斷（1280 寬）" loading="lazy"><figcaption>電腦 1280｜晚上診斷</figcaption></figure>
+    </div>
+    <div class="fit">
+      <div><h3>高級在哪裡（留白、層次、材質、動態）</h3><p>深墨藍焦點卡的「材質」配上同色系微光；金色只用在最重要的一個數字和按鈕；資料密度高但對齊嚴謹，動態只在當下這一步輕輕呼吸。</p></div>
+      <div><h3>和 round 1 的 A 差在哪裡</h3><p>A 的鼓勵靠三圈和亮色計分板；C 只保留一張焦點卡和小柱狀圖，配色從鈷藍＋檸檬改成墨藍＋柔金，重心從「進度」改成「下一步」。</p></div>
+      <div><h3>適合</h3><ul><li>晚上用得多、想要一打開就知道下一步</li><li>喜歡資料感（柱狀、分鐘、目標刻線）</li></ul></div>
+      <div><h3>不適合</h3><ul><li>偏好非常輕、非常白的畫面</li><li>深色焦點卡在白天淺色模式裡份量較重</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（都有實際打開）</h3><ul><li><a href="https://flighty.com/">Flighty（Live Activity 式焦點卡、資料密度）</a></li><li><a href="https://www.apple.com/apple-fitness-plus/">Apple Fitness+（深色焦點、數字為主）</a></li><li><a href="https://linear.app/">Linear（深墨藍、鍵盤提示）</a></li><li><a href="https://m3.material.io/styles/typography/type-scale-tokens">Material 3 type scale（Android 字級對照）</a></li><li><a href="https://carrot.bet/">CARROT（克制的遊戲化語氣）</a></li></ul></div>
+  </section>
+  <section class="rec" id="r2rec" aria-labelledby="r2rec-h">
+    <h2 id="r2rec-h">Designer 推薦：R2-C 夜幕焦點</h2>
+    <p>理由：english-coach 最重要的一段在晚上，C 的焦點卡直接回答「現在做哪一件」，深色模式也最自然。它的高級感來自材質對比、配色克制和嚴謹對齊，不靠 SF 字型，所以在你的 Android 手機（Roboto＋Noto Sans TC）上效果不打折。遊戲化保留在柱狀圖、50 目標刻線和金色數字，克制但看得到進步。</p>
+    <p>如果你想要最接近 iPhone 內建 App 的熟悉感，選 R2-A；如果你想要最安靜、最像手帳的感覺，選 R2-B。也可以混搭，例如 C 的首頁配 B 的診斷頁閱讀節奏。</p>
+    <p><b>深色模式建議：</b>三個方向都已用色彩變數做好深色版（手機首頁深色截圖都通過 4.5:1）。建議產品預設「跟隨系統」（prefers-color-scheme），D2 再把深色版的診斷頁補齊；手動切換開關可以晚一點再做。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>比較</th><th>R2-A 分組</th><th>R2-B 留白</th><th>R2-C 夜幕焦點</th></tr></thead>
+      <tbody>
+        <tr><td>版面</td><td>分組卡片清單＋半透明底部分頁列；電腦左側欄＋右側檢視欄</td><td>無卡片、只有髮絲線＋浮起按鈕；電腦 Things 式側欄＋右側摘要</td><td>深色焦點卡＋小資料卡＋時間軸；電腦上方膠囊導覽＋深色橫幅</td></tr>
+        <tr><td>字體</td><td>大標題 700＋細字數字 300</td><td>極細大數字 200＋文字句子</td><td>粗字數字 600、字級緊湊</td></tr>
+        <tr><td>色彩</td><td>冷灰＋鈷藍</td><td>暖白＋單一琥珀</td><td>墨藍＋柔金</td></tr>
+        <tr><td>鼓勵怎麼呈現</td><td>週膠囊（早中晚三格）＋重點句＋里程碑進度條</td><td>30 格連續刻度＋方角勾選框＋文字里程碑</td><td>當晚三段進度＋7 天柱狀＋50 目標刻線</td></tr>
+        <tr><td>新字型依賴</td><td>不用</td><td>不用</td><td>不用</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:.875rem;color:#555">這是 D1 最後一輪（§15.6）。請在手機和電腦都點開看看，回覆選哪一個（可以混搭）；選定後進 D2。</p>
+  </section>
+  <details class="r1" id="r1">
+    <summary>第 1 輪（A 三圈賽道、B 集章冊、C 螢光筆草稿）— 已收合，點開查看</summary>
+  <p class="lead">依 D0 決定：活潑一點、有遊戲化鼓勵，但不做 Duolingo 翻版、不用 emoji 圖示。三個方向用同一組畫面比較：<b>手機＝今天的課表首頁</b>、<b>電腦＝晚上口說診斷（AC-15 左右對照）</b>。全部是假資料的靜態原型，不連後端。可以混搭，例如「B 的集章＋C 的逐句對照」。</p>
+  <ul class="jump"><li><a href="#a">A 三圈賽道</a></li><li><a href="#b">B 集章冊</a></li><li><a href="#c">C 螢光筆草稿</a></li><li><a href="#rec">Designer 的推薦</a></li></ul>
+
+  <section class="dir" id="a" aria-labelledby="a-h">
+    <h2 id="a-h">A　三圈賽道</h2>
+    <p class="star">北極星：每天三圈，像運動手錶一樣把英文練習「跑完」。</p>
+    <ul class="kw"><li>有勁</li><li>計分板</li><li>一眼看到進度</li></ul>
+    <div class="meta">
+      <div><h3>配色</h3><ul class="sw"><li><i style="background:#2B44D6"></i>#2B44D6 鈷藍</li><li><i style="background:#FFE14D"></i>#FFE14D 檸檬黃</li><li><i style="background:#0E1A4F"></i>#0E1A4F 深藍（字）</li><li><i style="background:#EEF1FA"></i>#EEF1FA 雲灰底</li><li><i style="background:#8FA3FF"></i>#8FA3FF 天藍</li><li><i style="background:#B42318"></i>#B42318 文法標記</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>數字、連續天數、計分：Barlow Condensed 600／800（窄體，OFL，原型內附檔）</li><li>介面與英文內容：Noto Sans TC（Android 系統字）</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="a-track/index.html"><img src="shots/a-mobile-360.png" width="360" height="800" alt="A 方向手機首頁截圖：深藍計分板上三個進度圈與連續 23 天"></a><figcaption>手機 360｜今天（<a href="shots/a-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="a-track/diagnosis.html"><img src="shots/a-desktop-1280.png" width="1280" height="800" alt="A 方向電腦版晚上診斷截圖：上方計分板三個數字，下方左右兩欄對照"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/a-home-desktop-1280.png">電腦首頁</a>、<a href="shots/a-diagnosis-mobile-360-full.png">手機診斷：切換</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="a-track/index.html">打開 A 首頁</a><a href="a-track/diagnosis.html">打開 A 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>遊戲化最直接：三段＝三圈，關圈的成就感很強，手機一眼看懂。</li><li>計分板式的數字（停頓、贅詞、字速）很有「練習數據」的感覺，符合工程師。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>三個同心圈和 Apple 健身「圓圈」很像，有撞臉風險，D2 要改成自己的圖形（例如跑道三條線道）。</li><li>需要一個新字型（Barlow Condensed），要 Architect 決定。</li><li>診斷是兩段整段文字，逐句對應要自己找。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>同類／遊戲化：Apple「Close Your Rings」三圈與里程碑 <a href="https://www.apple.com/watch/close-your-rings/">apple.com/watch/close-your-rings</a></li>
+      <li>習慣打卡：Streaks（Apple Design Award）大字窄體＋圈狀進度 <a href="https://streaksapp.com/">streaksapp.com</a></li>
+      <li>運動紀錄：Strava <a href="https://www.strava.com/">strava.com</a>、Nike Run Club <a href="https://www.nike.com/nrc-app">nike.com/nrc-app</a></li>
+      <li>字型：Barlow Condensed <a href="https://fonts.google.com/specimen/Barlow+Condensed">fonts.google.com/specimen/Barlow+Condensed</a></li>
+    </ul></div>
+  </section>
+
+  <section class="dir" id="b" aria-labelledby="b-h">
+    <h2 id="b-h">B　集章冊</h2>
+    <p class="star">北極星：每做完一段就蓋一個章，看著自己的集章冊一天天蓋滿。</p>
+    <ul class="kw"><li>好玩</li><li>手作印刷感</li><li>收集</li></ul>
+    <div class="meta">
+      <div><h3>配色（取自 Riso 油墨色）</h3><ul class="sw"><li><i style="background:#FF48B0"></i>#FF48B0 螢光粉</li><li><i style="background:#00838A"></i>#00838A 藍綠</li><li><i style="background:#00666B"></i>#00666B 深藍綠（字）</li><li><i style="background:#B8166F"></i>#B8166F 深粉（字）</li><li><i style="background:#000000"></i>#000000 黑</li><li><i style="background:#FFFFFF"></i>#FFFFFF 白紙</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>全部用系統字：Noto Sans TC 粗體當標題與章面，一般字重當內文；英文跟著系統字（Android 為 Roboto）</li><li>不需要新字型</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="b-stamp/index.html"><img src="shots/b-mobile-360.png" width="360" height="800" alt="B 方向手機首頁截圖：本週集章格，早中晚三種印章，下方是今晚的票券"></a><figcaption>手機 360｜今天（<a href="shots/b-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="b-stamp/diagnosis.html"><img src="shots/b-desktop-1280.png" width="1280" height="800" alt="B 方向電腦版晚上診斷截圖：三個印章數字，左右兩張錯位印刷感的紙"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/b-home-desktop-1280.png">電腦首頁</a>、<a href="shots/b-diagnosis-mobile-360-full.png">手機診斷：分頁切換</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="b-stamp/index.html">打開 B 首頁</a><a href="b-stamp/diagnosis.html">打開 B 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>「蓋章」剛好對應 PRD 的早中晚三格打卡（AC-21），完成回饋（蓋章動畫）自然又不幼稚。</li><li>最不像 Duolingo，也不像一般 AI 模板；不用新字型、不用新依賴。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>粗黑框與錯位色塊很有個性，每天看 80 分鐘可能偏吵；D2 要把診斷這類閱讀頁收安靜一點。</li><li>螢光粉只能當圖形，不能當字色（對比 3.09:1）。</li><li>Android 上 Noto Sans TC 有沒有最粗字重「不確定」，沒有時會退成粗體（本截圖就是粗體）。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>跨領域：日本車站紀念章（駅スタンプ）的集章文化 <a href="https://en.wikipedia.org/wiki/Eki_stamp">en.wikipedia.org/wiki/Eki_stamp</a></li>
+      <li>Riso 油墨色與疊印 <a href="https://www.stencil.wiki/wiki/Category:Riso_inks">stencil.wiki Riso inks</a>、<a href="https://en.wikipedia.org/wiki/Risograph">en.wikipedia.org/wiki/Risograph</a></li>
+      <li>同類／溫和遊戲化：Gentler Streak（Apple Design Award）<a href="https://gentler.app/">gentler.app</a></li>
+      <li>設計獎：Apple Design Awards「Delight and Fun」手繪、玩心的介面 <a href="https://developer.apple.com/design/awards/">developer.apple.com/design/awards</a></li>
+    </ul></div>
+  </section>
+
+  <section class="dir" id="c" aria-labelledby="c-h">
+    <h2 id="c-h">C　螢光筆草稿</h2>
+    <p class="star">北極星：把英文當成一份越改越好的稿子，用螢光筆畫出今天又進步的地方。</p>
+    <ul class="kw"><li>好讀</li><li>手寫筆記感</li><li>一句一句進步</li></ul>
+    <div class="meta">
+      <div><h3>配色</h3><ul class="sw"><li><i style="background:#0F3B2E"></i>#0F3B2E 墨綠（字）</li><li><i style="background:#1F7A50"></i>#1F7A50 翠綠（按鈕）</li><li><i style="background:#A9EBCB"></i>#A9EBCB 薄荷螢光</li><li><i style="background:#FFC09F"></i>#FFC09F 蜜桃螢光</li><li><i style="background:#DCCBFF"></i>#DCCBFF 淡紫螢光</li><li><i style="background:#BDE3FF"></i>#BDE3FF 天藍螢光</li></ul></div>
+      <div><h3>字體角色</h3><ul class="fonts"><li>英文內容（新聞、逐字稿、語塊）：Literata 400／600／Italic（襯線閱讀字，OFL，原型內附檔）</li><li>介面中文：Noto Sans TC（系統字）</li></ul></div>
+    </div>
+    <div class="shots">
+      <figure class="m"><a href="c-marker/index.html"><img src="shots/c-mobile-360.png" width="360" height="800" alt="C 方向手機首頁截圖：大字英文句子用螢光筆畫出 traced it to，下面是劃記的連續天數與課表"></a><figcaption>手機 360｜今天（<a href="shots/c-mobile-360-full.png">整頁</a>）</figcaption></figure>
+      <figure><a href="c-marker/diagnosis.html"><img src="shots/c-desktop-1280.png" width="1280" height="800" alt="C 方向電腦版晚上診斷截圖：逐句左右對照，右側欄是數字與升級語塊勾選"></a><figcaption>電腦 1280｜晚上診斷（另有 <a href="shots/c-home-desktop-1280.png">電腦首頁</a>、<a href="shots/c-diagnosis-mobile-360-full.png">手機診斷：逐句上下分段</a>）</figcaption></figure>
+    </div>
+    <div class="open"><a href="c-marker/index.html">打開 C 首頁</a><a href="c-marker/diagnosis.html">打開 C 診斷</a></div>
+    <div class="fit">
+      <div><h3>適合</h3><ul><li>診斷最好讀：逐句對齊（像程式碼 diff 的左右對照），手機用逐句上下分段，最符合 AC-15。</li><li>長時間閱讀不累，英文內容用閱讀字型。</li></ul></div>
+      <div><h3>不適合／風險</h3><ul><li>遊戲化比較含蓄（劃記、螢光筆、里程碑小註記），可能不夠「活潑」。</li><li>需要一個新字型（Literata），要 Architect 決定。</li></ul></div>
+    </div>
+    <div class="refs"><h3>參考（2026-11-26 實際打開）</h3><ul>
+      <li>寫作標註：Hemingway Editor 用不同顏色標出難句、贅字、簡單字 <a href="https://hemingwayapp.com/">hemingwayapp.com</a></li>
+      <li>左右對照：GitHub 比較分支的 split diff <a href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-comparing-branches-in-pull-requests">docs.github.com（about comparing branches）</a></li>
+      <li>閱讀與畫重點：Readwise Reader <a href="https://readwise.io/read">readwise.io/read</a></li>
+      <li>同類（英文口說）：Speak <a href="https://www.speak.com/">speak.com</a>、ELSA Speak <a href="https://elsaspeak.com/en/">elsaspeak.com</a></li>
+      <li>字型：Literata <a href="https://fonts.google.com/specimen/Literata">fonts.google.com/specimen/Literata</a></li>
+    </ul></div>
+  </section>
+
+  <section class="rec" id="rec" aria-labelledby="rec-h">
+    <h2 id="rec-h">Designer 的推薦：B 集章冊，診斷頁借用 C 的逐句對照</h2>
+    <p>理由：B 最符合「活潑、有遊戲化鼓勵」，而且鼓勵方式（蓋章）直接對應 PRD 早中晚三段打卡，不用新增徽章或點數功能；它同時離 Duolingo 和 Apple 健身圈最遠，也不用新字型。B 唯一的弱點是閱讀頁偏吵，所以晚上診斷建議改用 C 的逐句對照版面（保留 B 的配色與印章數字），電腦左右逐句、手機逐句上下分段。</p>
+    <p>如果你更想要「一眼看進度、運動感」，選 A；如果診斷好讀比活潑更重要，選 C。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>比較</th><th>A 三圈賽道</th><th>B 集章冊</th><th>C 螢光筆草稿</th></tr></thead>
+      <tbody>
+        <tr><td>版面</td><td>計分板＋底部分頁列；電腦上方計分板、兩欄</td><td>集章格＋票券；電腦上方導覽、錯位紙張</td><td>文件式清單＋下方「下一步」列；電腦左側圖示列＋右側欄</td></tr>
+        <tr><td>字體</td><td>窄體數字＋系統黑體</td><td>只用系統黑體（粗細對比）</td><td>襯線英文＋系統黑體</td></tr>
+        <tr><td>色彩</td><td>鈷藍＋檸檬黃</td><td>螢光粉＋藍綠＋黑</td><td>墨綠＋四色螢光</td></tr>
+        <tr><td>主視覺</td><td>三個進度圈</td><td>印章</td><td>螢光筆筆觸＋劃記</td></tr>
+        <tr><td>新字型依賴</td><td>要（Barlow Condensed）</td><td>不用</td><td>要（Literata）</td></tr>
+      </tbody>
+    </table></div>
+    <p style="font-size:.875rem;color:#555">請在手機和電腦上都點開看看，再回覆選哪一個（可以混搭），也可以說具體喜歡或不喜歡哪裡。</p>
+  </section>
+  </details>
+</div>
+</body>
+</html>

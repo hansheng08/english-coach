@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# O-009: G3 PR comment violation check (charter v6 §9 / §1.1).
+# O-009 / O-021: G3 PR comment violation check (charter v7 §9 / §1.1).
 # Reads every comment on a PR whose title starts with "[G3]" (issue comments,
 # review bodies, review comments), runs tooling/comment-lint.mjs on them and
 # writes the result as the commit status "g3-comment-guard" on the PR head.
@@ -9,7 +9,10 @@
 # Fail-closed: a GitHub API error, unparsable JSON, a comment-lint error or a
 # failed status write all exit 1. When the head SHA is known, an API/lint
 # error also tries to write a "failure" status so the PR shows red.
-# A PR whose title does not start with "[G3]" is out of scope: exit 0, no status.
+# The head SHA is taken only from the PR JSON head.sha (40-hex), never from
+# GITHUB_SHA or the merge ref.
+# A PR whose title does not start with "[G3]" still writes a success status
+# on that head SHA with description "not a [G3] PR; not checked" (O-021).
 #
 # Env: GH_TOKEN REPO PR_NUMBER RUN_URL; optional TOOLING_DIR (tests), GH_BIN (tests).
 set -euo pipefail
@@ -40,14 +43,15 @@ die() {
 [[ "${PR_NUMBER:-}" =~ ^[0-9]+$ ]] || die "PR_NUMBER '${PR_NUMBER:-}' is not a number"
 
 "$GH" api "repos/${REPO}/pulls/${PR_NUMBER}" > "$WORK/pr.json" || die "cannot read PR #${PR_NUMBER}"
-TITLE="$(jq -er '.title | strings' "$WORK/pr.json")" || die "PR JSON has no title"
 SHA="$(jq -er '.head.sha | strings' "$WORK/pr.json")" || die "PR JSON has no head.sha"
 [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || die "head.sha '${SHA}' is not a 40-hex SHA"
+HEAD_SHA="$SHA"
+TITLE="$(jq -er '.title | strings' "$WORK/pr.json")" || die "PR JSON has no title"
 if [[ "$TITLE" != "[G3]"* ]]; then
+  post_status success "not a [G3] PR; not checked" || die "cannot write the success status"
   echo "g3-comment-guard: PR #${PR_NUMBER} title does not start with [G3]; not checked"
   exit 0
 fi
-HEAD_SHA="$SHA"
 
 # Each endpoint is paginated; every page is a JSON array of objects with id and body.
 i=0
@@ -60,6 +64,7 @@ jq -s '.' "$WORK"/part*.jsonl > "$WORK/comments.json" || die "comment pages are 
 COUNT="$(jq 'length' "$WORK/comments.json")"
 echo "g3-comment-guard: PR #${PR_NUMBER} head ${HEAD_SHA}: ${COUNT} comment(s)"
 
+[[ -f "$TOOLING_DIR/comment-lint.mjs" ]] || die "comment-lint.mjs is missing"
 set +e
 node "$TOOLING_DIR/comment-lint.mjs" --comments "$WORK/comments.json"
 LINT=$?
