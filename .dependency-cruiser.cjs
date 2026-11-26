@@ -81,6 +81,15 @@ module.exports = {
       to: { path: TEST, pathNot: 'node_modules/' },
     },
     {
+      name: 'adr001r1-no-test-libs-in-web-production',
+      comment: 'ADR-001 rev 1: apps/web production code (non-test) must not import jsdom or @testing-library/*',
+      severity: 'error',
+      from: { path: '^apps/web/src/', pathNot: TEST },
+      to: {
+        path: ['^jsdom($|/)', '^@testing-library/', 'node_modules/jsdom/', 'node_modules/@testing-library/', 'node_modules/.pnpm/jsdom', 'node_modules/.pnpm/@testing-library'],
+      },
+    },
+    {
       name: 'arch31-db-no-providers',
       comment: 'ARCHITECTURE §3.1: supabase/functions/_shared/db must not import provider modules (adapters or registry)',
       severity: 'error',

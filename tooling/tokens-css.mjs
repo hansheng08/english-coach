@@ -1,0 +1,125 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const INPUT = 'docs/design/tokens.json';
+const OUTPUT = 'apps/web/src/ui/tokens.css';
+const GROUPS = ['color', 'space', 'radius', 'font', 'shadow', 'motion'];
+const NAME = /^[a-z0-9-]+$/;
+const HEADER = `/* 自動產生，不要手改。來源：${INPUT}；產生器：tooling/tokens-css.mjs */`;
+
+const isPlainObject = (v) => typeof v === 'object' && v !== null && !Array.isArray(v);
+const dataKeys = (obj) => Object.keys(obj).filter((k) => !k.startsWith('$'));
+
+/** 解析 tokens.json（ARCHITECTURE §9.1.5 規則 1～7）。成功回 { ok: true, tokens: [{ name, light, dark, split }] }。 */
+export function parseTokens(text) {
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (e) {
+    return { ok: false, reason: `tokens.json 無法解析：${e instanceof Error ? e.message : String(e)}` };
+  }
+  if (!isPlainObject(json)) return { ok: false, reason: 'tokens.json 頂層不是物件' };
+  for (const key of dataKeys(json)) {
+    if (!GROUPS.includes(key)) return { ok: false, reason: `不認得的群組：${key}（只能是 ${GROUPS.join('、')}）` };
+    if (!isPlainObject(json[key])) return { ok: false, reason: `群組 ${key} 必須是物件` };
+  }
+
+  const tokens = [];
+  const seen = new Set();
+  const add = (path, light, dark, split) => {
+    const name = path.join('-');
+    if (seen.has(name)) return `攤平後名稱重複：--${name}`;
+    seen.add(name);
+    tokens.push({ name, light, dark, split });
+    return null;
+  };
+  const walk = (node, path) => {
+    for (const key of dataKeys(node)) {
+      const where = [...path, key];
+      if (!NAME.test(key)) return `名稱只能是小寫英數和 -：${where.join('.')}`;
+      const value = node[key];
+      let failure;
+      if (typeof value === 'string') {
+        failure = add(where, value, value, false);
+      } else if (isPlainObject(value)) {
+        const keys = dataKeys(value);
+        if (keys.includes('light') || keys.includes('dark')) {
+          const exact = keys.length === 2 && typeof value.light === 'string' && typeof value.dark === 'string';
+          failure = exact
+            ? add(where, value.light, value.dark, true)
+            : `物件含 light 或 dark，但不是剛好兩個字串值 { light, dark }：${where.join('.')}`;
+        } else {
+          failure = walk(value, where);
+        }
+      } else {
+        failure = `值必須是字串、{ light, dark } 或巢狀物件：${where.join('.')}`;
+      }
+      if (failure !== null) return failure;
+    }
+    return null;
+  };
+  for (const group of dataKeys(json)) {
+    const failure = walk({ [group]: json[group] }, []);
+    if (failure !== null) return { ok: false, reason: failure };
+  }
+  return { ok: true, tokens };
+}
+
+/** 輸出 CSS：:root 放淺色（含共用值）、兩段深色只放有 { light, dark } 的 token（ARCHITECTURE §9.1.4）。 */
+export function generateCss(text) {
+  const parsed = parseTokens(text);
+  if (!parsed.ok) return parsed;
+  const light = parsed.tokens.map((t) => `--${t.name}: ${t.light};`);
+  const dark = parsed.tokens.filter((t) => t.split).map((t) => `--${t.name}: ${t.dark};`);
+  const indent = (prefix, lines) => lines.map((l) => `${prefix}${l}`);
+  const out = [
+    HEADER,
+    ':root {',
+    ...indent('  ', light),
+    '  color-scheme: light;',
+    '}',
+    '',
+    '@media (prefers-color-scheme: dark) {',
+    '  :root:not([data-theme="light"]) {',
+    ...indent('    ', dark),
+    '    color-scheme: dark;',
+    '  }',
+    '}',
+    '',
+    ':root[data-theme="dark"] {',
+    ...indent('  ', dark),
+    '  color-scheme: dark;',
+    '}',
+    '',
+  ];
+  return { ok: true, css: out.join('\n') };
+}
+
+function fail(reason) {
+  process.stderr.write(`tokens-css: ${reason}\n`);
+  return 1;
+}
+
+export function run(argv) {
+  const check = argv.includes('--check');
+  const unknown = argv.filter((a) => a !== '--check');
+  if (unknown.length > 0) return fail(`不認得的參數：${unknown.join(' ')}`);
+  if (!existsSync(INPUT)) return fail(`找不到 ${INPUT}`);
+  const generated = generateCss(readFileSync(INPUT, 'utf8'));
+  if (!generated.ok) return fail(generated.reason);
+  if (check) {
+    if (!existsSync(OUTPUT)) return fail(`找不到 ${OUTPUT}；先執行 node tooling/tokens-css.mjs`);
+    if (readFileSync(OUTPUT, 'utf8') !== generated.css) return fail(`${OUTPUT} 與 ${INPUT} 不一致；先執行 node tooling/tokens-css.mjs`);
+    process.stdout.write('tokens-css: OK\n');
+    return 0;
+  }
+  mkdirSync(dirname(OUTPUT), { recursive: true });
+  writeFileSync(OUTPUT, generated.css);
+  process.stdout.write(`tokens-css: wrote ${OUTPUT}\n`);
+  return 0;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  process.exitCode = run(process.argv.slice(2));
+}

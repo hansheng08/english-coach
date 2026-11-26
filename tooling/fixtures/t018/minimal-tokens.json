@@ -1,0 +1,9 @@
+{
+  "$meta": { "name": "minimal shape from ARCHITECTURE 9.1.5" },
+  "color": { "ink": { "light": "#0F2236", "dark": "#F3F5F8" } },
+  "space": { "4": "16px" },
+  "radius": { "card": "20px" },
+  "font": { "sans": "-apple-system, sans-serif" },
+  "shadow": { "card": { "light": "0 1px 2px #000000", "dark": "none" } },
+  "motion": { "duration-short": "160ms", "ease-out": "cubic-bezier(.2,.8,.2,1)" }
+}
