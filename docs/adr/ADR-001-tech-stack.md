@@ -119,7 +119,7 @@ T-018 需要 DOM 的測試，至少有三個：
 ### 使用範圍
 - 這 5 個套件（`@types/react`、`@types/react-dom`、`jsdom`、`@testing-library/react`、`@testing-library/dom`）都是 `apps/web` 的 **devDependencies**。
 - 正式程式（`apps/web/src/**` 的非測試檔）不得 import `jsdom` 或 `@testing-library/*`。
-- T-018 在 `.dependency-cruiser.cjs` 加一條規則擋住，路徑例外和 ADR-008 修訂 1 的測試檔定義相同。
+- T-018 在 `.dependency-cruiser.cjs` 加一條規則擋住。「測試檔」照 ADR-008 修訂 2 決定 3 的 regex：`(^|/)test/|\.test\.tsx?$|\.test-d\.ts$`（ESLint 和 dependency-cruiser 共用，取代修訂 1 的版本）。所以 `*.test.tsx` 和 `test/` 資料夾裡的 `.ts`／`.tsx`（例如 `apps/web/test/setup.ts`）都算測試檔，可以 import 這些套件。
 - `package.json` 和 lockfile 由 T-018 修改，本修訂不動。
 
 ### 依賴清單補充（併入上方「依賴清單」）
