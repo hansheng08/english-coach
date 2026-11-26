@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#F4F5F7">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0A1420">
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('ec-theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<title>中午｜排句子｜english-coach 原型</title>
+<link rel="stylesheet" href="app.css">
+<style>
+.review{align-content:start}
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.simple{font-size:1.125rem;font-weight:500;margin-top:2px}
+.cloze{font-size:1.375rem;font-weight:600;line-height:1.5;margin-top:2px}
+.blank{display:inline-block;min-width:5.5em;border-bottom:2px solid var(--color-ink-3);text-align:center;padding:0 4px}
+.blank.filled{border-color:var(--color-good);color:var(--color-good)}
+.opts{list-style:none;margin:16px 0 0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.opt{width:100%;min-height:52px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:0 14px;border:0;border-radius:var(--radius-md);background:var(--color-sunken);font-weight:600;text-align:left}
+.opt:hover{box-shadow:inset 0 0 0 1.5px var(--color-ink-3)}
+.opt.right{background:var(--color-good-soft);box-shadow:inset 0 0 0 2px var(--color-good)}
+.opt .ok{display:inline-flex;gap:3px;align-items:center;color:var(--color-good);font-size:.75rem}
+.opt[aria-pressed="false"]{color:var(--color-ink-2)}
+.ex{margin-top:14px;padding-top:12px;border-top:1px solid var(--color-line)}
+.quiet{display:flex;gap:6px;align-items:center;margin-top:14px;color:var(--color-ink-2)}
+.rate{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
+.rbtn{min-height:56px;display:grid;justify-items:center;align-content:center;gap:0;border:0;border-radius:var(--radius-md);background:var(--color-sunken);color:var(--color-ink)}
+.rbtn b{font-size:.9375rem}
+.rbtn span{font-size:.6875rem;color:var(--color-ink-2)}
+.rbtn kbd{margin-top:3px}
+.rbtn:first-child{background:var(--color-btn);color:var(--color-on-btn)}
+.rbtn:first-child span{color:inherit;opacity:.8}
+.rbtn:hover{filter:brightness(.97)}
+.rbtn[aria-disabled="true"],.rbtn[aria-disabled="true"]:first-child{background:var(--color-sunken);color:var(--color-ink-3);box-shadow:inset 0 0 0 1px var(--color-line);cursor:not-allowed;filter:none}
+.rbtn[aria-disabled="true"] span{color:var(--color-ink-3);opacity:1}
+.rbtn[aria-disabled="true"] kbd{color:var(--color-ink-2);background:none;box-shadow:inset 0 0 0 1px var(--color-line)}
+.kv{margin:14px 0 0;display:grid;gap:0}
+.kv div{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--color-line);font-size:.875rem}
+.kv dt{color:var(--color-ink-2)} .kv dd{margin:0;font-weight:600}
+.review .tonight p[lang]{font-weight:600}
+.review .rail{display:none}
+.order .rail{display:none}
+@media (min-width:900px){
+  .review,.order{grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:auto 1fr;align-items:start}
+  .review .rail,.order .rail{display:grid;grid-column:2;grid-row:1/span 2}
+  .qcard{padding:32px 40px;grid-column:1}
+  .rate-bar{grid-column:1;grid-row:2}
+  .simple{font-size:1.25rem} .cloze{font-size:1.75rem}
+  .opts{grid-template-columns:repeat(4,1fr)}
+}
+
+.zh{font-size:1.25rem;line-height:1.5;margin-top:4px}
+.tiles{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.answer{min-height:64px;padding:8px;border-radius:var(--radius-md);background:var(--color-sunken)}
+.tile{min-height:48px;min-width:48px;padding:0 14px;border:0;border-radius:12px;background:var(--color-surface);box-shadow:inset 0 0 0 1.5px var(--color-line);font-weight:600;font-size:.9375rem}
+.tile:hover{box-shadow:inset 0 0 0 1.5px var(--color-ink-3)}
+.tile.on{background:var(--color-ink);color:var(--color-bg);box-shadow:none}
+.tile.used{color:transparent;background:transparent;box-shadow:inset 0 0 0 1.5px var(--color-line);border:0;cursor:default}
+.tile.used span{visibility:hidden}
+.slot-empty{width:72px;height:48px;border-radius:12px;box-shadow:inset 0 0 0 1.5px var(--color-track);box-shadow:inset 0 0 0 1.5px var(--color-ink-3);opacity:.35}
+.ob-act{margin-top:10px}
+.order .actionbar .btn{width:100%}
+@media (min-width:900px){.order .actionbar{grid-column:1;grid-row:2}}
+</style>
+</head>
+<body>
+<header class="navbar"><div class="in">
+  <a class="back" href="index.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>今天</a>
+  <h1>中午｜複習 9／25</h1>
+  <div class="side-r"><a class="avatar" href="#account" aria-label="帳號與外觀"><span>H</span></a></div>
+</div></header>
+<main class="page flow review order">
+  <section class="panel qcard" aria-labelledby="qb-h">
+    <div class="qtop"><span class="chip">模式 B・把語塊排回句子</span><span class="state reviewing"><i></i>Reviewing</span></div>
+    <p class="t-caption muted" style="margin-top:16px">情境</p>
+    <h2 id="qb-h" class="zh">跟主管報告：你追到根本原因，是兩個執行緒之間的競爭狀態。</h2>
+    <p class="t-caption muted" style="margin-top:18px">你的句子（點一下移除）</p>
+    <ol class="tiles answer" aria-label="已排好的語塊"><li><button class="tile on" type="button" aria-label="移除 We"><span lang="en">We</span></button></li><li><button class="tile on" type="button" aria-label="移除 traced the root cause"><span lang="en">traced the root cause</span></button></li><li><button class="tile on" type="button" aria-label="移除 to"><span lang="en">to</span></button></li><li class="slot-empty" aria-hidden="true"></li><li class="slot-empty" aria-hidden="true"></li></ol>
+    <p class="t-caption muted" style="margin-top:14px">點語塊依序放進去</p>
+    <ul class="tiles pool" aria-label="可用的語塊"><li><button class="tile" type="button"><span lang="en">a race condition</span></button></li><li><button class="tile" type="button"><span lang="en">between two threads</span></button></li></ul>
+    <div class="ob-act"><button class="btn btn-ghost" type="button"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7.5L5 11.5l4 4M5.5 11.5H15a4.5 4.5 0 0 1 0 9h-3"/></svg>全部重排</button></div>
+    <span class="quiet t-callout"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 9v2.5a3 3 0 0 0 5.2 2M15 10V6a3 3 0 0 0-5.8-1.1M5.5 11.5a6.5 6.5 0 0 0 10.6 5M18.5 11.5a6.4 6.4 0 0 1-.5 2.5M12 18v3M4 4l16 16"/></svg>不用出聲・不需要麥克風</span>
+  </section>
+  <aside class="rail sticky" aria-label="今天的複習">
+    <section class="panel">
+      <div class="panel-h"><h3>今天的複習</h3><span class="t-callout num"><b>9</b>／25</span></div>
+      <div class="meter" role="img" aria-label="25 張中已答 8 張"><i style="width:32%"></i></div>
+      <dl class="kv"><div><dt>到期舊卡</dt><dd class="num">15</dd></div><div><dt>新卡</dt><dd class="num">10 <span class="muted t-caption">（含昨晚勾選 3）</span></dd></div><div><dt>種子庫剩餘</dt><dd class="num">512 條</dd></div></dl>
+    </section>
+    <section class="panel tonight">
+      <div class="panel-h"><h3>今晚題目預覽</h3><span class="t-callout muted">21:00</span></div>
+      <p lang="en">Tell me about a time you debugged a production issue under pressure.</p>
+      <p class="t-caption muted" style="margin-top:6px">和晚上同一題；先在腦中想一下故事就好</p>
+    </section>
+    <p class="t-caption muted kb">1 秒答・2 猶豫・3 忘記</p>
+  </aside>
+  <div class="actionbar"><button class="btn btn-lg grow" type="button" aria-disabled="true">還差 2 個語塊</button></div>
+</main>
+<div class="sheet pop" id="account" role="dialog" aria-modal="true" aria-labelledby="acc-h">
+  <a class="scrim" href="#" aria-label="關閉"></a>
+  <div class="card">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="card-h"><h2 id="acc-h">帳號與外觀</h2><a class="icon-btn" href="#" aria-label="關閉"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></a></div>
+    <div class="acc-me"><span class="avatar-lg" aria-hidden="true">H</span><div><b>Hansheng</b><p class="t-callout muted">hansheng@example.com</p></div></div>
+    <fieldset class="seg lg theme-seg">
+      <legend>外觀</legend>
+      <label><input type="radio" name="theme-acc" data-theme-input value="light"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.75v2M12 19.25v2M2.75 12h2M19.25 12h2M5.5 5.5l1.4 1.4M17.1 17.1l1.4 1.4M5.5 18.5l1.4-1.4M17.1 6.9l1.4-1.4"/></svg>淺色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="dark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/></svg>深色</label>
+      <label><input type="radio" name="theme-acc" data-theme-input value="system"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>跟隨系統</label>
+    </fieldset>
+    <p class="t-callout muted theme-now" data-theme-now aria-live="polite">跟隨系統</p>
+    <hr class="hr">
+    <a class="acc-row" href="later.html?s=settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2.25"/><circle cx="8" cy="17" r="2.25"/></svg><span>設定</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+    <a class="acc-row" href="login.html"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4.5h4.5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H14M10 8l-4 4 4 4M6 12h9"/></svg><span>登出</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></a>
+  </div>
+</div>
+<script>/* 原型的主題切換：對齊 ADR-014。localStorage['ec-theme'] = system | light | dark；只有 light／dark 會設 data-theme。?theme= 只供截圖與預覽，不存。 */
+(function(){var d=document.documentElement,K='ec-theme',mq=matchMedia('(prefers-color-scheme: dark)'),metas=[].slice.call(document.querySelectorAll('meta[name="theme-color"]'));
+function pref(){try{var v=localStorage.getItem(K);return v==='light'||v==='dark'?v:'system'}catch(e){return 'system'}}
+function paint(){var dark=d.dataset.theme?d.dataset.theme==='dark':mq.matches;
+ metas.forEach(function(m,i){if(d.dataset.theme){m.setAttribute('content',dark?'#0A1420':'#F4F5F7');m.removeAttribute('media')}else{m.setAttribute('content',i?'#0A1420':'#F4F5F7');m.setAttribute('media','(prefers-color-scheme: '+(i?'dark':'light')+')')}});
+ document.querySelectorAll('[data-theme-now]').forEach(function(e){e.textContent=(d.dataset.theme?'':'跟隨系統，')+'現在是'+(dark?'深色':'淺色')+'。只存在這台裝置。'})}
+var cur=d.dataset.theme||pref();
+var ins=[].slice.call(document.querySelectorAll('input[data-theme-input]'));ins.forEach(function(r){r.checked=r.value===cur;r.addEventListener('change',function(){try{localStorage.setItem(K,r.value)}catch(e){}if(r.value==='system')delete d.dataset.theme;else d.dataset.theme=r.value;ins.forEach(function(o){o.checked=o.value===r.value});paint()})});
+mq.addEventListener&&mq.addEventListener('change',paint);paint()})();</script>
+
+</body>
+</html>
