@@ -22,6 +22,10 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(pnpm install --f
 9. 報告不貼測試輸出、不手打數字：只寫完成摘要、設計決定、未完成事項、需要人類決定的問題；測試數、突變結果、權限被拒與變更檔案由 workflow 的自動驗證摘要產生，貼在 run-task 留言與 job summary（憲章 v6 §13 第 9 條）。
 10. 指令被權限擋下時，不得拆成幾條重送或換寫法繞過；停止該做法，記進報告的「權限被拒」一節（憲章 v6 §13 第 12 條）。workflow 會偵測拆開重送並判定這次執行失敗。
 
+## 有畫面的任務
+
+任務單涉及畫面（`apps/web` 的 UI）時，先讀 `.claude/skills/frontend-design/SKILL.md`，再讀 `.claude/skills/frontend-design/PROJECT.md`。與 `docs/design/DESIGN.md` 衝突時以 DESIGN.md 為準。
+
 ## commit／push 與工具使用
 
 一律使用 `git add <明確檔案路徑>`，嚴禁使用 `git add -A`、`git add --all`、`git add .`、`git add -u`（會遭權限擋下並依第 12 條停下）。讀檔、編輯與搜尋請直接用內建 Read／Edit／Write／Grep／Glob 工具，避免透過 Bash 呼叫 `sed` 或 `head`（`cat`、`grep`、`ls` 也一樣被擋；不要把它們和 git 指令接在同一條 Bash 裡）。

@@ -1,5 +1,5 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.9（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.9.1（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
@@ -12,6 +12,8 @@
 - 後端 `supabase/`：Postgres（migrations＋RLS）、Storage、Edge Functions（Deno TS）、pg_cron。
 - 共用：`@english-coach/contracts`（`packages/contracts`：zod schema、供應商介面、`Result`、`AppError`，定義見 ARCHITECTURE §5.0）、`@english-coach/domain`（`packages/domain`：純邏輯）。
 - 測試：Vitest、Playwright；檢查：ESLint（typescript-eslint strict-type-checked）、dependency-cruiser。
+- 前端測試（ADR-001 修訂 1）：`apps/web` 的測試跑在 `jsdom`，其他套件維持 `node` 環境；元件測試用 `@testing-library/react`（以 `getByRole` 等角色查詢為主）。`apps/web/test/setup.ts` 放 `afterEach(cleanup)` 和 `matchMedia` stub。這些都是 devDependencies，正式程式不得 import。不加 `happy-dom`、`@testing-library/user-event`、`@testing-library/jest-dom`，需要時停下來回報。
+- 登入只用 email＋密碼（Supabase Auth，關閉註冊），不做 magic link 或 OTP（ARCHITECTURE §7）。
 
 ## 3. 指令（每次修改後都要跑，貼原始輸出到報告）
 ```
