@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, isAbsolute, join, resolve } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { failure, isMain, matchGlob, parseArgs, readText, runCli, usageFailure } from './task-file.mjs';
 
 const TOOL = 'run-mutants';
@@ -119,6 +119,30 @@ function invoke({ runner, root, timeoutMs, spawn, reportPath }) {
   }
 }
 
+// 預設解析：用 Vitest import graph（`vitest related`）找出會載入該檔的測試檔，每個檔只解析一次。
+// 回傳 { tests } 或 { rule: 'MU-RELATED', error }。0 個測試回 { tests: [] }（呼叫端改跑完整套件）。
+function defaultResolveRelated(sourceFile, { root, timeoutMs, spawn, reportPath }) {
+  rmSync(reportPath, { force: true });
+  try {
+    const r = spawn('pnpm', ['exec', 'vitest', 'related', sourceFile, '--run', '--reporter=json', `--outputFile=${reportPath}`], {
+      cwd: root,
+      stdio: 'ignore',
+      timeout: timeoutMs,
+    });
+    if (r.error !== undefined && r.error !== null) return { rule: 'MU-RELATED', error: '無法啟動或逾時' };
+    const json = JSON.parse(readFileSync(reportPath, 'utf8'));
+    if (!isRecord(json) || !Array.isArray(json.testResults)) return { rule: 'MU-RELATED', error: '輸出沒有 testResults' };
+    const tests = [];
+    for (const tr of json.testResults) {
+      if (!isRecord(tr) || typeof tr.name !== 'string') return { rule: 'MU-RELATED', error: 'testResults 格式不符' };
+      tests.push(relative(root, resolve(root, tr.name)).split('\\').join('/'));
+    }
+    return { tests };
+  } catch (e) {
+    return { rule: 'MU-RELATED', error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function applyMutant(text, m) {
   const first = text.indexOf(m.before);
   return `${text.slice(0, first)}${m.after}${text.slice(first + m.before.length)}`;
@@ -129,7 +153,10 @@ function countOccurrences(text, needle) {
 }
 
 // 回傳 { report, findings }。
-export function execute({ file, root, runner, timeoutMs = DEFAULT_TIMEOUT_MS, spawn = spawnSync }) {
+// resolveRelated(sourceFile, ctx) → { tests } | { rule: 'MU-RELATED', error }；未注入時只有預設執行器才用 import graph 解析，
+// 自訂執行器（`--` 之後）一律跑完整套件（行為同 O-009）。
+export function execute({ file, root, runner = DEFAULT_RUNNER, timeoutMs = DEFAULT_TIMEOUT_MS, spawn = spawnSync, resolveRelated }) {
+  if (resolveRelated === undefined && runner === DEFAULT_RUNNER) resolveRelated = defaultResolveRelated;
   const task = basename(file, '.json');
   const empty = { task, total: 0, killed: 0, survived: [], results: [] };
   const read = readText(file);
@@ -158,6 +185,7 @@ export function execute({ file, root, runner, timeoutMs = DEFAULT_TIMEOUT_MS, sp
   const tmp = mkdtempSync(join(tmpdir(), 'run-mutants-'));
   const reportPath = join(tmp, 'report.json');
   const ctx = { runner, root, timeoutMs, spawn, reportPath };
+  const related = new Map();
   try {
     const base = invoke(ctx);
     if (base.status !== 0 || base.failed === null || base.failed.length > 0) {
@@ -174,10 +202,31 @@ export function execute({ file, root, runner, timeoutMs = DEFAULT_TIMEOUT_MS, sp
           findings.push({ file, line, rule: 'MU-ANCHOR', message: `${m.id}: before 在 ${m.file} 出現 ${String(n)} 次（必須剛好 1 次）` });
           return;
         }
+        let tests = [];
+        if (resolveRelated !== undefined) {
+          if (!related.has(m.file)) {
+            let res;
+            try {
+              res = resolveRelated(m.file, { root, timeoutMs, spawn, reportPath: join(tmp, 'related.json') });
+            } catch (e) {
+              res = { rule: 'MU-RELATED', error: e instanceof Error ? e.message : String(e) };
+            }
+            const ok = isRecord(res) && Array.isArray(res.tests) && res.tests.every((t) => typeof t === 'string' && t !== '');
+            related.set(m.file, ok ? { tests: res.tests } : { rule: 'MU-RELATED', error: isRecord(res) && typeof res.error === 'string' ? res.error : '解析結果格式不符' });
+          }
+          const res = related.get(m.file);
+          if (res.rule !== undefined) {
+            results.push({ id: m.id, status: 'unexpected', failedTests: [] });
+            findings.push({ file, line, rule: 'MU-RELATED', message: `${m.id}: 無法解析 ${m.file} 的相關測試：${res.error}` });
+            return;
+          }
+          tests = res.tests;
+        }
+        const runCtx = tests.length > 0 ? { ...ctx, runner: [...runner, ...tests] } : ctx;
         let outcome;
         try {
           writeFileSync(abs, applyMutant(text, m));
-          outcome = invoke(ctx);
+          outcome = invoke(runCtx);
         } finally {
           writeFileSync(abs, original);
         }
