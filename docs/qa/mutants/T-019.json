@@ -1,0 +1,304 @@
+{
+  "task": "T-019",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "if (reg.waiting !== null && container.controller !== null)",
+      "after": "if (reg.waiting !== null)",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "if (worker.state === 'installed')",
+      "after": "if (worker.state !== 'redundant')",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "        if (reloaded) return;\n",
+      "after": "",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "waiting.postMessage({ type: 'SKIP_WAITING' });",
+      "after": "waiting.postMessage({ type: 'SKIP' });",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "container.register(SW_URL, { scope: '/' })",
+      "after": "container.register(SW_URL)",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "export const SW_URL = '/sw.js';",
+      "after": "export const SW_URL = '/service-worker.js';",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "apps/web/src/pwa/update.ts",
+      "before": "onNeedUpdate(() => updateSW(true));",
+      "after": "onNeedUpdate(() => updateSW(false));",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "apps/web/src/pwa/update.ts",
+      "before": "export function shouldShowUpdatePrompt(): boolean {\n  return true;",
+      "after": "export function shouldShowUpdatePrompt(): boolean {\n  return false;",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "apps/web/src/pwa/online.ts",
+      "before": "onChange(target.navigator.onLine);",
+      "after": "onChange(true);",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "apps/web/src/pwa/online.ts",
+      "before": "    target.removeEventListener('offline', goOffline);\n",
+      "after": "",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "    background_color: hero,",
+      "after": "    background_color: '#0F2236',",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "    display: 'standalone' as const,",
+      "after": "    display: 'standalone' as const,\n    orientation: 'portrait' as const,",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "      purpose: icon.purpose,",
+      "after": "      purpose: icon.purpose === 'any' ? 'any' : 'any maskable',",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "if (missing.length > 0) throw",
+      "after": "if (missing.length > 1) throw",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "${missing.join('、')}",
+      "after": "${missing.slice(0, 1).join('、')}",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "registerType: 'prompt',",
+      "after": "registerType: 'autoUpdate',",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "globPatterns: ['**/*.{html,js,css,webmanifest}', 'icons/*.png'],",
+      "after": "globPatterns: ['**/*.{html,js,css,webmanifest}', 'icons/*.png', '**/*.json'],",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "    injectRegister: false,",
+      "after": "    injectRegister: 'auto',",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "if (typeof light !== 'string') throw",
+      "after": "if (light === undefined) throw",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "const wanted = pref === 'system' ? SYSTEM_THEME_COLORS",
+      "after": "const wanted = pref !== 'system' ? SYSTEM_THEME_COLORS",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "  for (const meta of existing) meta.remove();\n",
+      "after": "",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "for (const meta of wanted) target.insertBefore(meta, reference);",
+      "after": "for (const meta of wanted) target.appendChild(meta);",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "    if (media !== null) meta.setAttribute('media', media);\n",
+      "after": "",
+      "expectFail": [
+        "(TC-17)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "apps/web/src/pwa/UpdateCard.tsx",
+      "before": "disabled={busy}",
+      "after": "disabled={false}",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "apps/web/src/pwa/UpdateCard.tsx",
+      "before": "      () => {\n        setBusy(false);\n      },\n    );",
+      "after": "      () => undefined,\n    );",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "apps/web/src/App.tsx",
+      "before": "{openedOffline && !online ? (",
+      "after": "{!online ? (",
+      "expectFail": [
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "apps/web/src/App.tsx",
+      "before": "{online ? null : <OfflineBar />}",
+      "after": "{null}",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "apps/web/src/App.tsx",
+      "before": "if (online) setOpenedOffline(false);",
+      "after": "",
+      "expectFail": [
+        "(TC-25)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "apps/web/src/App.tsx",
+      "before": "if (online) setOpenedOffline(false);",
+      "after": "if (!online) setOpenedOffline(false);",
+      "expectFail": [
+        "(TC-25)",
+        "(TC-8)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "apps/web/src/pwa/register.ts",
+      "before": "if (registration !== undefined) reload();",
+      "after": "",
+      "expectFail": [
+        "(TC-27)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "apps/web/src/pwa/update.ts",
+      "before": "register: RegisterSW = registerServiceWorker)",
+      "after": "register: RegisterSW = previewUpdateRegister)",
+      "expectFail": [
+        "(TC-28)",
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "apps/web/src/pwa/update.ts",
+      "before": "previewActive && new URLSearchParams",
+      "after": "new URLSearchParams",
+      "expectFail": [
+        "(TC-29)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "apps/web/src/pwa/update.ts",
+      "before": ".get('pwa') === 'update'",
+      "after": ".get('pwa') !== null",
+      "expectFail": [
+        "(TC-29)"
+      ]
+    }
+  ]
+}
