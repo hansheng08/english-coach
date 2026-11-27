@@ -6,7 +6,7 @@
 | [login.md](login.md) | `login.html`；錯誤狀態 `login-empty.html`、`login-server.html`、`login-offline.html` | 登入 → 首頁；登入錯誤 |
 | [home.md](home.md) | `index.html` | 首頁今日任務（早／中／晚） |
 | [morning.md](morning.md) | `news.html` → `shadow.html` | 早上閱讀 → 跟讀闖關 |
-| [noon.md](noon.md) | `review.html` → `review-order.html`；`review-short.html`（模式 B）；`add-card.html` → `add-card-stream.html` → `add-card-ready.html` → `add-card-saved.html` | 中午複習（一步）；今天只有 N 張；新增字卡（隨時可用） |
+| [noon.md](noon.md) | `review.html` → `review-order.html`；`review-recall.html` → `review-recall-answer.html`（自行回想）；`review-short.html`（模式 B）；`add-card.html` → `add-card-stream.html` → `add-card-ready.html`（或 `add-card-partial.html`）→ `add-card-saved.html` | 中午複習（一步）；今天只有 N 張；新增字卡（隨時可用） |
 | [evening.md](evening.md) | `evening.html` → `evening-record.html` → `diagnosis.html` → `retell.html` → `retell-cue.html` → `result.html`；`result-milestone.html`／`-seen`／`-60` | 晚上口說；M2 里程碑 |
 | [../pwa.md](../pwa.md) | `notice-offline.html`、`notice-offline-cold.html`、`notice-update.html`、`preview-banner.html`、`preview-banner-unknown.html`、`pwa-icons.html` | 斷線、新版、預覽假資料提示；manifest 與圖示 |
 | [prep.md](prep.md) | `home-prep-pending.html`、`home-prep-failed.html`、`news-fallback.html` | 素材準備中／沒備好／改用舊文章 |
