@@ -43,6 +43,10 @@ jobs:
       mode: ${{ steps.mode.outputs.mode }}
       tasks_changed: ${{ steps.mode.outputs.tasks_changed }}
       pr_number: ${{ steps.mode.outputs.pr_number }}
+      # O-028: why this mode (light: branch-with-open-pr / tests-only-no-pr) and
+      # whether the QA batch ::warning was printed (warn only).
+      mode_reason: ${{ steps.mode.outputs.mode_reason }}
+      qa_batch_warning: ${{ steps.mode.outputs.qa_batch_warning }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -118,6 +122,7 @@ jobs:
           bash .github/scripts/run-task-usage-limit-test.sh
           bash .github/scripts/ci-guard-mode-test.sh
           bash .github/scripts/pr-body-check-test.sh
+          bash .github/scripts/ci-supersede-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
           node .github/scripts/ci-workflow-check.mjs .
@@ -374,6 +379,7 @@ jobs:
           CI_MODE: ${{ needs.ci-guard.outputs.mode }}
           TASKS_CHANGED: ${{ needs.ci-guard.outputs.tasks_changed }}
           PR_NUMBER: ${{ needs.ci-guard.outputs.pr_number }}
+          MODE_REASON: ${{ needs.ci-guard.outputs.mode_reason }}
           HAS_NODE: ${{ needs.ci-guard.outputs.has_node }}
           HAS_WEB: ${{ needs.ci-guard.outputs.has_web }}
           HAS_SUPABASE: ${{ needs.ci-guard.outputs.has_supabase }}

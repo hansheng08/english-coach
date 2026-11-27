@@ -3,7 +3,9 @@
 # §3.7 C1-C3 and light-mode fail-closed). Uses the REAL tooling/ci-mode.mjs on
 # a throwaway git repo; `gh` is a fake driven by $FAKE_GH_DIR, so zero network.
 # Each case asserts exit code and the mode / tasks_changed / pr_number lines.
-# Five mutants must be killed.
+# Five mutants must be killed (O-015) plus the O-028 mutants at the end.
+# O-028: the fake answers `repos/.../activity` from $FAKE_GH_DIR/act_out and
+# act_code (default: exit 1 = activity API down), everything else as before.
 set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
@@ -18,6 +20,13 @@ cat > "$WORK/bin/gh" <<'GH'
 # fake gh: records the call; prints $FAKE_GH_DIR/out; exits with $FAKE_GH_DIR/code (default 0).
 echo "$*" >> "$FAKE_GH_DIR/calls"
 [[ "${1-}" == "api" ]] || exit 2
+if [[ "${2-}" == */activity\?* ]]; then
+  [[ -f "$FAKE_GH_DIR/act_out" ]] && cat "$FAKE_GH_DIR/act_out"
+  code=1
+  [[ -f "$FAKE_GH_DIR/act_code" ]] && code="$(cat "$FAKE_GH_DIR/act_code")"
+  [[ "$code" == 0 ]] || echo "HTTP 502: fake activity failure" >&2
+  exit "$code"
+fi
 [[ -f "$FAKE_GH_DIR/out" ]] && cat "$FAKE_GH_DIR/out"
 code=0
 [[ -f "$FAKE_GH_DIR/code" ]] && code="$(cat "$FAKE_GH_DIR/code")"
@@ -29,6 +38,10 @@ gh_set() { # gh_set <exit code> <stdout>
   rm -rf "$WORK/gh"; mkdir -p "$WORK/gh"; export FAKE_GH_DIR="$WORK/gh"
   echo "$1" > "$WORK/gh/code"; printf '%s' "$2" > "$WORK/gh/out"; : > "$WORK/gh/calls"
 }
+act_set() { # act_set <exit code> <stdout>  (call after gh_set)
+  echo "$1" > "$WORK/gh/act_code"; printf '%s' "$2" > "$WORK/gh/act_out"
+}
+act_push() { printf '[{"id":2,"activity_type":"%s","before":"%s","after":"%s","ref":"refs/heads/%s"}]' "$1" "$2" "$3" "$4"; }
 open_pr() { printf '[{"number":%s,"state":"open","head":{"ref":"%s"},"base":{"ref":"main"}}]' "$1" "$2"; }
 
 # Throwaway repo: C0 (no referencer) -> C1 (tooling test imports docs/ARCHITECTURE.md) = BEFORE.
@@ -66,6 +79,7 @@ run_case() {
     bash "$SCRIPT" 2>"$WORK/err")"
   code=$?
   set -e
+  printf '%s\n' "$out" > "$WORK/last_out"
   local got; got="$(grep -E '^(mode|tasks_changed|pr_number)=' <<<"$out" | tr '\n' ' ' | sed 's/ $//')"
   if [[ "$code" == "$want_code" && "$got" == "$want" ]]; then
     echo "ok   $label"
@@ -140,6 +154,65 @@ printf 'console.log(JSON.stringify({mode:"light",tasks_changed:false,pr_number:n
 check "T28 light without pr_number -> step fails" 1 "" push task/T-1 "$BEFORE" "$S_MIXED"
 TOOLING_DIR="$ROOT/tooling"
 
+# ---- O-028: tests-only light without a PR, QA batch warning (AC-O28-2/3/4, TC-3..TC-9 wiring) ----
+S_QA="$(change qa 'mkdir -p docs/qa/mutants && echo "{}" > docs/qa/mutants/T-1.json && echo "it(1)" > apps/x.test.ts')"
+g checkout -q --detach "$S_QA"; mkdir -p "$REPO_DIR/packages/p"; echo 'it(2)' > "$REPO_DIR/packages/p/a.qa.test.ts"
+g add -A; g commit -q -m qa2; S_QA2="$(g rev-parse HEAD)"
+S_QA_ALT="$(change qa-alt 'echo "it(5)" > apps/z.test.ts')"
+S_TOOL="$(change tool 'echo "it(3)" > tooling/a.test.mjs')"
+g checkout -q --detach "$S_MIXED"; echo 'it(4)' > "$REPO_DIR/apps/y.test.ts"; g add -A; g commit -q -m mixqa; S_MIXQA="$(g rev-parse HEAD)"
+g checkout -q --detach "$BEFORE"
+reason_is() { grep -qx "mode_reason=$1" "$WORK/last_out" || { echo "FAIL $2: mode_reason is not $1"; FAIL=1; }; }
+warn_is() {
+  local want="$1" label="$2" has=false
+  grep -q '^::warning title=QA 補充測試請合併推送::' "$WORK/last_out" && has=true
+  if grep -qx "qa_batch_warning=$want" "$WORK/last_out" && [[ "$has" == "$want" ]]; then return 0; fi
+  echo "FAIL $label: qa_batch_warning/::warning not $want"; FAIL=1
+}
+gh_set 0 '[]'
+check "O1 (AC-O28-2) (TC-3) task push, no PR, only QA files -> light" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$BEFORE" "$S_QA"
+reason_is tests-only-no-pr O1b; warn_is false O1c
+grep -q 'activity?ref=refs/heads/task/T-1&activity_type=push' "$WORK/gh/calls" || { echo "FAIL O1d: activity API not queried"; FAIL=1; }
+check "O2 (AC-O28-3) (TC-5) QA files + product file -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$BEFORE" "$S_MIXQA"
+check "O3 (AC-O28-3) (TC-6) BEFORE all zeros (new branch) -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$ZERO" "$S_QA"
+check "O4 (AC-O28-3) (TC-6) BEFORE not an ancestor (force push, QA-only diff) -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$S_QA_ALT" "$S_QA"
+check "O5 (AC-O28-3) (TC-6) BEFORE not in clone -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "1111111111111111111111111111111111111111" "$S_QA"
+check "O6 (AC-O28-2) (TC-4) fix/ push, no PR, only QA files -> full" 0 "mode=full tasks_changed=false pr_number=" push fix/Q-1 "$BEFORE" "$S_QA"
+check "O7 (AC-O28-1) (TC-2) tooling/*.test.mjs only -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$BEFORE" "$S_TOOL"
+gh_set 1 ''
+check "O8 (AC-O28-3) (TC-7) PR lookup fails, only QA files -> full" 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$BEFORE" "$S_QA"
+gh_set 0 "$(open_pr 7 task/T-1)"
+check "O9 (AC-O28-4) (TC-9) open PR -> light branch-with-open-pr, no warning" 0 "mode=light tasks_changed=false pr_number=7" push task/T-1 "$S_QA" "$S_QA2"
+reason_is branch-with-open-pr O9b; warn_is false O9c
+gh_set 0 '[]'; act_set 0 "$(act_push push "$BEFORE" "$S_QA" task/T-1)"
+check "O10 (AC-O28-4) (TC-8) two QA-only pushes in a row -> light + warning, exit 0" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2"
+reason_is tests-only-no-pr O10b; warn_is true O10c
+grep -qx 'qa_batch_warning=true' "$WORK/gh_out" || { echo "FAIL O10d: GITHUB_OUTPUT missing qa_batch_warning=true"; FAIL=1; }
+gh_set 0 '[]'
+check "O11 (AC-O28-4) (TC-9) activity API down -> no warning" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2"
+warn_is false O11b
+gh_set 0 '[]'; act_set 0 "$(act_push force_push "$BEFORE" "$S_QA" task/T-1)"
+check "O12 (AC-O28-4) (TC-9) previous entry is force_push -> no warning" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2"
+warn_is false O12b
+gh_set 0 '[]'; act_set 0 "$(act_push push "$S_DOCS" "$S_QA" task/T-1)"
+check "O13 (AC-O28-4) (TC-9) previous before not an ancestor -> no warning" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2"
+warn_is false O13b
+gh_set 0 '[]'; act_set 0 "$(act_push push "$BEFORE" "$S_MIXED" task/T-1)"
+check "O14 (AC-O28-4) (TC-9) previous push touched product code -> no warning" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_MIXED" "$S_MIXQA"
+warn_is false O14b
+gh_set 0 '[]'; act_set 0 '{"broken"'
+check "O15 (AC-O28-4) (TC-9) activity API broken JSON -> no warning" 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2"
+warn_is false O15b
+gh_set 0 '[]'
+printf 'console.log(JSON.stringify({mode:"light",tasks_changed:false,pr_number:null,reason:"tests-only-no-pr",qa_batch_warning:false}));\n' > "$WORK/badtool/ci-mode.mjs"
+TOOLING_DIR="$WORK/badtool"
+check "O16 (AC-O28-8) tests-only-no-pr light on fix/ -> step fails" 1 "" push fix/Q-1 "$BEFORE" "$S_QA"
+printf 'console.log(JSON.stringify({mode:"light",tasks_changed:false,pr_number:3,reason:"tests-only-no-pr",qa_batch_warning:false}));\n' > "$WORK/badtool/ci-mode.mjs"
+check "O17 (AC-O28-8) tests-only-no-pr light with a pr_number -> step fails" 1 "" push task/T-1 "$BEFORE" "$S_QA"
+printf 'console.log(JSON.stringify({mode:"full",tasks_changed:false,pr_number:null,reason:"branch-without-pr",qa_batch_warning:"yes"}));\n' > "$WORK/badtool/ci-mode.mjs"
+check "O18 qa_batch_warning not boolean -> step fails" 1 "" push task/T-1 "$BEFORE" "$S_QA"
+TOOLING_DIR="$ROOT/tooling"
+
 # ---- mutants: each must make at least one case above give the wrong answer ----
 mutant() { # mutant <name> <file: sh|mjs> <sed expr> <case function>
   local name="$1" kind="$2" expr="$3" fn="$4" saved_fail="$FAIL"
@@ -164,6 +237,15 @@ mutant "C1 drop --no-renames" sh 's/ --no-renames//' m_rename
 mutant "C2 docs/ non-.md not referenced" mjs "s/if (p.startsWith('docs\/') \&\& !p.endsWith('.md')) {/if (false) {/" m_docs_ts
 mutant "C3 skip deleted docs" mjs 's/const candidates = changed;/const candidates = changed.filter((p) => tree.has(p));/' m_deleted
 mutant "C3 search HEAD instead of SHA tree" mjs "s/'--full-tree', sha\]/'--full-tree', 'HEAD']/" m_tree
+m_force() { gh_set 0 '[]'; run_case m6 0 "mode=full tasks_changed=false pr_number=" push task/T-1 "$S_QA_ALT" "$S_QA"; }
+m_force_prev() { gh_set 0 '[]'; act_set 0 "$(act_push force_push "$BEFORE" "$S_QA" task/T-1)"; run_case m8 0 "mode=light tasks_changed=false pr_number=" push task/T-1 "$S_QA" "$S_QA2" && ! grep -q '^::warning' "$WORK/last_out"; }
+m_light_fix() {
+  printf 'console.log(JSON.stringify({mode:"light",tasks_changed:false,pr_number:null,reason:"tests-only-no-pr",qa_batch_warning:false}));\n' > "$WORK/badtool/ci-mode.mjs"
+  local r=0; TOOLING_DIR="$WORK/badtool"; run_case m9 1 "" push fix/Q-1 "$BEFORE" "$S_QA" || r=1; TOOLING_DIR="$ROOT/tooling"; return "$r"
+}
+mutant "O-028 force push (ancestor check) ignored" sh 's/ && git merge-base --is-ancestor "\$1" "\$2"; }/; }/' m_force
+mutant "O-028 activity_type not checked" sh 's/e.activity_type === "push" \&\& //' m_force_prev
+mutant "O-028 tests-only light allowed off task/" sh 's/ || !process.argv\[2\].startsWith("task\/")//' m_light_fix
 mutant "gh exit status ignored" sh 's/elif ! "\$GH_BIN" api \(.*\); then$/elif "$GH_BIN" api \1 \&\& false; then/' m_ghfail
 
 if [[ "$FAIL" -ne 0 ]]; then echo "ci-guard-mode-test: FAILED"; exit 1; fi

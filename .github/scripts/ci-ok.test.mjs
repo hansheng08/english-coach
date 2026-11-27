@@ -17,7 +17,8 @@ const PUSH_TASK_FULL = { ...base, mode: 'full', event: 'push', refName: 'task/T-
 const PUSH_MAIN_FULL = { ...base, mode: 'full', event: 'push', refName: 'main' };
 const DOCS = { ...base, mode: 'docs', event: 'push', refName: 'main' };
 const DOCS_TASKS = { ...DOCS, tasksChanged: true };
-const LIGHT = { ...base, mode: 'light', event: 'push', refName: 'task/T-010', prNumber: '51' };
+const LIGHT = { ...base, mode: 'light', event: 'push', refName: 'task/T-010', prNumber: '51', modeReason: 'branch-with-open-pr' };
+const LIGHT_QA = { ...base, mode: 'light', event: 'push', refName: 'task/T-010', prNumber: '', modeReason: 'tests-only-no-pr' };
 // Jobs that ci.yml skips by design in each context (they must be allowed to skip).
 const PR_SKIPS = { bundle: 'skipped', e2e: 'skipped' };
 const PUSH_FULL_SKIPS = { bundle: 'skipped', db: 'skipped', e2e: 'skipped' };
@@ -116,6 +117,31 @@ test('context: missing/invalid mode, event, ref or flag → not ok', () => {
   assert.equal(real.evaluateNeeds(needs(PR_SKIPS), undefined).ok, false);
 });
 
+// O-028: light without a PR number only for task/** + tests-only-no-pr + empty PR number.
+test('(AC-O28-8) (TC-16) tests-only-no-pr light on task/** without PR number → ok; summary says the push green does not count', () => {
+  const r = real.evaluateNeeds(needs(LIGHT_SKIPS), LIGHT_QA);
+  assert.equal(r.ok, true, r.failures.join('\n'));
+  const text = real.renderSummary(r, LIGHT_QA);
+  assert.match(text, /本 push run 綠燈不算數，以之後 G3 PR 的 pull_request run 為準/);
+  assert.doesNotMatch(text, /PR #/);
+});
+test('(AC-O28-8) (TC-16) light reason / PR number / ref mismatches → not ok', () => {
+  const bad = [
+    { ...LIGHT, prNumber: '' },
+    { ...LIGHT_QA, refName: 'fix/Q-1' },
+    { ...LIGHT_QA, prNumber: '51' },
+    { ...LIGHT_QA, modeReason: '' },
+    { ...LIGHT, modeReason: 'branch-without-pr' },
+    { ...LIGHT_QA, modeReason: 'Tests-only-no-pr' },
+  ];
+  for (const ctx of bad) assert.equal(real.evaluateNeeds(needs(LIGHT_SKIPS), ctx).ok, false, JSON.stringify(ctx));
+});
+test('(AC-O28-8) (TC-16) CLI: MODE_REASON is read from env (missing reason on light fails)', () => {
+  const env = { ...ENV_PR, CI_MODE: 'light', EVENT_NAME: 'push', REF_NAME: 'task/T-010', HEAD_REF: '', PR_NUMBER: '' };
+  assert.equal(runCli(needs(LIGHT_SKIPS), { ...env, MODE_REASON: 'tests-only-no-pr' }).status, 0);
+  assert.equal(runCli(needs(LIGHT_SKIPS), env).status, 1);
+});
+
 function runCli(needsObj, env) {
   const dir = mkdtempSync(join(tmpdir(), 'ci-ok-'));
   const summary = join(dir, 'summary.md');
@@ -170,6 +196,9 @@ const killers = [
   ['bad mode', (m) => m.evaluateNeeds(needs(PR_SKIPS), { ...PR, mode: 'Full' }).ok === false],
   ['push with empty mode (ci-guard output missing)', (m) => m.evaluateNeeds(needs(PUSH_FULL_SKIPS), { ...PUSH_TASK_FULL, mode: '' }).ok === false],
   ['light without PR', (m) => m.evaluateNeeds(needs(LIGHT_SKIPS), { ...LIGHT, prNumber: '' }).ok === false],
+  ['tests-only light on fix/', (m) => m.evaluateNeeds(needs(LIGHT_SKIPS), { ...LIGHT_QA, refName: 'fix/Q-1' }).ok === false],
+  ['tests-only light with PR number', (m) => m.evaluateNeeds(needs(LIGHT_SKIPS), { ...LIGHT_QA, prNumber: '51' }).ok === false],
+  ['light with unknown reason', (m) => m.evaluateNeeds(needs(LIGHT_SKIPS), { ...LIGHT, modeReason: 'x' }).ok === false],
 ];
 const MUTANTS = [
   ['CK-M1 drop ci-guard from REQUIRED', "export const REQUIRED = ['ci-guard'];", 'export const REQUIRED = [];'],
@@ -181,6 +210,9 @@ const MUTANTS = [
   ['CK-M7 PR may be light/docs', "if (ctx.event !== 'push' && ctx.mode !== 'full')", 'if (false)'],
   ['CK-M8 mode not validated', 'if (!MODES.includes(ctx.mode))', 'if (false)'],
   ['CK-M9 light PR number not checked', "if (!/^[1-9][0-9]*$/.test(String(ctx.prNumber)))", 'if (false)'],
+  ['CK-M10 (AC-O28-8) tests-only light allowed off task/', "if (!String(ctx.refName).startsWith('task/'))", 'if (false)'],
+  ['CK-M11 (AC-O28-8) tests-only light with PR number', "if (ctx.prNumber !== '')", 'if (false)'],
+  ['CK-M12 (AC-O28-8) unknown light reason accepted', 'problems.push(`light with unknown reason', 'void (`light with unknown reason'],
 ];
 for (const [name, from, to] of MUTANTS) {
   test(`mutation ${name} is killed`, async () => {

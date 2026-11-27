@@ -224,12 +224,14 @@ gh version 2.103.0 (2026-10-21)
 | `pnpm db:test` 判定（O-010） | 能做（已驗證：box 真實 PG17） | 自備兩個測試檔、`--db-url postgresql://postgres:postgres@127.0.0.1:5432/postgres`：全部 `ok` → `db-test: OK 1 file(s), 2 test(s)`、exit 0；其中一項 `not ok` → 同一個 psql 指令直接執行時 **exit 0**，db-test 輸出 `DB-FAIL: b_test.sql: (AC-T9-2) two`、exit 1 |
 | Docker、`supabase start`／`functions serve` | **不能做** | `docker`／`supabase` 指令不存在；db job 的 CLI 驗證只能在 GitHub Actions 的 `db` job 跑 |
 | 合併 PR、推 `main`、force push、自設 GitHub secret、未核准就派 Claude Code | 不做（政策） | 交接單與憲章；本輪未嘗試這些動作 |
+| 未登入讀公開 GitHub REST（`curl https://api.github.com/repos/<repo>/...`：PR、runs、jobs、`activity`） | 能做（已驗證：2026-11-27 13:15 Asia/Taipei） | O-028：repo 公開後，不帶權杖讀 PR #83、runs、jobs 與 `GET repos/<repo>/activity` 都回 200；未登入有每小時次數限制。2026-11-27 起 box 沒有 GitHub 權杖（`gh auth status` 顯示未登入），推送與開 PR 改由幕僚長代辦 |
 
 ### 3.3 各權杖
 
 | 權杖 | 已驗證能做 | 限制／不能做 | 未驗證 |
 |---|---|---|---|
 | **`ci.yml` 的 `GITHUB_TOKEN`** | 讀 repo、checkout（workflow 設 `persist-credentials: false`）、跑測試、彙總 `ci-ok` | workflow 宣告 `permissions: contents: read`。用這個 token 做的 `git push` **不會**觸發新的 workflow（見 §1.1）。本環境觀察：`gh pr checks`／`statusCheckRollup` 曾 403（沒有 checks 讀取權） | 是否另有未寫在 workflow 的隱藏權限 |
+| **`ci-supersede.yml` 的 `GITHUB_TOKEN`（O-028）** | 本 PR 合併前無實測 | job 層只有 `contents: read`、`actions: read`、`statuses: write`（頂層 `permissions: {}`）；只讀 `ci` 的 runs／jobs／statuses、寫 `ci-push-superseded` commit status；不 checkout PR head、不用 secret | `workflow_run` 只在 workflow 檔進預設分支後觸發；權限是否足以讀 jobs 與寫 status，要等合併後第一次「push 紅、PR 綠」自然發生時確認 |
 | **`claude-run-task.yml` 的 `GITHUB_TOKEN`** | O-007 起 Verify 用它跑 `gh api …/git/ref/heads/<branch>`（`contents`）與 `gh run list`（`actions: read`），Actions 上**待下次真實 `run-task` 實測驗證**（run 45323782247 的 Verify 在 `git fetch` 就結束，沒有跑到 `gh run list`）。無 PR 時，C3 會在 head commit 留言：T-003 run 45314135320 步驟「Detect denied-command resplit and post run-task summary」原始輸出 `Posted run-task summary as commit (1743021f5f96051d5683c58fe558c820142b55f2)`，GitHub commit comment `id` 211531977（建立於 2026-11-24 10:51:10 Asia/Taipei），開頭為 `## run-task summary (T-003)`。workflow 另宣告 `contents: write`、`id-token: write`、`actions: read`、`pull-requests: write` | 不應用來開新 PR 或合併。該次 `CLAUDE_OUTCOME=failure`、`VERIFY_OUTCOME=skipped`、`SUMMARY_OUTCOME=success`，Notify 輸出 `run-task-outcome: claude=failure verify=skipped summary=success -> failure` | 既有 PR 上的 `gh pr comment`、以及 `gh pr comment` 回 403 時改留 commit comment 的 fallback：該次是 `repository_dispatch` 打在 `main`、沒有 PR，走的是「無 PR → commit comment」路徑，**不是** 403 fallback，故這兩項仍標未驗證 |
 | **Claude GitHub App token（OIDC）** | 推送到 `task/`／`fix/`／`poc/` 且可觸發 `ci.yml` 的 `push` run（O-002 修正後的既有 run；T-003 run 45323782247 的推送觸發 push run 45324530991，`event=push`、`headSha=1a2ef4c…`、success） | 不應用來合併或改 repo secrets；依憲章不能改 `.github/workflows/`。**只在 Step 7 內有效**：action 在步驟結束前 `Revoke app token`，之後的步驟不能用 remote URL 裡的 token 做 `git fetch`／`git push`（§1.5） | action 是否偶爾仍用 `GITHUB_TOKEN` 寫入（故仍保留 `contents: write`）；workflow 推送被拒的一次實測 |
 | **box 上 SRE 使用的 GitHub 權杖** | 細項 PAT（`gh auth status` 顯示 `github_pat_`，API 無 `X-OAuth-Scopes` 標頭；到期 2026-12-21 23:30 Asia/Taipei）。已驗證：推送含 `.github/workflows/` 的分支（等同需要 workflow 寫入）、開／編輯 PR、讀 Actions log 與 issue comment | 本輪未用它合併、未設 secret、未推 `main`、未 force push | 細項 PAT 的完整權限矩陣無法從 API 標頭列完，除上述已觀察項外皆標未驗證 |
@@ -314,6 +316,7 @@ gh version 2.103.0 (2026-10-21)
   - `full`：PR、手動觸發、沒有 PR 的 task／fix push、非純文件的 main push、任何判斷失敗。照舊跑全部。
   - `docs`：推到 `main` 且只改文件（`docs/**/*.md`，不含 `docs/poc/`、`docs/qa/`；根目錄 `*.md`）。略過 `check`、`bundle`、`e2e`；改到 `docs/tasks/` 時仍跑 `taskcheck`（task-lint）。
   - `light`：推到 `task/**`、`fix/**` 且已有開著、目標 `main` 的 PR（`gh api repos/<repo>/pulls?state=open&base=main&head=<owner>:<branch>`）。只跑 `ci-guard`；重 job 以同一個 head 的 pull_request run 為準。查詢失敗、回應不對、`gh` 非 0（即使有輸出）→ `full`。
+  - `light`（O-028，reason `tests-only-no-pr`）：推到 `task/**`、確定沒有 PR，且 `BEFORE..SHA` 只改 QA 檔（見 §6.8）。`pr_number` 為空；`ci-ok` 只在 `MODE_REASON=tests-only-no-pr`＋`task/**`＋PR 編號為空時接受，摘要寫「本 push run 綠燈不算數，以之後 G3 PR 的 pull_request run 為準」。`fix/**` 不適用。
 - 為什麼不用 workflow 層的 `paths-ignore`：整個 workflow 不觸發，`ci-ok` 根本不出現，設成必過後只改文件的 PR 會一直等待；gitleaks、pushguard 也不會跑。
 - 判斷文件的規則（retro §3.7）：
   - C1：變更清單一律 `git diff --no-renames --name-only "$BEFORE_SHA" "$SHA"`；`git mv apps/x.ts docs/x.md` 會同時列出 `apps/x.ts` → full。
@@ -358,3 +361,15 @@ gh version 2.103.0 (2026-10-21)
 ### 6.7 O-026：重跑必須接在既有任務分支上
 
 - pre-head 之後、Claude 之前：若遠端已有任務單指定的 `task/*`／`fix/*`，以 `fetch-depth: 0`、`persist-credentials: false` 檢出該 `PRE_HEAD`，並把 Task lint 用過的 `docs/tasks/<TASK>.md`（dispatch 的 main 版本）放回工作區，不 merge main。`verify-push.sh` 要求遠端 tip＝這次 local HEAD 且 ≠ `PRE_HEAD`，且該 SHA 已觸發 push CI（進行中或 failure 也算；沒有 run 則失敗）；不得 `git fetch`。post-check 失敗時 outcome 為 `post_check_failed`（留言失敗不得覆蓋）。commit comment 只留在已推送到遠端的 SHA。
+
+### 6.8 O-028：只改測試的 push 降 light、QA 連推警告、push 紅燈被 PR 取代的註記
+
+- **QA 檔**（`tooling/ci-mode.mjs` 的 `isQaPath`；任務單 O-028「定義」為準）：`apps/**`、`packages/**`、`supabase/**` 底下的 `*.test.ts`／`*.test.tsx`（含 `*.qa.test.ts`）、`supabase/tests/*_test.sql`、`test/e2e/**/*.spec.ts`、`docs/qa/**`。測試資料夾裡的輔助檔（`setup.ts`、`*.d.ts`、`packages/contracts/test/index.ts`、fake／fixture）、`tooling/**`、`.github/**`、`.claude/**`、設定檔、lockfile、快照都**不算**，混到一個就 `full`。
+- **降 light**（`ci-guard-mode.sh`）：`task/**`／`fix/**` push 時多算一份 `git diff --no-renames --name-only "$BEFORE_SHA" "$SHA"` 交給 `--qa-changed`。BEFORE 為空、全 0（新分支）、不在 clone 裡、不是 SHA 的祖先（force push）、diff 失敗 → `--qa-changed-error` → `full`。PR 查詢失敗也 `full`。ci-guard 新增 output `mode_reason`、`qa_batch_warning`，`ci-ok` 的 Decide 步驟多吃 `MODE_REASON`。
+- **QA 連推警告**：`gh api repos/<repo>/activity?ref=refs/heads/<branch>&activity_type=push&per_page=100`，找 `activity_type=push` 且 `after` 等於這次 BEFORE 的紀錄，它的 `before..after` 就是前一次推送。兩次都只改 QA 檔、且這次是 `tests-only-no-pr` → `::warning title=QA 補充測試請合併推送::…`，`qa_batch_warning=true`，exit code 不變。API 失敗、JSON 壞掉、找不到、`force_push`／`branch_creation`、前一次的 before 不是祖先 → `--prev-skip`（不警告）。
+  - 欄位實測（2026-11-27 13:15 Asia/Taipei，未登入 `GET repos/hansheng08/english-coach/activity`）：每筆的 key 是 `activity_type`、`actor`、`after`、`before`、`id`、`node_id`、`ref`、`timestamp`；`ref` 是 `refs/heads/<branch>` 完整名稱；`activity_type` 實際看到 `push`、`branch_creation`、`branch_deletion`（新分支的 `before` 是 40 個 0）。`activity_type=push` 篩選有效（`task/O-028` 當時只有 `branch_creation`，篩選後回空陣列）。
+- **`ci-push-superseded`**（`.github/workflows/ci-supersede.yml` → `.github/scripts/ci-supersede.sh` → `tooling/ci-supersede.mjs`）：`ci` 完成時由 `workflow_run` 觸發（同 repo，且 push run 紅或是 pull_request run）。只讀 API：`ci.yml` 在此 head SHA 的 runs、pull_request run 的 jobs、此 SHA 的 statuses。最新 PR run 名稱恰好是 `ci-ok` 的 job 為 success，而且最新 push run（`task/**`／`fix/**`）為 failure → 打 `state=success` 的 `ci-push-superseded`，`target_url` 指向 PR run。已標過同一個 PR run 就不重打；條件不再成立而上次是 success → 改打 `state=error`（撤回）。
+  - **不是必過檢查**：必過仍只有 `ci-ok` 和 `g3-comment-guard`，不要把 `ci-push-superseded` 加進分支保護。push run 的綠燈本來就不算數，這個註記只是告訴人「push 紅燈不用為它重推」。
+  - 安全：頂層 `permissions: {}`；job 只有 `contents: read`、`actions: read`、`statuses: write`；checkout 預設分支（不帶 `ref`）、`persist-credentials: false`；不用 secret；fork 的 run 不處理。`ci-workflow-check.mjs` 凍結以上各點（SU-M1～SU-M12）。
+  - **合併前無法實測**：`workflow_run` 只在 workflow 檔已在預設分支時觸發，等合併後下一次自然發生「push 紅、PR 綠」再確認；不要為了測試故意製造紅燈。push run 重跑變綠時不會觸發（push 綠不跑），舊的 success 註記會留著，但內容仍是事實（當時的紅燈已被取代）。
+- 測試：`ci-guard-mode-test.sh`（新增 O1～O18、4 個 O-028 突變）、`ci-ok.test.mjs`（TC-16、CK-M10～M12）、`ci-supersede-test.sh`（S1～S13、4 個突變）、`ci-workflow-check.test.mjs`（SU-M1～SU-M12；ci-guard-mode.sh 每個 `git diff` 都要 `--no-renames`）；`tooling/o028.test.mjs` 讓 ac-coverage 看到 AC-O28-8／9。

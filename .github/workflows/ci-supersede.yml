@@ -1,0 +1,50 @@
+name: ci-push-superseded
+
+# O-028 item 3: when the pull_request run of `ci` is green (job named exactly
+# `ci-ok` succeeded) and the push run on the SAME head SHA is red, set the
+# commit status `ci-push-superseded` so nobody re-pushes just to clear the
+# push red. Not a required check (required: ci-ok and g3-comment-guard only).
+#
+# workflow_run runs the workflow file from the default branch with a write
+# token, so: never check out the PR head (no `ref:`), keep
+# persist-credentials: false, use no secrets, and skip runs from forks. The
+# step only calls the GitHub API (.github/scripts/ci-supersede.sh ->
+# tooling/ci-supersede.mjs). Only active once this file is on main.
+on:
+  workflow_run:
+    workflows: [ci]
+    types: [completed]
+
+permissions: {}
+
+# O-016 CL-2: one evaluation per head SHA at a time, none cancelled.
+concurrency:
+  group: ci-push-superseded-${{ github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
+jobs:
+  mark:
+    # Same repo only; push runs only when red; pull_request runs always (mark or retract).
+    if: >-
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      ((github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'failure') ||
+       github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - name: Mark or retract ci-push-superseded
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: bash .github/scripts/ci-supersede.sh

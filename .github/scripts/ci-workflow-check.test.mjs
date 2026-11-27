@@ -13,6 +13,7 @@ const CI = '.github/workflows/ci.yml';
 const W = '.github/workflows/';
 const TC = '.github/scripts/taskcheck.sh';
 const PC = '.github/scripts/run-task-post-check.sh';
+const SW = '.github/workflows/ci-supersede.yml';
 const setBudget = (d, f) => { const p = join(d, BUDGET_FILE); const b = JSON.parse(readFileSync(p, 'utf8')); f(b.max_jobs); writeFileSync(p, JSON.stringify(b)); };
 
 function withCopy(mutate) {
@@ -118,6 +119,19 @@ const MUTANTS = [
   ['PB-W3 PR-description step uses the push sha', (d) => edit(d, CI, '          HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n        run: bash .github/scripts/pr-body-check.sh', '          HEAD_SHA: ${{ github.sha }}\n        run: bash .github/scripts/pr-body-check.sh'), /env HEAD_SHA must be/],
   ['PB-W4 pull_request gains types with edited', (d) => edit(d, CI, '  pull_request:\n    branches: [main]\n', '  pull_request:\n    branches: [main]\n    types: [opened, synchronize, reopened, edited]\n'), /pull_request must keep the default types/],
   ['PB-W5 pr-body-check-test.sh not wired', (d) => edit(d, CI, '          bash .github/scripts/pr-body-check-test.sh\n', ''), /does not run: bash \.github\/scripts\/pr-body-check-test\.sh/],
+  // O-028 (AC-O28-9, TC-17): ci-supersede.yml freeze and ci-ok MODE_REASON wiring.
+  ['SU-M1 (AC-O28-9) (TC-17) supersede job gains pull-requests: write', (d) => edit(d, SW, '      statuses: write\n', '      statuses: write\n      pull-requests: write\n'), /ci-supersede\.yml \(O-028\): job mark permissions must be exactly/],
+  ['SU-M2 (AC-O28-9) (TC-17) checkout of the PR head (ref:)', (d) => edit(d, SW, '          persist-credentials: false\n', '          persist-credentials: false\n          ref: ${{ github.event.workflow_run.head_sha }}\n'), /no ref: \(never check out the PR head/],
+  ['SU-M3 (AC-O28-9) (TC-17) persist-credentials: false removed', (d) => edit(d, SW, '        with:\n          persist-credentials: false\n', ''), /checkout must set persist-credentials: false/],
+  ['SU-M4 (AC-O28-9) (TC-17) status context renamed to ci-ok-…', (d) => edit(d, '.github/scripts/ci-supersede.sh', 'CONTEXT="ci-push-superseded"', 'CONTEXT="ci-ok-superseded"'), /CONTEXT must be exactly "ci-push-superseded"/],
+  ['SU-M5 (AC-O28-9) (TC-17) fork guard removed', (d) => edit(d, SW, '      github.event.workflow_run.head_repository.full_name == github.repository &&\n', ''), /if must start with github\.event\.workflow_run\.head_repository\.full_name == github\.repository &&/],
+  ['SU-M6 (AC-O28-9) (TC-17) trigger switched to pull_request_target', (d) => edit(d, SW, '  workflow_run:\n    workflows: [ci]\n    types: [completed]\n', '  pull_request_target:\n'), /on: must be exactly workflow_run/],
+  ['SU-M7 (AC-O28-9) (TC-17) a secret is used', (d) => edit(d, SW, '          GH_TOKEN: ${{ github.token }}\n', '          GH_TOKEN: ${{ secrets.MY_PAT }}\n'), /no secrets/],
+  ['SU-M8 (AC-O28-9) (TC-17) top-level permissions widened', (d) => edit(d, SW, 'permissions: {}\n', 'permissions: write-all\n'), /top-level permissions must be \{\}/],
+  ['SU-M9 (AC-O28-9) (TC-17) extra run step', (d) => edit(d, SW, '        run: bash .github/scripts/ci-supersede.sh\n', '        run: bash .github/scripts/ci-supersede.sh\n      - run: echo hi\n'), /must only run bash \.github\/scripts\/ci-supersede\.sh/],
+  ['SU-M10 (AC-O28-8) ci-ok Decide drops MODE_REASON', (d) => edit(d, CI, '          MODE_REASON: ${{ needs.ci-guard.outputs.mode_reason }}\n', ''), /must pass MODE_REASON/],
+  ['SU-M11 (AC-O28-8) ci-guard drops the mode_reason output', (d) => edit(d, CI, '      mode_reason: ${{ steps.mode.outputs.mode_reason }}\n', ''), /must output mode_reason/],
+  ['SU-M12 (AC-O28-9) ci-supersede-test.sh not wired', (d) => edit(d, CI, '          bash .github/scripts/ci-supersede-test.sh\n', ''), /does not run: bash \.github\/scripts\/ci-supersede-test\.sh/],
   ['WF-M16 old pushguard job comes back', (d) => edit(d, CI, '  check:\n', '  pushguard:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  check:\n'), /job pushguard must not exist/],
 ];
 for (const [name, mutate, want] of MUTANTS) {

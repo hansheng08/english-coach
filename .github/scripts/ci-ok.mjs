@@ -20,6 +20,7 @@ export function contextFromEnv(env) {
     refName: env.REF_NAME,
     headRef: env.HEAD_REF ?? '',
     prNumber: env.PR_NUMBER ?? '',
+    modeReason: env.MODE_REASON ?? '',
     hasNode: flag(env.HAS_NODE),
     hasWeb: flag(env.HAS_WEB),
     hasSupabase: flag(env.HAS_SUPABASE),
@@ -40,7 +41,16 @@ export function validateContext(ctx) {
   if (ctx.mode === 'docs' && ctx.refName !== 'main') problems.push(`mode docs on ref ${ctx.refName} (docs mode is main only)`);
   if (ctx.mode === 'light') {
     if (!isBranch(ctx.refName)) problems.push(`mode light on ref ${ctx.refName} (light is task/** and fix/** only)`);
-    if (!/^[1-9][0-9]*$/.test(String(ctx.prNumber))) problems.push(`mode light without a PR number (${String(ctx.prNumber)})`);
+    // O-028: light has two reasons. tests-only-no-pr = task/** push that only touches QA files and has
+    // no PR yet (PR number must be empty); branch-with-open-pr needs the PR number. Anything else fails.
+    if (ctx.modeReason === 'tests-only-no-pr') {
+      if (!String(ctx.refName).startsWith('task/')) problems.push(`light tests-only-no-pr on ref ${ctx.refName} (task/** only)`);
+      if (ctx.prNumber !== '') problems.push(`light tests-only-no-pr with a PR number (${String(ctx.prNumber)})`);
+    } else if (ctx.modeReason === 'branch-with-open-pr') {
+      if (!/^[1-9][0-9]*$/.test(String(ctx.prNumber))) problems.push(`mode light without a PR number (${String(ctx.prNumber)})`);
+    } else {
+      problems.push(`light with unknown reason ${String(ctx.modeReason)} (must be branch-with-open-pr or tests-only-no-pr)`);
+    }
   }
   return problems;
 }
@@ -99,7 +109,11 @@ export function renderSummary({ ok, failures, skippedConditional }, ctx = {}) {
       : 'Skipped (not verified): none',
   );
   if (ctx.mode === 'docs') lines.push('docs 模式：只改文件，check、bundle、e2e 依路徑略過（未驗證）；以下一個 pull_request run 為準。');
-  if (ctx.mode === 'light') lines.push(`light 模式：PR #${String(ctx.prNumber)} 的 pull_request run 為準；本 push run 只跑 ci-guard，綠燈不算數。`);
+  if (ctx.mode === 'light' && ctx.modeReason === 'tests-only-no-pr') {
+    lines.push('light 模式（O-028：只改測試／QA 檔、尚未開 PR）：本 push run 只跑 ci-guard，本 push run 綠燈不算數，以之後 G3 PR 的 pull_request run 為準。');
+  } else if (ctx.mode === 'light') {
+    lines.push(`light 模式：PR #${String(ctx.prNumber)} 的 pull_request run 為準；本 push run 只跑 ci-guard，綠燈不算數。`);
+  }
   // C4 (O-004): push runs never count as green; db only runs on pull_request.
   if (event === 'push') {
     lines.push('push run：檢查名稱是 `ci-ok (push)`，不是必過的 `ci-ok`；綠燈不算數，以 pull_request run 為準。');
