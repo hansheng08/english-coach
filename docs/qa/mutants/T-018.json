@@ -172,6 +172,123 @@
       "expectFail": [
         "(QA-10)"
       ]
+    },
+    {
+      "id": "M20",
+      "file": "playwright.config.ts",
+      "before": "    env: { VITE_DATA_MODE: 'mock' },\n",
+      "after": "",
+      "expectFail": [
+        "(TC-50)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "playwright.config.ts",
+      "before": "command: `pnpm --filter",
+      "after": "command: `VITE_DATA_MODE=mock pnpm --filter",
+      "expectFail": [
+        "(TC-50)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "tooling/css-literals.mjs",
+      "before": "if (ch !== '{') check(segStart, i);",
+      "after": "check(segStart, i);",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "tooling/css-literals.mjs",
+      "before": "      parens += 1;",
+      "after": "      parens += 0;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "tooling/css-literals.mjs",
+      "before": "      quote = ch;",
+      "after": "      quote = null;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "tooling/css-literals.mjs",
+      "before": "if (ch === '\\\\') i += 1;",
+      "after": "if (ch === '\\\\') i += 0;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "tooling/css-literals.mjs",
+      "before": "hits.add(lineAt(valueStart + m.index))",
+      "after": "hits.add(lineAt(start))",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "tooling/css-literals.mjs",
+      "before": "return [...hits].sort((a, b) => a - b);",
+      "after": "return [...hits];",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if (map.has(key)) return { duplicate: key };\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if ('duplicate' in member) return member;\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if ('duplicate' in item) return item;\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "tooling/tokens-css.mjs",
+      "before": "while (text[i] !== '\"') i += text[i] === '\\\\' ? 2 : 1;",
+      "after": "while (text[i] !== '\"') i += 1;",
+      "expectFail": [
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if (keys.length === 0) {",
+      "after": "        if (keys.length === 0 && where.length < 3) {",
+      "expectFail": [
+        "(QA-20)"
+      ]
     }
   ]
 }
