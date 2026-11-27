@@ -234,6 +234,14 @@ export function checkRepo(root) {
     if (typeof tc.if !== 'string' || !tc.if.includes(FULL_GUARD.trim()) || !tc.if.includes(DOCS_TASKS)) add('ci.yml: taskcheck if must allow full mode and docs mode with tasks_changed only');
     if (typeof tc.if !== 'string' || !tc.if.includes("needs.e2e.result == 'success'") || !tc.if.includes("needs.e2e.result == 'failure'") || !tc.if.includes("needs.e2e.result == 'skipped'")) add('ci.yml: taskcheck if must run when e2e is success, failure, or skipped');
   }
+  // O-027: e2e must invoke Playwright reporters without a literal `--`,
+  // which Playwright would treat as test-file filters (no JSON written).
+  const e2e = ci.jobs.get('e2e');
+  if (e2e) {
+    const run = e2e.steps.find((x) => x.name === 'Run e2e (fake providers)')?.run ?? '';
+    const want = 'pnpm e2e --reporter=list --reporter=json';
+    if (run !== want) add(`ci.yml: e2e step must run exactly ${want} (no -- between e2e and --reporter)`);
+  }
   const ok = ci.jobs.get('ci-ok');
   if (ok) {
     if (ok.name !== CI_OK_NAME_EXPR) add(`ci.yml: ci-ok name must be ${CI_OK_NAME_EXPR} (C4)`);
