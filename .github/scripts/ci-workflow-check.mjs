@@ -23,6 +23,11 @@ const TIMEOUT_MAX = 60;
 // rename lists only the new path (scope-check misses the old one; --diff-filter=AM drops R).
 export const NO_RENAMES_SCRIPTS = { '.github/scripts/taskcheck.sh': 3, '.github/scripts/run-task-post-check.sh': 1 };
 export const PR_BODY_STEP = 'PR description: Actions 分鐘數影響';
+// O-028 item 3: the push-superseded note (commit status; never a required check).
+export const SUPERSEDE_WF = 'ci-supersede.yml';
+export const SUPERSEDE_CONTEXT = 'ci-push-superseded';
+const SUPERSEDE_PERMS = { contents: 'read', actions: 'read', statuses: 'write' };
+const SUPERSEDE_FORK_GUARD = 'github.event.workflow_run.head_repository.full_name == github.repository';
 const PR_BODY_IF = "${{ !cancelled() && github.event_name == 'pull_request' }}";
 const PR_BODY_ENV = {
   GH_TOKEN: '${{ github.token }}',
@@ -217,6 +222,10 @@ export function checkRepo(root) {
   }
   const modeScript = readFileSync(join(root, '.github/scripts/ci-guard-mode.sh'), 'utf8');
   if (!modeScript.includes('git diff --no-renames --name-only "$BEFORE_SHA" "$SHA"')) add('ci-guard-mode.sh: changed files must come from git diff --no-renames --name-only (C1)');
+  // O-028: the script now has several diffs (main C1, task QA list, previous push); every one needs --no-renames.
+  modeScript.split(/\r?\n/).forEach((l, n) => {
+    if (!/^\s*(#|note )/.test(l) && /\bgit diff\b/.test(l) && !l.includes('git diff --no-renames ')) add(`ci-guard-mode.sh:${String(n + 1)}: git diff without --no-renames (C1)`);
+  });
 
   // Heavy jobs only in full mode; taskcheck also for docs + docs/tasks.
   for (const id of HEAVY) {
@@ -249,7 +258,11 @@ export function checkRepo(root) {
     if (ok.if !== 'always()') add('ci.yml: ci-ok must be if: always()');
     const dec = ok.steps.find((x) => x.name === 'Decide');
     if (!dec || dec.env.CI_MODE !== '${{ needs.ci-guard.outputs.mode }}' || dec.run !== 'node .github/scripts/ci-ok.mjs') add('ci.yml: ci-ok Decide step must pass CI_MODE and run ci-ok.mjs');
+    // O-028: ci-ok must know why light was chosen (tests-only-no-pr has no PR number).
+    if (!dec || dec.env.MODE_REASON !== '${{ needs.ci-guard.outputs.mode_reason }}') add('ci.yml: ci-ok Decide step must pass MODE_REASON: ${{ needs.ci-guard.outputs.mode_reason }} (O-028)');
   }
+  const ciText = readFileSync(join(root, '.github/workflows/ci.yml'), 'utf8');
+  if (!ciText.includes('      mode_reason: ${{ steps.mode.outputs.mode_reason }}')) add('ci.yml: ci-guard must output mode_reason from the mode step (O-028)');
 
   // W-6 / C4: check-run names unique per event across all workflows; `ci-ok` only from pull_request.
   const byEvent = new Map();
@@ -337,6 +350,47 @@ export function checkRepo(root) {
     else if (inPr) prOn.push(l);
   }
   if (prOn.some((l) => /\btypes\s*:/.test(l))) add('ci.yml: pull_request must keep the default types (no edited: a description edit would re-run all of CI)');
+
+  // O-028 (AC-O28-9): ci-supersede.yml runs on workflow_run with a write token from
+  // the default branch, so freeze: trigger, minimal permissions, fork guard, no PR
+  // checkout (`ref:`), persist-credentials: false, no secrets, and a context name
+  // that cannot be mistaken for the required ci-ok.
+  const sw = workflows.get(SUPERSEDE_WF);
+  if (!sw) add(`${SUPERSEDE_WF}: missing (O-028)`);
+  else {
+    const text = readFileSync(join(wfDir, SUPERSEDE_WF), 'utf8');
+    const tag = `${SUPERSEDE_WF} (O-028)`;
+    if (JSON.stringify(sw.events) !== JSON.stringify(['workflow_run'])) add(`${tag}: on: must be exactly workflow_run`);
+    if (!sw.onLines.some((l) => l.trim() === 'workflows: [ci]') || !sw.onLines.some((l) => l.trim() === 'types: [completed]')) add(`${tag}: workflow_run must be workflows: [ci], types: [completed]`);
+    if (!/^permissions: \{\}\s*$/m.test(text)) add(`${tag}: top-level permissions must be {}`);
+    if (sw.jobs.size !== 1) add(`${tag}: exactly one job`);
+    for (const job of sw.jobs.values()) {
+      const p = job.permissions;
+      const okPerm = p && typeof p === 'object' && Object.keys(p).length === Object.keys(SUPERSEDE_PERMS).length
+        && Object.entries(SUPERSEDE_PERMS).every(([k, v]) => p[k] === v);
+      if (!okPerm) add(`${tag}: job ${job.id} permissions must be exactly contents: read, actions: read, statuses: write`);
+      if (typeof job.if !== 'string' || !job.if.startsWith(`${SUPERSEDE_FORK_GUARD} &&`)) add(`${tag}: job ${job.id} if must start with ${SUPERSEDE_FORK_GUARD} && (skip forks)`);
+      const runs = job.steps.filter((x) => x.run !== '').map((x) => x.run);
+      if (JSON.stringify(runs) !== JSON.stringify(['bash .github/scripts/ci-supersede.sh'])) add(`${tag}: job ${job.id} must only run bash .github/scripts/ci-supersede.sh`);
+    }
+    const lines = text.split(/\r?\n/);
+    lines.forEach((l, n) => {
+      if (/^\s+ref\s*:/.test(l)) add(`${tag}:${String(n + 1)}: no ref: (never check out the PR head with a write token)`);
+      if (/secrets\./.test(l)) add(`${tag}:${String(n + 1)}: no secrets`);
+      if (/pull_request_target/.test(l)) add(`${tag}:${String(n + 1)}: no pull_request_target`);
+      if (/actions\/checkout@/.test(l)) {
+        const block = lines.slice(n + 1, n + 4).join('\n');
+        if (!/^\s+persist-credentials: false\s*$/m.test(block)) add(`${tag}:${String(n + 1)}: checkout must set persist-credentials: false`);
+      }
+    });
+  }
+  let sup = '';
+  try { sup = readFileSync(join(root, '.github/scripts/ci-supersede.sh'), 'utf8'); } catch { add('.github/scripts/ci-supersede.sh: missing (O-028)'); }
+  if (sup !== '') {
+    const m = /^CONTEXT="([^"]*)"$/m.exec(sup);
+    if (!m || m[1] !== SUPERSEDE_CONTEXT) add(`ci-supersede.sh: CONTEXT must be exactly "${SUPERSEDE_CONTEXT}" (O-028)`);
+    if (m && /^ci-ok/i.test(m[1])) add('ci-supersede.sh: status context must not start with ci-ok (would look like the required check)');
+  }
   return findings;
 }
 

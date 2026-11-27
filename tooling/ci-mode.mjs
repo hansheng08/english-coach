@@ -24,7 +24,28 @@ export function classifyChange(files, referenced) {
   return { docsOnly: true, tasksChanged, reason: 'docs-only' };
 }
 
-const UNKNOWN_PR = { prOpen: 'unknown', prNumber: null };
+// QA 檔（O-028 Q1～Q4）：只有「單一測試檔」才算；共用輔助檔、設定、快照一律不算。
+const QA_ROOTS = ['apps/', 'packages/', 'supabase/'];
+
+export function isQaPath(path) {
+  if (!isStr(path) || path === '' || path.startsWith('/') || path.includes('\\')) return false;
+  const parts = path.split('/');
+  if (parts.some((p) => p === '' || p === '.' || p === '..' || p === '__snapshots__')) return false;
+  if (path.startsWith('docs/qa/')) return true;
+  if (/^supabase\/tests\/[^/]+_test\.sql$/.test(path)) return true;
+  if (path.startsWith('test/e2e/')) return path.endsWith('.spec.ts');
+  if (QA_ROOTS.some((root) => path.startsWith(root))) return path.endsWith('.test.ts') || path.endsWith('.test.tsx');
+  return false;
+}
+
+export function classifyQa(files) {
+  if (!Array.isArray(files) || !files.every(isStr)) return { qaOnly: false, reason: 'bad-input' };
+  if (files.length === 0) return { qaOnly: false, reason: 'empty' };
+  if (!files.every(isQaPath)) return { qaOnly: false, reason: 'non-qa-path' };
+  return { qaOnly: true, reason: 'qa-only' };
+}
+
+const UNKNOWN_PR ={ prOpen: 'unknown', prNumber: null };
 
 export function parseOpenPrs(body, branch) {
   if (!Array.isArray(body) || !isNonEmptyStr(branch)) return UNKNOWN_PR;
@@ -52,13 +73,22 @@ export function decideMode(input) {
   }
   if (ref.startsWith('task/') || ref.startsWith('fix/')) {
     if (isObj(pr) && pr.prOpen === true) return { mode: 'light', reason: 'branch-with-open-pr' };
+    const noPr = isObj(pr) && pr.prOpen === false;
+    if (noPr && ref.startsWith('task/') && isObj(input.qa) && input.qa.qaOnly === true) {
+      return { mode: 'light', reason: 'tests-only-no-pr' };
+    }
     return full('branch-without-pr');
   }
   return full('ref');
 }
 
-const VALUE_OPTS = ['event', 'ref', 'changed', 'referenced', 'pr'];
-const FLAG_OPTS = ['changed-error', 'pr-error', 'pr-skip'];
+// 只在 tests-only-no-pr 且前一次推送也只改 QA 檔時才警告；不影響 mode。
+export function decideQaBatchWarning(decision, prevQa) {
+  return isObj(decision) && decision.reason === 'tests-only-no-pr' && isObj(prevQa) && prevQa.qaOnly === true;
+}
+
+const VALUE_OPTS = ['event', 'ref', 'changed', 'referenced', 'pr', 'qa-changed', 'prev-qa-changed'];
+const FLAG_OPTS = ['changed-error', 'pr-error', 'pr-skip', 'qa-changed-error', 'prev-skip'];
 
 function parseCli(argv) {
   const values = {};
@@ -87,6 +117,15 @@ function parseCli(argv) {
   if (hasChanged === flags.has('changed-error')) return { ok: false, message: 'give exactly one of (--changed --referenced) or --changed-error' };
   const prCount = ('pr' in values ? 1 : 0) + (flags.has('pr-error') ? 1 : 0) + (flags.has('pr-skip') ? 1 : 0);
   if (prCount !== 1) return { ok: false, message: 'give exactly one of --pr, --pr-error, --pr-skip' };
+  const branchRef = values.ref.startsWith('task/') || values.ref.startsWith('fix/');
+  const qaCount = ('qa-changed' in values ? 1 : 0) + (flags.has('qa-changed-error') ? 1 : 0);
+  const prevCount = ('prev-qa-changed' in values ? 1 : 0) + (flags.has('prev-skip') ? 1 : 0);
+  if (branchRef) {
+    if (qaCount !== 1) return { ok: false, message: 'give exactly one of --qa-changed, --qa-changed-error' };
+    if (prevCount !== 1) return { ok: false, message: 'give exactly one of --prev-qa-changed, --prev-skip' };
+  } else if (qaCount + prevCount !== 0) {
+    return { ok: false, message: 'qa options are only accepted for task/** and fix/** refs' };
+  }
   return { ok: true, values, flags };
 }
 
@@ -124,7 +163,18 @@ export function run(argv) {
   if ('pr' in values) pr = readPr(values.pr, values.ref);
   else if (flags.has('pr-error')) pr = 'error';
 
-  const decision = decideMode({ event: values.event, ref: values.ref, change, pr });
+  let qa = 'error';
+  if ('qa-changed' in values) {
+    const files = readLines(values['qa-changed']);
+    if (files !== null) qa = classifyQa(files);
+  }
+  let prevQa = null;
+  if ('prev-qa-changed' in values) {
+    const prevFiles = readLines(values['prev-qa-changed']);
+    if (prevFiles !== null) prevQa = classifyQa(prevFiles);
+  }
+
+  const decision = decideMode({ event: values.event, ref: values.ref, change, pr, qa });
   const out = {
     mode: decision.mode,
     docs_only: isObj(change) ? change.docsOnly : false,
@@ -132,6 +182,8 @@ export function run(argv) {
     pr_open: isObj(pr) ? pr.prOpen : pr === 'error' ? 'unknown' : null,
     pr_number: isObj(pr) ? pr.prNumber : null,
     reason: decision.reason,
+    qa_only: isObj(qa) ? qa.qaOnly : false,
+    qa_batch_warning: decideQaBatchWarning(decision, prevQa),
   };
   return { code: 0, stdout: `${JSON.stringify(out)}\n`, stderr: '' };
 }
