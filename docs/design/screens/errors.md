@@ -1,4 +1,4 @@
-# 錯誤與額度用完（D-005，D2b 第 1 批）｜AC-25、ARCH §5.0.4 錯誤碼對照表、§6 第 3～5 點
+# 錯誤與額度用完（D-005，D2b 第 1 批）｜AC-25、ARCH §5.0.4 錯誤碼對照表、§5.9（v1.11）、§6 第 3～5 點
 原型：`error-quota.html`（免費額度用完，可重送）、`error-paid-cap.html`（付費上限用完，不可重送）。截圖：`shots/{error-quota,error-paid-cap}-*`。
 依據：PRD AC-25（免費額度用完或供應商失敗時，顯示原因並保留錄音，可稍後重送或手動改用其他供應商；不會自動改用付費方案）；ARCHITECTURE §5.0.4 錯誤碼對照表（畫面文字範本由前端 `ui/error-messages.ts` 擁有）、§6 第 3 點（錄音先存再處理）、第 4 點（絕不自動換供應商或付費）、第 5 點（降級模式）。
 
@@ -12,7 +12,7 @@
 ## 2. 各 kind 的畫面（文字照 ARCH §5.0.4，按鈕照「降級／按鈕」欄）
 | kind | 標題（設計） | 原因（ARCH 範本） | 主按鈕 | 次按鈕 | 原型 |
 |---|---|---|---|---|---|
-| `quota_exhausted` | 這次還沒轉成逐字稿（依步驟換字：還沒產生診斷／還沒評分） | {供應商}的免費額度用完了（{能力}），約 {n} 分鐘後可重送。不會自動改用其他或付費供應商。 | 稍後重送 | 到設定改用其他供應商 | `error-quota.html` |
+| `quota_exhausted` | 這次還沒轉成逐字稿（依步驟換字：還沒產生診斷／還沒評分） | {供應商}的免費額度用完了（{能力}），{重送時間}。不會自動改用其他或付費供應商。（{重送時間} 見 §3） | 稍後重送 | 到設定改用其他供應商 | `error-quota.html` |
 | `rate_limited` | 同上 | {供應商}暫時太忙（每分鐘次數上限），約 {n} 秒後可重送。 | 重送（倒數結束前 disabled，按鈕上顯示秒數） | 同上 | 只有規格 |
 | `unavailable`／`timeout`／`invalid_response` | 同上 | 照表 | 重送 | 同上 | 只有規格 |
 | `auth`／`region_blocked`／`not_configured` | 同上 | 照表 | 到設定改用其他供應商 | — | 只有規格 |
@@ -28,12 +28,26 @@
 - 發音評分失敗：不用錯誤卡，照 AC-06 顯示正確率與語速、發音分數「無」（D2a 跟讀頁已有）。
 - 新元件：`.errcard`、`.kept`（保留列）、`.eact`（按鈕列）、`.kv`（鍵值清單）、`.tag`（小標籤；`.tag.paid` 付費、`.tag.bad` 錯誤）、`.cols2`（內容＋340px 右欄）。
 
+## 3. 重送時間與顯示名稱（ARCH v1.11 §5.9.3、§5.9.4；D2b 第 2 批）
+- 文字擁有者：畫面文字由 PM／Designer 寫，放在前端 `apps/web/src/ui/error-messages.ts`、`ui/provider-labels.ts`；§5.0.4 的範本欄只是草稿（§5.9）。
+- `quota_exhausted` 通常**沒有** `retryAfterSec`（§5.9.3）。{重送時間} 這樣寫：
+  | 情況 | {重送時間} |
+  |---|---|
+  | 有 `retryAfterSec` | 「約 {n} 分鐘後可重送」（不到 1 分鐘寫秒） |
+  | 沒有，`provider = gemini` | 「台北時間 {16:00 或 15:00} 後可重送」（前端算太平洋時間下一個 0 點） |
+  | 沒有，`provider = groq` | 「明天再試」（Groq 沒有公布重置時間，不寫時間） |
+  | 沒有，`provider = azure-speech` | 「下個月再試」（日曆月或訂閱週期不確定，不寫日期） |
+  | 付費供應商 | 不會出現 `quota_exhausted`，會是 `paid_not_allowed`（`monthly_cap_reached`） |
+- 原型 `error-quota.html` 改成最常見的情況：Groq、沒有 `retryAfterSec` →「Groq 的免費額度用完了（語音轉文字），明天再試。」右欄「可重送：明天（Groq 沒有公布重置時間）」。批次 1 的「約 42 分鐘後」需要 `retryAfterSec`，Groq 的額度用完通常不會給。
+- 顯示名稱照 §5.9.4：「{供應商}・{模型}」，例「Groq・Whisper Large v3 Turbo」「Gemini（付費）・Gemini 3.8 Flash」。「付費」跟著供應商，不跟模型（`gemini-3.8-flash` 用免費的 Gemini 呼叫就是免費）。`error-paid-cap.html` 右欄改成「Gemini（付費）・Gemini 3.8 Flash」，說明改「在設定改回免費供應商或調高每月上限後，回到這題重試。」
+
 ## 已決定（PM 2026-11-27，§15.6 對照）
 - 錯誤卡標題（「這次還沒轉成逐字稿」「診斷沒有產生」）保留。
 - 規格一律寫範本 `NT${上限}`；截圖裡的 NT$300 是假資料。
 
 ## 不確定
-1. `quota_exhausted` 的 `retryAfterSec` 可能是 null（每日額度，ARCH §12 Gemini 對照表），範本「約 {n} 分鐘後」填不了。建議 null 時改「明天 {台北時間} 後可重送」或「明天再重送」；範本由誰擁有、放哪裡也一起定 → Architect。
+1. ~~`retryAfterSec` 是 null 時的文案、範本歸誰~~ 已由 ARCH v1.11 §5.9.3 回答，見 §3；範本歸前端（PM／Designer 寫字）。
 2. 「待重送」在首頁與紀錄裡怎麼呈現、按了以後去哪（ARCH 只寫按鈕名）→ TechLead（T-043）。原型只示範錯誤卡本身。
 3. ~~「到設定」的目的地~~ 已接上（D2b 第 2 批）：免費額度用完、`auth` 等 → `settings.html#providers`；付費上限用完、未同意 → `settings.html#paid`（見 `settings.md`）。
-4. 付費模型名稱 `gemini-3.8-flash` 取自 ARCH 範例，實際顯示名稱 → Architect。
+4. ~~付費模型的顯示名稱~~ 已由 ARCH v1.11 §5.9.4 回答，見 §3。
+5. Azure 額度用完「下個月再試」的用字（§5.9.3 寫「下個月 1 日後」但重置規則不確定）→ PM。

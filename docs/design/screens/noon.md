@@ -11,10 +11,30 @@
 - 依卡片狀態出題：Collected、Learning → 模式 A；Reviewing → 模式 B。缺模式 B 素材改出模式 A；缺選項素材改出模式 A 的「自行回想」（題幹依序退回：簡單句 → 克漏字句 → 中文意思，不得留空、不得直接顯示 chunk）。
 - 模式 A「選出專業說法」（`review.html`，卡片標 Learning）：簡單說法 → 專業說法挖空＋4 個選項（48px 以上），答對標「答對」＋勾＋例句；之後自評「秒答／猶豫／忘記」並顯示下次間隔（電腦 1/2/3）。
 - 模式 B「把語塊排回句子」（`review-order.html`）：中文情境＋3～6 個打散的語塊方塊，用過的從題庫移除，放到答案列；未完成時主按鈕停用並寫原因「還差 2 個語塊」。
-- 模式 A「自行回想」（D2b 第 2 批新增，`review-recall.html` → `review-recall-answer.html`；缺選項素材時，ARCH §4.14.5 `A_recall`）：
-  - 作答前：題幹（依序退回：簡單句 → 克漏字句〔例句挖掉 chunk〕→ 該卡中文意思；原型示範簡單句）＋「專業說法怎麼說？先在心裡想好，再看答案。」＋虛線框「按『看答案』後顯示在這裡」；底部主按鈕「看答案」（電腦 空白鍵），下方「看完答案再評分」；評分鈕這時不出現。
-  - 看答案後：答案區顯示 chunk（大字）＋中文意思＋例句（有例句才顯示，chunk 粗體）；底部換成「秒答／猶豫／忘記」＋下次間隔。題幹從不留空、從不直接顯示 chunk。
+- 模式 A「自行回想」：見下方 §1a（T-025a 階段唯一的題型）。
 - rail（只有電腦）：今日進度 8／25（到期舊卡 15＋新卡 10，含昨晚勾選 3）、種子庫剩餘 512 條、今晚題目預覽（「預覽不算步驟。」）、「新增字卡」按鈕（「隨時可用，不算步驟」）、「不用出聲・不需要麥克風」。手機的複習頁不放 rail（作答時不分心），手機從首頁「隨時可用」新增字卡、預覽今晚題目。
+
+## 1a. 模式 A「自行回想」（`A_recall`）｜AC-08、Q-39、ARCH v1.11 §4.14.4（給 T-033）
+**什麼時候出**：`selectNoonMode` 回 `A_recall`＝卡片不是「Reviewing 且模式 B 素材齊全」，也沒有選項素材。T-025a 階段不呼叫 LLM，`noon_items` 只有 `cloze_en`，所以**每張卡都是這一題型**，題幹多半是克漏字句或中文意思。
+
+**題幹**（`recallPrompt(card, item)` 回 `{kind, text}`，順序固定，前一種沒有才用下一種）：
+| 順序 | `kind` | 題幹標籤 | 題幹樣式 | 問句 | 原型 |
+|---|---|---|---|---|---|
+| 1 | `plain` | 簡單說法 | 英文一句，`.simple`（手機 1.125rem／電腦 1.25rem） | 專業說法怎麼說？先在心裡想好，再看答案。 | `review-recall.html` |
+| 2 | `cloze` | 克漏字句 | 英文例句，chunk 位置是空格 `.blank`（底線、無文字，讀屏念「空格」），`.cloze` 大字 | 空格裡的專業說法是什麼？先在心裡想好，再看答案。 | `review-recall-cloze.html` |
+| 3 | `meaning` | 中文意思 | 該卡 `meaning_zh`，`.simple` | 英文的專業說法怎麼說？先在心裡想好，再看答案。 | `review-recall-meaning.html` |
+- 題幹不得留空、不得直接顯示 chunk：`plain_en` 已檢查不含 chunk 的實詞，`cloze_en` 已挖掉 chunk，中文意思不是英文（ARCH §4.14.4）。前端只顯示 `recallPrompt` 給的文字，不自己組；`recallPrompt` 回 null 的卡不會出現（已順延）。
+- 卡片其他部分：上方 chip「模式 A・自行回想」＋卡片狀態（Collected／Learning）；「不用出聲・不需要麥克風」。
+
+**狀態**：
+| 狀態 | 畫面 | 原型 |
+|---|---|---|
+| 1. 作答前 | 題幹＋問句＋虛線框「按『看答案』後顯示在這裡」（框不含任何答案文字）；底部主按鈕「看答案」（電腦 空白鍵），下方「看完答案再評分」。**評分鈕不出現**。 | `review-recall.html`、`review-recall-cloze.html`、`review-recall-meaning.html` |
+| 2a. 看答案（有例句） | 虛線框換成答案區（`role="status"`）：「答案」→ chunk 大字 → 中文意思（有才顯示）→ 例句（chunk 粗體）；題幹留在上方不動。底部換成「秒答／猶豫／忘記」＋下次間隔（照 ARCH §4.2 轉換表：Learning 秒答／猶豫「3 天後」、忘記「明天」；Collected 三個都是「明天」）。 | `review-recall-answer.html` |
+| 2b. 看答案（沒有例句） | 同 2a，但沒有例句那一行（AC-08「有例句時一併顯示例句」），也不放「沒有例句」的提示。題幹是中文意思時，答案區不再重複中文意思。 | `review-recall-meaning-answer.html` |
+| 3. 評分後 | 和模式 A 選項題一樣：送出評分 → 下一張（`review.html` 的行為，409 不顯示錯誤、直接下一張，#91 已核准）。最後一張評完＝中午完成。 | 沿用 |
+- 不能跳過「看答案」直接評分；看了答案不能收回。鍵盤：空白鍵＝看答案，之後 1／2／3＝評分（加分項、不屬 AC）。
+- 截圖：`shots/review-recall-*`（5 個畫面 × 手機／電腦 × 淺／深）。
 
 ## 2. 今天只有 N 張（`review-short.html`）｜AC-07、AC-08
 - 情境：新卡和種子庫都用完，多出來的到期舊卡也補不滿，今天少於 25 張（假資料 18 張：到期舊卡 14＋新卡 4，種子庫剩餘 0 條）。
@@ -43,7 +63,7 @@
 - 「加入字卡」＝`POST /cards`（帶 chunk、中文、例句、同義替換）；加入後前端呼叫 enrich 補空欄位，不等它回來（ARCH §4.17）。`/cards/generate` 本身不寫資料庫，所以按「重新產生」或離開頁面不會留下卡片。
 - 設定頁「打字停下就先開始產生」（`cards.prefetch`，預設開）：輸入停 0.6 秒先送出，按「產生字卡」時輸入沒變就直接用結果。
 - 動態：chunk 與橫幅出現用 `ec-in`（opacity＋transform）；骨架、呼吸點在 `prefers-reduced-motion: reduce` 時不動。
-- 截圖：`shots/review-recall-*`、`shots/review-recall-answer-*`、`shots/add-card-partial-*`、`shots/add-card-*`、`shots/add-card-stream-*`、`shots/add-card-ready-*`、`shots/add-card-saved-*`。
+- 截圖：`shots/add-card-partial-*`、`shots/add-card-*`、`shots/add-card-stream-*`、`shots/add-card-ready-*`、`shots/add-card-saved-*`。
 
 ## 不確定（owner）
 1. AC-10 字面仍是「Given 中午手動新增」，Q-41 改為隨時可用；原型照 Q-41 在任何時間都可進入 → PM 確認 AC-10 文字是否要改。
@@ -51,4 +71,3 @@
 3. 「最近新增」清單要列幾筆、點了去哪裡（字卡清單 D2b 之後才設計）→ PM。
 4. ~~8 秒逾時後能不能先加~~ 已由 ARCH v1.11 §5.8.4 回答：可以，用收到的欄位建卡，缺的由 enrich 補 → 原型 `add-card-partial.html`。
 5. 產生中（8 秒內）要不要也允許先加入：原型不允許，等 8 秒或結果 → PM。
-6. 自行回想的克漏字題幹、中文意思題幹沒有另畫（版面同簡單句，只換題幹與標籤「克漏字」「中文意思」）→ TechLead 照此實作即可，有疑問再問。
