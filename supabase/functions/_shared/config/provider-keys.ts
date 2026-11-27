@@ -19,3 +19,29 @@ export function loadGeminiKey(get: EnvGetter): Result<string, ProviderError> {
   }
   return ok(value);
 }
+
+export type AzureSpeechConfig = { readonly key: string; readonly region: string };
+
+const AZURE_KEY_NAME = 'AZURE_SPEECH_KEY';
+const AZURE_REGION_NAME = 'AZURE_SPEECH_REGION';
+
+/**
+ * Azure Speech 的金鑰與 region（ARCHITECTURE §5.5）。region 會組進網址主機名稱，所以 trim、轉小寫後
+ * 必須是 `^[a-z0-9]+$`。錯誤訊息只含變數名稱，不含任何值。
+ */
+export function loadAzureSpeechConfig(get: EnvGetter): Result<AzureSpeechConfig, ProviderError> {
+  const fail = (message: string): Result<never, ProviderError> =>
+    err({ kind: 'not_configured', provider: 'azure-speech', capability: 'pronunciation', message });
+  const key = get(AZURE_KEY_NAME);
+  const region = get(AZURE_REGION_NAME);
+  const missing = [
+    ...(key === undefined || key.trim().length === 0 ? [AZURE_KEY_NAME] : []),
+    ...(region === undefined || region.trim().length === 0 ? [AZURE_REGION_NAME] : []),
+  ];
+  if (key === undefined || region === undefined || missing.length > 0) {
+    return fail(`missing env ${missing.join(', ')}`);
+  }
+  const normalized = region.trim().toLowerCase();
+  if (!/^[a-z0-9]+$/.test(normalized)) return fail(`invalid env ${AZURE_REGION_NAME}`);
+  return ok({ key, region: normalized });
+}
