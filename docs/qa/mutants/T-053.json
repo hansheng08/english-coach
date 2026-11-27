@@ -1,0 +1,241 @@
+{
+  "task": "T-053",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "if (!body.ok) return invalid([{ path: 'body'",
+      "after": "if (!body.ok) return invalid([{ path: 'json'",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "path: i.path.map(String).join('.')",
+      "after": "path: i.path.map(String).join('/')",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-4)",
+        "(TC-5)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "event.planDate !== today.value && event.planDate !== yesterday.value",
+      "after": "event.planDate !== today.value",
+      "expectFail": [
+        "(TC-6)",
+        "(QA-5)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "event.planDate !== today.value && event.planDate !== yesterday.value",
+      "after": "event.planDate > today.value",
+      "expectFail": [
+        "(TC-6)",
+        "(TC-7)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "addDays(today.value, -1)",
+      "after": "addDays(today.value, 1)",
+      "expectFail": [
+        "(TC-6)",
+        "(TC-7)",
+        "(QA-5)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "invalid([{ path: 'planDate'",
+      "after": "invalid([{ path: 'date'",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "return new Response(null, { status: 204 });",
+      "after": "return new Response(null, { status: 200 });",
+      "expectFail": [
+        "(TC-8)",
+        "(TC-9)",
+        "(TC-10)",
+        "(TC-6)",
+        "(QA-1)",
+        "(QA-2)",
+        "(QA-3)",
+        "(QA-5)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "if (!written.ok) return failure(written.error);",
+      "after": "",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/api/checkins.ts",
+      "before": "const today = toTaipeiPlanDate(deps.now());",
+      "after": "const today = toTaipeiPlanDate(new Date());",
+      "expectFail": [
+        "(TC-6)",
+        "(TC-7)",
+        "(TC-8)",
+        "(TC-9)",
+        "(TC-10)",
+        "(TC-11)",
+        "(QA-1)",
+        "(QA-2)",
+        "(QA-3)",
+        "(QA-5)",
+        "(QA-6)",
+        "(QA-7)",
+        "(QA-8)",
+        "(AC-T53"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "error === null || error.code === UNIQUE_VIOLATION",
+      "after": "error === null",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-1)",
+        "(QA-2)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "error === null || error.code === UNIQUE_VIOLATION",
+      "after": "error === null || error.code?.startsWith('23') === true",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "const UNIQUE_VIOLATION = '23505';",
+      "after": "const UNIQUE_VIOLATION = '23503';",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-1)",
+        "(QA-2)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "return { user_id: userId,",
+      "after": "return { user_id: e.planDate,",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-3)",
+        "(AC-T53"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "client.from('slot_checkin')",
+      "after": "client.from('checkin')",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "`${op} failed (${error.code})`",
+      "after": "`${op} failed (${error.code}) ${error.message}`",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "supabase/functions/_shared/db/checkin.ts",
+      "before": "(): AppError => ({ kind: 'db_failed', message: `${op} failed` })",
+      "after": "(): AppError => ({ kind: 'internal', message: `${op} failed` })",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "supabase/functions/api/router.ts",
+      "before": "if (!deps.routeDeps.ok) return errorResponse(deps.routeDeps.error, cors);",
+      "after": "if (!deps.routeDeps.ok) return errorResponse({ kind: 'internal', message: 'x' }, cors);",
+      "expectFail": [
+        "(TC-13)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "supabase/functions/api/router.ts",
+      "before": "      if (key === 'GET /health') return withCors(await health(), cors);\n",
+      "after": "",
+      "expectFail": [
+        "(TC-13)",
+        "(AC-T53-7)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "supabase/functions/api/router.ts",
+      "before": "  'POST /checkins': postCheckins,\n",
+      "after": "  'POST /checkins': health,\n",
+      "expectFail": [
+        "(AC-T53",
+        "(QA-",
+        "(T-003",
+        "(TC-"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "supabase/functions/_shared/db/user-db.ts",
+      "before": "insertCheckin: (e) => insertCheckin(client, userId, e),",
+      "after": "insertCheckin: () => Promise.resolve({ ok: true, value: null }),",
+      "expectFail": [
+        "(TC-8)",
+        "(TC-9)",
+        "(TC-10)",
+        "(TC-11)",
+        "(QA-1)",
+        "(QA-2)",
+        "(QA-3)",
+        "(QA-8)",
+        "(AC-T53"
+      ]
+    }
+  ]
+}
