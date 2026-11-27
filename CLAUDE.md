@@ -1,5 +1,5 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.10（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014；v1.10 語音 adapter §5.5～§5.7、ADR-015，產品單資料契約 §4.10～§4.14、§9.2、ADR-016）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.11（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014；v1.10 語音 adapter §5.5～§5.7、ADR-015，產品單資料契約 §4.10～§4.14、§9.2、ADR-016；v1.11 設定與時段 §4.15、晚上作答 §4.16、建卡補齊 §4.17、跟讀評分 §4.18、LLM 呼叫 §5.8、畫面資訊來源 §5.9、跟唸計次 §9.3、ADR-017）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
