@@ -95,13 +95,13 @@ run_case "main push with empty BEFORE_SHA is fail-closed" 1 "" \
 run_case "main push with unknown BEFORE_SHA is fail-closed" 1 "" \
   EVENT_NAME=push REF_NAME=main BEFORE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef SHA="$TASK_SHA"
 run_case "task branch push runs scope-check then ac-coverage" 0 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA"
 run_case "scope-check failure stops before ac-coverage" 1 \
   "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" EXIT_scope_check=1
 run_case "ac-coverage failure fails the job but the summary still runs" 1 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" EXIT_ac_coverage=1
 run_case "empty Vitest JSON is fail-closed" 1 \
   "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks" \
@@ -117,7 +117,7 @@ run_case "pull_request without PR_HEAD_SHA is fail-closed" 1 "" \
 run_case "bad diff range is fail-closed" 1 "" \
   EVENT_NAME=pull_request HEAD_REF=task/T-901 BASE_SHA=deadbeefdeadbeefdeadbeefdeadbeefdeadbeef PR_HEAD_SHA="$BRANCH_SHA"
 run_case "verify-summary failure fails the job" 1 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" EXIT_verify_summary=1
 run_case "fix/x (not fix/Q-<nnn>) is fail-closed" 1 "" \
   EVENT_NAME=push REF_NAME=fix/x SHA="$BRANCH_SHA"
@@ -134,7 +134,7 @@ printf '{ "suites": [] }\n' > "$PW_OK"
 BASE_COV="scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks"
 BASE_SUM="verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt"
 run_case "e2e skipped does not pass --playwright" 0 \
-  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|${BASE_SUM}" \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|${BASE_SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=skipped PLAYWRIGHT_JSON="$PW_OK"
 run_case "e2e ran with valid JSON passes --playwright" 0 \
   "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --playwright W/pw-ok.json|${BASE_SUM}" \
@@ -151,6 +151,12 @@ run_case "e2e ran but Playwright JSON is empty is fail-closed" 1 \
 run_case "unexpected E2E_RESULT is fail-closed" 1 \
   "$BASE_COV" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=cancelled PLAYWRIGHT_JSON="$PW_OK"
+run_case "PR + e2e skipped does not pass --e2e-skipped" 0 \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|${BASE_SUM}" \
+  EVENT_NAME=pull_request HEAD_REF=task/T-901 BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$BRANCH_SHA" E2E_RESULT=skipped PLAYWRIGHT_JSON="$PW_OK"
+run_case "push + e2e skipped passes --e2e-skipped --event push and not --playwright" 0 \
+  "${BASE_COV}|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|${BASE_SUM}" \
+  EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" E2E_RESULT=skipped
 
 # O-016 (retro M5): renames must list the old path too (git diff --no-renames).
 # expect_killed <mutant name> <line pattern> <run_case args...>: the case must FAIL
@@ -196,19 +202,19 @@ expect_killed "NR-T3 report-lint diff without --no-renames" "-- 'docs/reports/*.
 # O-009 fix/Q-901 cases need that branch checked out (mutants file is read from the tree).
 git switch -q fix/Q-901
 run_case "fix/Q-901 push: scope, coverage, report-lint, run-mutants, summary" 0 \
-  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
+  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA"
 run_case "fix/Q-901 pull_request uses the same checks" 0 \
   "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
   EVENT_NAME=pull_request HEAD_REF=fix/Q-901 BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$FIX_SHA"
 run_case "report-lint failure fails the job" 1 \
-  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
+  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA" EXIT_report_lint=1
 run_case "surviving mutant (run-mutants exit 1) fails the job, summary still runs" 1 \
-  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
+  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json|verify-summary --task Q-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA" EXIT_run_mutants=1
 run_case "run-mutants without a report is fail-closed" 1 \
-  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json" \
+  "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json" \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA" EXIT_run_mutants=1 NO_OUT_run_mutants=1
 git switch -q task/T-901
 
@@ -219,15 +225,16 @@ DB_FAIL_WITH_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; mkdir -p "$1"; printf 
 DB_FAIL_NO_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; exit 1'
 DB_OK_NO_TAP='printf "db-test %s\n" "$1" >> "$CALLS"; mkdir -p "$1"; : > "$1/a.txt"'
 COV_TAP="ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap --tap W/taskcheck-pgtap/b.tap"
+COV_TAP_PUSH="${COV_TAP} --e2e-skipped --event push"
 SUM="verify-summary --task T-901 --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt"
 run_case "config.toml: db-test runs, every TAP (sorted) goes to ac-coverage" 0 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|${COV_TAP_PUSH}|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
 run_case "config.toml on pull_request runs db-test too" 0 \
   "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
   EVENT_NAME=pull_request HEAD_REF=task/T-901 BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
 run_case "db-test failure (not ok, TAP written) fails the job; coverage and summary still run" 1 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap --e2e-skipped --event push|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_FAIL_WITH_TAP"
 run_case "db-test failure without any TAP is fail-closed" 1 \
   "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap" \
@@ -236,7 +243,7 @@ run_case "db-test exit 0 but no *.tap is fail-closed" 1 \
   "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_OK_NO_TAP"
 run_case "config.toml: ac-coverage failure with TAP still fails the job" 1 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|${COV_TAP}|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|db-test W/taskcheck-pgtap|${COV_TAP_PUSH}|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD" EXIT_ac_coverage=1
 FAKEBIN="$WORK/fakebin"
 mkdir -p "$FAKEBIN"
@@ -249,14 +256,14 @@ exit "${EXIT_pnpm:-0}"
 FAKE
 chmod +x "$FAKEBIN/pnpm"
 run_case "default command is pnpm db:test --tap-dir <dir>" 0 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap --e2e-skipped --event push|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" PATH="$FAKEBIN:$PATH"
 run_case "default command failing fails the job" 1 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|pnpm db:test --tap-dir W/taskcheck-pgtap|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --tap W/taskcheck-pgtap/a.tap --e2e-skipped --event push|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" PATH="$FAKEBIN:$PATH" EXIT_pnpm=1
 rm -rf supabase
 run_case "no config.toml: db-test does not run even with DB_TEST_CMD set" 0 \
-  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|${SUM}" \
+  "scope-check --branch task/T-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|${SUM}" \
   EVENT_NAME=push REF_NAME=task/T-901 SHA="$BRANCH_SHA" DB_TEST_CMD="$DB_GOOD"
 
 # O-012: QA ownership end to end with the REAL scope-check (other tools stay

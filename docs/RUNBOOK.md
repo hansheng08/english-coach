@@ -252,6 +252,7 @@ gh version 2.103.0 (2026-10-21)
 
 - 接線腳本：`.github/scripts/taskcheck.sh`（模式由事件決定；BEFORE_SHA 為空或全 0、git diff 失敗、Vitest JSON 缺漏或為空都 exit 1），測試 `.github/scripts/taskcheck-test.sh`（三支工具以 stub 代替，只驗接線與 exit code），在 `ci-guard` job 的 `pushguard tests` 步驟執行（O-015 前是 `pushguard` job）。
 - O-025：ac-coverage 會讀 Playwright JSON；e2e 有跑時 `taskcheck` 會等 `e2e` 並下載該檔，缺檔或無效就失敗；e2e 略過時不要求該檔、不傳 `--playwright`；以 PR 的 `ci-ok` 為準。
+- O-027：e2e 用 `pnpm e2e --reporter=list --reporter=json`（不要 `--`）；push 上僅 E2E 的 AC 報 `CV-DEFERRED-PR`，以 PR 的 `ci-ok` 為準。
 - `ci-ok.mjs` 把 `taskcheck` 列為條件 job：`workflow_dispatch`、light 模式、沒改 `docs/tasks/` 的 docs 模式會略過它（O-009 前 `fix/**` 也略過），摘要列在「Skipped (not verified)」；`needs` 裡缺少 `taskcheck` 時判失敗。O-015 起，模式要求它跑而它被略過也判失敗（§6.3）。
 - `run-task-outcome.sh` 新增 `--task-lint <outcome>`：`failure` → `task_lint_failed`；`skipped`／空值／大小寫不符 → `failure`；`cancelled` → `cancelled`。
 - O-010 起：有 `supabase/config.toml` 時，`taskcheck` job 先起本機 Supabase（同 `db` job 的 CLI 與排除清單；main 的 push 不起），`taskcheck.sh` 執行 `pnpm db:test --tap-dir $RUNNER_TEMP/taskcheck-pgtap`，再把每個 `*.tap` 以 `--tap` 交給 ac-coverage，所以只有 pgTAP 測試的 AC 也算覆蓋。db-test 失敗照樣跑 ac-coverage／report-lint／摘要並判紅；一個 TAP 檔都沒有時直接 exit 1。這條路徑在 Actions 上的第一次實測是 O-010 PR 的 CI。`fix/**` 分支自 O-009 起也跑（見 §5）。
