@@ -1,0 +1,243 @@
+{
+  "task": "T-052",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "  if (/\\s/u.test(value)) return false;\n",
+      "after": "",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "parts.length !== 2 ||",
+      "after": "parts.length < 2 ||",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "return local !== '' && ",
+      "after": "return ",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "domain.includes('.') && ",
+      "after": "",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "!domain.startsWith('.') && ",
+      "after": "",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": " && !domain.endsWith('.')",
+      "after": "",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "const trimmed = email.trim();",
+      "after": "const trimmed = email;",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "password === '' ? PASSWORD_REQUIRED",
+      "after": "password.trim() === '' ? PASSWORD_REQUIRED",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "apps/web/src/features/login/validate.ts",
+      "before": "trimmed === '' ? EMAIL_REQUIRED",
+      "after": "trimmed === '' ? EMAIL_FORMAT",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-4)",
+        "(QA-11)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "    if (problems.notice !== null && !busy) submitRef.current?.focus();\n",
+      "after": "",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "}, [problems.notice, busy]);",
+      "after": "}, [problems, busy]);",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "if (found.email !== null || found.password !== null) {",
+      "after": "if ((found.email !== null || found.password !== null) && navigator.onLine) {",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "    if (!navigator.onLine) {\n      setProblems",
+      "after": "    if (false) {\n      setProblems",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "notice: navigator.onLine ? 'service' : 'offline'",
+      "after": "notice: 'service'",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "notice: navigator.onLine ? 'service' : 'offline'",
+      "after": "notice: navigator.onLine ? 'offline' : 'service'",
+      "expectFail": [
+        "(TC-5)",
+        "(TC-6)",
+        "(QA-9)",
+        "(QA-10)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "    setProblems(CLEAN);\n    if (!navigator.onLine)",
+      "after": "    if (!navigator.onLine)",
+      "expectFail": [
+        "(TC-6)",
+        "(QA-9)",
+        "(QA-8)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "(found.email === null ? passwordRef : emailRef)",
+      "after": "(found.password === null ? emailRef : passwordRef)",
+      "expectFail": [
+        "(QA-7)",
+        "(AC-T18"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "setProblems((p) => ({ ...p, email: null }));",
+      "after": "setProblems((p) => ({ ...p, email: null, password: null }));",
+      "expectFail": [
+        "(TC-6)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "password: 'Email 或密碼不對，再試一次。', notice: null",
+      "after": "password: 'Email 或密碼不對，再試一次。', notice: navigator.onLine ? null : 'offline'",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "client.signInWithPassword(email.trim(), password)",
+      "after": "client.signInWithPassword(email.trim(), password.trim())",
+      "expectFail": [
+        "(QA-8)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "if (busy) return;",
+      "after": "if (busy && false) return;",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-13)",
+        "(AC-T18"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "apps/web/src/ui/PreviewBanner.tsx",
+      "before": "role=\"note\"",
+      "after": "role=\"status\"",
+      "expectFail": [
+        "(TC-14)",
+        "(TC-11)",
+        "(AC-T18"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "apps/web/src/ui/PreviewBanner.tsx",
+      "before": "`未知情境「${unknownScenario}」，改用 default`",
+      "after": "`未知情境「${unknownScenario}」`",
+      "expectFail": [
+        "(TC-14)",
+        "(AC-T18"
+      ]
+    }
+  ]
+}
