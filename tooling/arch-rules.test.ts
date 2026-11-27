@@ -109,6 +109,12 @@ const CASES: Case[] = [
     ],
   },
   {
+    rule: 'adr001r1-no-test-libs-in-web-production',
+    adr: '(ADR-001 rev 1)',
+    bad: ['apps/web/src/ui/bad-testlib.tsx', 'apps/web/src/features/a/bad-jsdom.ts'],
+    good: ['apps/web/src/ui/x.test.tsx', 'apps/web/test/dom-setup.ts'],
+  },
+  {
     rule: 'arch31-db-no-providers',
     adr: '(ARCHITECTURE §3.1)',
     bad: ['supabase/functions/_shared/db/bad-provider.ts'],
@@ -135,8 +141,19 @@ const CASES: Case[] = [
 ];
 
 describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
-  it('ADR-008: the config defines exactly the 14 named rules (TC-24: #18, #19 added by T-015; #20 added by T-023)', () => {
+  it('(AC-T18-21) (TC-38) (AC-T18-25) (TC-44) ADR-008: the config defines exactly the 15 named rules (TC-24: #18, #19 added by T-015; #20 added by T-023; adr001r1 added by T-018)', () => {
     expect(ruleNames).toEqual(CASES.map((c) => c.rule));
+    expect(ruleNames[10]).toBe('adr001r1-no-test-libs-in-web-production');
+  });
+
+  it('(AC-T18-22) (TC-39) (TC-40) (AC-T18-26) (TC-45) (TC-46) ADR-001 rev 1: test libs flagged in web production code only', () => {
+    expect(hits('adr001r1-no-test-libs-in-web-production', 'apps/web/src/ui/bad-testlib.tsx').map((v) => v.to)).toEqual([
+      '@testing-library/react',
+    ]);
+    expect(hits('adr001r1-no-test-libs-in-web-production', 'apps/web/src/features/a/bad-jsdom.ts').map((v) => v.to)).toEqual([
+      'jsdom',
+    ]);
+    expect(violations.filter((v) => v.from === 'apps/web/src/ui/x.test.tsx' || v.from === 'apps/web/test/dom-setup.ts')).toEqual([]);
   });
 
   for (const c of CASES) {

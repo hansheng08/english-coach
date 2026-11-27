@@ -193,11 +193,12 @@ describe('db-test', () => {
     expect(rules(runDbTest(base(dir, fake(() => null).spawn)).findings)).toEqual(['DB-NOTESTS']);
   });
 
-  it('(AC-O10-3) (TC-15) package.json only adds scripts.db:test', () => {
+  it('(AC-O10-3) (TC-15) (AC-T18-23) (TC-41) (AC-T18-27) (TC-47) package.json only adds scripts.db:test (plus T-018 build/e2e and @playwright/test)', () => {
     const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
     expect(pkg.scripts['db:test']).toBe('node tooling/db-test.mjs');
-    expect(Object.keys(pkg.scripts).sort()).toEqual(['arch', 'check', 'db:test', 'lint', 'test', 'typecheck']);
+    expect(Object.keys(pkg.scripts).sort()).toEqual(['arch', 'build', 'check', 'db:test', 'e2e', 'lint', 'test', 'typecheck']);
     expect(pkg.devDependencies).toEqual({
+      '@playwright/test': '^1.50.0',
       'dependency-cruiser': '^18.8.0',
       eslint: '^10.15.0',
       typescript: '^5.9.3',

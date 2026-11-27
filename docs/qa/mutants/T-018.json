@@ -1,0 +1,294 @@
+{
+  "task": "T-018",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "e.code === 'invalid_credentials' || (e.status === 400 &&",
+      "after": "(e.status === 400 &&",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "(e.status === 400 && /invalid login credentials/i.test(e.message))",
+      "after": "(/invalid login credentials/i.test(e.message))",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "/invalid login credentials/i.test",
+      "after": "/invalid login credentials/.test",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "e.status === 400 && /invalid",
+      "after": "e.status !== 500 && /invalid",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "if (r.value.error !== null) return err(internal('getSession failed'));",
+      "after": "",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "return data.session === null ? err(internal('signInWithPassword returned no session')) : toSession(data.session);",
+      "after": "return data.session === null ? ok({ userId: '' as never, email: '' }) : toSession(data.session);",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "if (!userId.success) return err(internal('auth user id is not a UUID'));",
+      "after": "",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "email: session.user.email ?? ''",
+      "after": "email: ''",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "apps/web/src/api/mock/index.ts",
+      "before": "if (raw === null || raw === '') return { scenario: 'default', unknown: null };",
+      "after": "if (raw === null) return { scenario: 'default', unknown: null };",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "apps/web/src/api/mock/index.ts",
+      "before": "const raw = new URLSearchParams(search).get('scenario');",
+      "after": "const raw = new URLSearchParams(search).get('scenario')?.trim() ?? null;",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "apps/web/src/api/mock/index.ts",
+      "before": "scenario === 'error' ? err(",
+      "after": "scenario === 'error' || scenario === 'empty' ? err(",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "const isPreference = (v: unknown): v is ThemePreference =>",
+      "after": "const isPreference = (v: unknown): v is ThemePreference => typeof v === 'string' && ['system', 'light', 'dark'].includes(v.toLowerCase().trim()) ||",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "sink.setItem(THEME_STORAGE_KEY, pref);",
+      "after": "if (pref !== 'system') sink.setItem(THEME_STORAGE_KEY, pref);",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "apps/web/src/ui/theme.ts",
+      "before": "if (pref === 'system') delete target.dataset['theme'];",
+      "after": "if (pref === 'system') target.dataset['theme'] = 'system';",
+      "expectFail": [
+        "(QA-8)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "(missing.email === null ? passwordRef : emailRef).current?.focus();",
+      "after": "emailRef.current?.focus();",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "void client.signInWithPassword(email.trim(), password).then((result) => {\n      setBusy(false);",
+      "after": "void client.signInWithPassword(email.trim(), password).then((result) => {",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "aria-busy={busy}",
+      "after": "",
+      "expectFail": [
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "apps/web/src/App.tsx",
+      "before": "result.ok && result.value !== null ? 'signed-in' : 'signed-out'",
+      "after": "result.ok ? 'signed-in' : 'signed-out'",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "apps/web/src/App.tsx",
+      "before": "result.ok && result.value !== null ? 'signed-in' : 'signed-out'",
+      "after": "result.value !== null ? 'signed-in' : 'signed-out'",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "playwright.config.ts",
+      "before": "    env: { VITE_DATA_MODE: 'mock' },\n",
+      "after": "",
+      "expectFail": [
+        "(TC-50)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "playwright.config.ts",
+      "before": "command: `pnpm --filter",
+      "after": "command: `VITE_DATA_MODE=mock pnpm --filter",
+      "expectFail": [
+        "(TC-50)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "tooling/css-literals.mjs",
+      "before": "if (ch !== '{') check(segStart, i);",
+      "after": "check(segStart, i);",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "tooling/css-literals.mjs",
+      "before": "      parens += 1;",
+      "after": "      parens += 0;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "tooling/css-literals.mjs",
+      "before": "      quote = ch;",
+      "after": "      quote = null;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "tooling/css-literals.mjs",
+      "before": "if (ch === '\\\\') i += 1;",
+      "after": "if (ch === '\\\\') i += 0;",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "tooling/css-literals.mjs",
+      "before": "hits.add(lineAt(valueStart + m.index))",
+      "after": "hits.add(lineAt(start))",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "tooling/css-literals.mjs",
+      "before": "return [...hits].sort((a, b) => a - b);",
+      "after": "return [...hits];",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if (map.has(key)) return { duplicate: key };\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if ('duplicate' in member) return member;\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if ('duplicate' in item) return item;\n",
+      "after": "",
+      "expectFail": [
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "tooling/tokens-css.mjs",
+      "before": "while (text[i] !== '\"') i += text[i] === '\\\\' ? 2 : 1;",
+      "after": "while (text[i] !== '\"') i += 1;",
+      "expectFail": [
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "tooling/tokens-css.mjs",
+      "before": "        if (keys.length === 0) {",
+      "after": "        if (keys.length === 0 && where.length < 3) {",
+      "expectFail": [
+        "(QA-20)"
+      ]
+    }
+  ]
+}
