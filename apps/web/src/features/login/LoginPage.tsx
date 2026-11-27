@@ -1,14 +1,21 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { SyntheticEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { useApi } from '../../api';
 import { AlertIcon } from '../../ui/icons';
 import styles from './LoginPage.module.css';
+import { validateLogin } from './validate';
 
 const PORTIONS = ['1 篇科技新聞', '5 句跟讀', '25 張字卡', '1 題面試題'] as const;
 
-type FormState = { readonly email: string | null; readonly password: string | null; readonly service: boolean };
-const CLEAN: FormState = { email: null, password: null, service: false };
+type FormNotice = 'offline' | 'service' | null;
+type FormState = { readonly email: string | null; readonly password: string | null; readonly notice: FormNotice };
+const CLEAN: FormState = { email: null, password: null, notice: null };
+
+const NOTICES = {
+  offline: { title: '需要連網才能登入', body: '目前沒有網路。連上網路後再按一次「登入」。' },
+  service: { title: '現在登不進去', body: '登入服務沒有回應或暫時出錯。輸入的內容已保留，稍後再按一次「登入」。' },
+} as const;
 
 /** 登入頁（login.md）。不放註冊、社群登入、忘記密碼。 */
 export function LoginPage() {
@@ -20,33 +27,42 @@ export function LoginPage() {
   const [busy, setBusy] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
+
+  // 表單訊息出現、按鈕恢復可按之後，焦點才能移到「登入」（disabled 的按鈕不能取得焦點）。
+  useEffect(() => {
+    if (problems.notice !== null && !busy) submitRef.current?.focus();
+  }, [problems.notice, busy]);
 
   const submit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (busy) return;
-    const missing: FormState = {
-      email: email.trim() === '' ? '請輸入 Email。' : null,
-      password: password === '' ? '請輸入密碼。' : null,
-      service: false,
-    };
-    if (missing.email !== null || missing.password !== null) {
-      setProblems(missing);
-      (missing.email === null ? passwordRef : emailRef).current?.focus();
+    const found = validateLogin(email, password);
+    if (found.email !== null || found.password !== null) {
+      setProblems({ ...found, notice: null });
+      (found.email === null ? passwordRef : emailRef).current?.focus();
       return;
     }
     setProblems(CLEAN);
+    if (!navigator.onLine) {
+      setProblems({ ...CLEAN, notice: 'offline' });
+      submitRef.current?.focus();
+      return;
+    }
     setBusy(true);
     void client.signInWithPassword(email.trim(), password).then((result) => {
       setBusy(false);
       if (result.ok) {
         void navigate('/', { replace: true });
       } else if (result.error.kind === 'unauthenticated') {
-        setProblems({ email: null, password: 'Email 或密碼不對，再試一次。', service: false });
+        setProblems({ email: null, password: 'Email 或密碼不對，再試一次。', notice: null });
       } else {
-        setProblems({ email: null, password: null, service: true });
+        setProblems({ email: null, password: null, notice: navigator.onLine ? 'service' : 'offline' });
       }
     });
   };
+
+  const notice = problems.notice === null ? null : NOTICES[problems.notice];
 
   return (
     <div className={styles['page']}>
@@ -66,17 +82,17 @@ export function LoginPage() {
           <h1 className={styles['title']}>登入</h1>
           <p className={styles['lead']}>登入後開始今天的練習。</p>
 
-          {problems.service ? (
+          {notice === null ? null : (
             <div role="alert" className={styles['alert']}>
               <span className={styles['alertIcon']}>
                 <AlertIcon />
               </span>
               <div>
-                <strong className={styles['alertTitle']}>現在登不進去</strong>
-                <p className={styles['alertBody']}>登入服務沒有回應或暫時出錯。輸入的內容已保留，稍後再按一次「登入」。</p>
+                <strong className={styles['alertTitle']}>{notice.title}</strong>
+                <p className={styles['alertBody']}>{notice.body}</p>
               </div>
             </div>
-          ) : null}
+          )}
 
           <div className={styles['field']}>
             <label htmlFor="login-email" className={styles['label']}>
@@ -130,7 +146,7 @@ export function LoginPage() {
             )}
           </div>
 
-          <button type="submit" className={styles['submit']} disabled={busy} aria-busy={busy}>
+          <button ref={submitRef} type="submit" className={styles['submit']} disabled={busy} aria-busy={busy}>
             {busy ? '登入中…' : '登入'}
           </button>
           <p className={styles['footnote']}>連線加密。履歷與錄音只供你自己練習。</p>
