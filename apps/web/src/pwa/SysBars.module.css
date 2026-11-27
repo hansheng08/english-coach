@@ -1,0 +1,12 @@
+.sysbars {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  padding-top: env(safe-area-inset-top);
+}
+
+@media (max-width: 899.98px) {
+  .withUpdate {
+    padding-bottom: 184px;
+  }
+}
