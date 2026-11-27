@@ -28,5 +28,5 @@
 1. ~~「準備中」要不要存在、要等多久~~ 已由 ARCH v1.11 §5.9.1 回答：存在（`pending` 或自己正在備料）；每 5 秒輪詢、最多 180 秒，超過顯示「沒備好」。原型拿掉「重新檢查」按鈕、改成自動檢查的說明。
 2. ~~`daily_plan.error` 怎麼變成一句話~~ 已由 ARCH v1.11 §5.9.2 回答：新增 `daily_plan.failure jsonb`（step、error、timeout_sec、failed_at），前端 `planFailureMessage` 照上表分支。
 3. ~~契約不一致：`SLOT_STEPS.noon`~~ 已解決：PRD v1.5 Q-41 中午只有字卡複習一步，和 ARCH §4.8.3／v1.11 §4.15.4 `SLOT_STEPS.noon = ['cards']` 一致；原型（`home-prep-*`）中午已改成一步，下方加「隨時可用」面板。
-4. 素材沒備好時，「新增字卡」（隨時可用，要 AI 生卡）能不能用：原型照常可按，失敗時走錯誤卡 → PM（同 `noon.md` 不確定 2）。
+4. ~~素材沒備好時「新增字卡」能不能用~~ 已決定（PM）：入口不停用，按了才顯示原因（`add-card-error.html`，`noon.md` §3）。
 5. 改用舊文章時，跟讀 5 句是否也來自那篇舊文章（應該是，`daily-prep` 同一篇）→ TechLead 確認。
