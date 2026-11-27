@@ -1,0 +1,405 @@
+{
+  "task": "T-017",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "supabase/functions/_shared/config/provider-keys.ts",
+      "before": "key === undefined || key.trim().length === 0 ? [AZURE_KEY_NAME]",
+      "after": "key === undefined || key.length === 0 ? [AZURE_KEY_NAME]",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "supabase/functions/_shared/config/provider-keys.ts",
+      "before": "const normalized = region.trim().toLowerCase();",
+      "after": "const normalized = region.trim();",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "supabase/functions/_shared/config/provider-keys.ts",
+      "before": "if (!/^[a-z0-9]+$/.test(normalized))",
+      "after": "if (!/^[a-z0-9.-]+$/.test(normalized))",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "supabase/functions/_shared/config/provider-keys.ts",
+      "before": "provider: 'azure-speech', capability: 'pronunciation', message })",
+      "after": "provider: 'azure-speech', capability: 'tts', message })",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "supabase/functions/_shared/config/provider-keys.ts",
+      "before": "return fail(`invalid env ${AZURE_REGION_NAME}`);",
+      "after": "return fail(`invalid env ${AZURE_REGION_NAME}: ${region}`);",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "if (f.status === 408 || f.status === 504)",
+      "after": "if (f.status === 408)",
+      "expectFail": [
+        "(TC-17)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "/quota/i.test(f.bodyText)",
+      "after": "/quota/.test(f.bodyText)",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-7)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "kind: 'quota_exhausted', retryAfterSec: null",
+      "after": "kind: 'quota_exhausted', retryAfterSec: parseRetryAfter(f.headers.get('retry-after'))",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "if (f.status === 401 || f.status === 403) return { ...base, kind: 'auth' };",
+      "after": "if (f.status === 401) return { ...base, kind: 'auth' };",
+      "expectFail": [
+        "(TC-17)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "return Math.ceil(Number.parseFloat(text));",
+      "after": "return Math.round(Number.parseFloat(text));",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-7)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "if (!/^\\d+(\\.\\d+)?$/.test(text)) return null;",
+      "after": "if (Number.isNaN(Number.parseFloat(text))) return null;",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "redact(text.replace(/\\s+/g, ' ').trim(), key).slice(0, 200)",
+      "after": "redact(text.replace(/\\s+/g, ' ').trim().slice(0, 200), key)",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/_shared/providers/azure-speech/errors.ts",
+      "before": "text.split(key).join('[redacted]')",
+      "after": "text.replace(key, '[redacted]')",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-9)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/_shared/providers/azure-speech/transport.ts",
+      "before": "bodyText: text.value }, capability, t.key);",
+      "after": "bodyText: text.value }, capability);",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/_shared/providers/azure-speech/transport.ts",
+      "before": "}, timeoutMs);",
+      "after": "}, timeoutMs * 2);",
+      "expectFail": [
+        "(TC-18)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "supabase/functions/_shared/providers/azure-speech/transport.ts",
+      "before": "clearTimeout(timer);",
+      "after": "void timer;",
+      "expectFail": [
+        "(QA-6)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "supabase/functions/_shared/providers/azure-speech/transport.ts",
+      "before": "const text = await wait(res.text());",
+      "after": "const text = ok(await res.text());",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "supabase/functions/_shared/providers/azure-speech/ssml.ts",
+      "before": "if (code >= 0x20 || code === 0x09 || code === 0x0a || code === 0x0d) kept += ch;",
+      "after": "if (code >= 0x20 || code === 0x09 || code === 0x0a) kept += ch;",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "supabase/functions/_shared/providers/azure-speech/ssml.ts",
+      "before": ".replace(/'/g, '&apos;')",
+      "after": ".replace(/'/g, '&#39;')",
+      "expectFail": [
+        "(TC-12)",
+        "(TC-13)",
+        "(TC-10)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "supabase/functions/_shared/providers/azure-speech/ssml.ts",
+      "before": "<voice name=\"${escapeSsmlText(voiceName)}\">",
+      "after": "<voice name=\"${voiceName}\">",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "supabase/functions/_shared/providers/azure-speech/ssml.ts",
+      "before": ".replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')",
+      "after": ".replace(/</g, '&lt;')\n    .replace(/&/g, '&amp;')",
+      "expectFail": [
+        "(TC-12)",
+        "(TC-10)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "const clamp = (n: number): number => Math.min(100, Math.max(0, n));",
+      "after": "const clamp = (n: number): number => Math.min(100, n);",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "const startMs = Math.round(w.Offset / 10_000);",
+      "after": "const startMs = Math.floor(w.Offset / 10_000);",
+      "expectFail": [
+        "(TC-5)",
+        "(TC-6)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "const endMs = Math.max(startMs, Math.round((w.Offset + w.Duration) / 10_000));",
+      "after": "const endMs = Math.round((w.Offset + w.Duration) / 10_000);",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "if (w.Word.length === 0) continue;",
+      "after": "if (w.Word === ' ') continue;",
+      "expectFail": [
+        "(TC-6)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "['NoMatch', 'InitialSilenceTimeout', 'BabbleTimeout']",
+      "after": "['NoMatch', 'InitialSilenceTimeout']",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "if (status === 'Error') return err(call.fail('unavailable',",
+      "after": "if (status === 'Error') return err(call.fail('invalid_response',",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "const best = BestSchema.safeParse(nbest?.[0]);",
+      "after": "const best = BestSchema.safeParse(nbest?.[(nbest.length) - 1]);",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "EnableMiscue: false,",
+      "after": "EnableMiscue: 'False',",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "binary += String.fromCharCode(byte);",
+      "after": "binary += String.fromCharCode(byte & 0x7f);",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "'Content-Type': 'audio/wav; codecs=audio/pcm; samplerate=16000',",
+      "after": "'Content-Type': 'audio/wav',",
+      "expectFail": [
+        "(TC-4)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "Accept: 'application/json',",
+      "after": "Accept: 'application/json',\n            'Transfer-Encoding': 'chunked',",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "supabase/functions/_shared/providers/azure-speech/pronunciation.ts",
+      "before": "recognizedText: best.data.Display ?? '',",
+      "after": "recognizedText: best.data.Display?.toLowerCase() ?? '',",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "durationMs: Math.round((audio.length * 8) / 48)",
+      "after": "durationMs: Math.floor((audio.length * 8) / 48)",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "if (audio.length === 0) return err(",
+      "after": "if (audio.length < 0) return err(",
+      "expectFail": [
+        "(TC-15)",
+        "(TC-19)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "if (!voice.startsWith(VOICE_PREFIX)) {",
+      "after": "if (!voice.includes(':')) {",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "buildSsml(voice.slice(VOICE_PREFIX.length), text)",
+      "after": "buildSsml(voice, text)",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "mime: 'audio/mpeg'",
+      "after": "mime: 'audio/mp3'",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "supabase/functions/_shared/providers/azure-speech/tts.ts",
+      "before": "`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`",
+      "after": "`https://${region}.tts.speech.microsoft.com/cognitiveservices/v1?subscription-key=${t.key}`",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "supabase/functions/_shared/providers/azure-speech/index.ts",
+      "before": "pronunciation: createPronunciation(transport, deps.region),",
+      "after": "pronunciation: createPronunciation(transport, 'westus'),",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-2)"
+      ]
+    }
+  ]
+}
