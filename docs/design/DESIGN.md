@@ -5,7 +5,7 @@
 - v1.2（D2 第 3 輪，2026-11-26）：M2 里程碑（Hansheng 20:25 決定）、時段標示三態（AC-21 v1.4）、PM 第 2 輪文案（PR #54 留言 7191990644）。
 - v1.3（2026-11-26 22:14）：電腦快捷鍵標為「加分項、不屬 AC」（Hansheng 決定，幕僚長轉達）；§14 #1 已解決。
 - v1.4（D-004，D2a 增補，2026-11-26；分支 `design/pwa-assets`）：PWA manifest 與圖示、系統提示（斷線、新版、預覽假資料）規格見新檔 `pwa.md`；登入錯誤狀態補齊（`screens/login.md`）。沒有新增 token。
-- v1.5（D-005，D2b 第 1 批，2026-11-27；分支 `design/d2b-screens`）：素材沒備好（`screens/prep.md`）、錯誤與額度用完（`screens/errors.md`）、儀表板＋打卡日曆（`screens/dashboard.md`）、成長曲線＋練習紀錄（`screens/growth.md`）、履歷頁（`screens/resume.md`）。中午手動新增與設定頁因 G1 修改 AC-08／AC-26 暫停（§15.6 不並行），等 G1 合併後再做。沒有新增 token。
+- v1.5（D-005，D2b 第 1 批，2026-11-27；分支 `design/d2b-screens`）：素材沒備好（`screens/prep.md`）、錯誤與額度用完（`screens/errors.md`）、儀表板＋打卡日曆（`screens/dashboard.md`）、成長曲線＋練習紀錄（`screens/growth.md`）、履歷頁（`screens/resume.md`）。中午手動新增與設定頁因 G1 修改 AC-08／AC-26 暫停（§15.6 不並行），等 G1 合併後再做。沒有新增 token。PM §15.6 對照後（2026-11-27）：練習紀錄假資料統一、「每分鐘停頓＋贅詞」改名、日曆可往前翻月、履歷卡顯示移除了幾項；PM 的回答記為各 md 的「已決定」。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。字卡／紀錄／設定完整頁屬 D2b（原型以 `later.html` 佔位）。
