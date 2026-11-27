@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.10**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-27｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.10**（v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-27｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -1062,6 +1062,30 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 - 讀取類（儀表板、成長曲線、紀錄、字卡列表）直接用 supabase-js 讀表（受 RLS 保護），不另寫 API（AC-21～23）。
 - 所有 AI 結果回應都帶 `meta: { llmModel?, sttProvider?, pronProvider?, ttsProvider? }`，結果頁顯示（AC-24）。
 
+#### 5.1.1 route 形狀（v1.10；依 T-053（TechLead）、Architect 核可）
+- **route**：`api` 函式裡處理一條路徑（例如 `POST /checkins`）的函式。所有 route 用同一個簽名，依賴從參數拿，方便用假物件測試。
+```ts
+// supabase/functions/api/router.ts
+export type RouteDeps = { readonly userDb: (ctx: AuthContext) => UserDb; readonly now: () => Date };
+export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise<Response>;
+// RouterDeps 新增一欄（其餘不變）：
+//   readonly routeDeps: Result<RouteDeps, AppError>;
+```
+- **路由順序不變**：OPTIONS → `auth` → `requireUser` → 找路由。找到路由後，需要 `deps` 的路由在 `routeDeps` 是 `err` 時回該錯誤（`httpStatusOf`＋`toApiErrorBody`）；是 `ok` 才呼叫 `route(req, ctx, routeDeps.value)`。`GET /health` 不使用 `deps`，`routeDeps` 是 `err` 也照常回應。
+- **接線只在 `index.ts`**：`routeDeps` 由 `loadSupabaseEnv(denoEnv)` 對應成 `{ userDb: (ctx) => createUserDb(ctx, env), now: () => new Date() }`。
+- **`api/**` 不讀系統時鐘**：除了 `index.ts` 的接線，一律用 `deps.now()`（台北日期用 `toTaipeiPlanDate(deps.now())`）。測試注入固定時間。
+- **body 驗證（所有收 JSON 的 route 共用）**：
+  1. body 讀不到或不是 JSON → 400 `validation`，`issues: [{ path: 'body', message: … }]`。
+  2. schema `safeParse` 失敗 → 400 `validation`，每個 zod issue 對應一個 `{ path: issue.path.join('.'), message: issue.message }`。多出的欄位由 schema 去掉（例如 body 帶 `userId` 也不採用，`user_id` 一律取自 `AuthContext`）。
+  3. 之後才是各 route 自己的檢查（例如 `POST /checkins` 的「只能今天或昨天」，`POST /reviews` 的流程見 §4.11）。
+- **新依賴一律加在 `RouteDeps`，不改 `Route` 簽名**。本版已知的：
+| 依賴 | `RouteDeps` 欄位（名稱由第一張用到的單定） | 由誰在 `index.ts` 接線 | 第一張用到的單 |
+|---|---|---|---|
+| 供應商 registry（含 §5.5～§5.7 的 Azure、Groq adapter） | 例如 `providers` | `wiring.ts` 建立 adapter 清單交給 registry（§5.4.1、§5.5 檔案表） | T-021（`/tts`） |
+| Storage（使用者身分，§4.12.1） | 例如 `storage: (ctx) => …` | `_shared/db` 的建立函式 | T-021、T-030 |
+| 備料核心的 `PlanDeps`（§4.13.2） | 由上面幾欄組成，不另加 | `POST /plan/today` 內組合 | T-025 |
+  - secret 金鑰 client（§4.12.1 `createServiceClient`）**不進 `RouteDeps`**：它只給 `daily-prep`、`purge-audio` 兩個獨立函式（CLAUDE.md §5 第 14 條），`api` 函式一律用使用者身分。
+
 ### 5.2 供應商介面（`packages/contracts/src/providers.ts`）
 - 完整定義見 §5.0.4（`ProviderError`）與 §5.0.7（四種介面、`PaidConsent`）。v1.1 這裡的程式碼已由 §5.0 取代；`Tier`、`Capability`、`ProviderErrorKind` 三個型別內容不變。
 - 所有 adapter 只用 `fetch` 呼叫 REST，**不使用供應商 SDK**（少依賴、可完全掌握呼叫哪個端點；ADR-003）。
@@ -1199,7 +1223,7 @@ export function createGeminiProvider(deps: GeminiDeps): LlmProvider;
 | `supabase/functions/_shared/config/provider-keys.ts` | 新增 `loadGroqKey`、`loadAzureSpeechConfig`（和 `loadGeminiKey` 同一個檔案）；只有 `wiring.ts` 可以 import |
 | `supabase/functions/_shared/providers/groq/*.ts` | `createGroqProvider`（T-016）；檔案怎麼切由單決定 |
 | `supabase/functions/_shared/providers/azure-speech/*.ts` | `createAzureSpeechProviders`（T-017）；檔案怎麼切由單決定 |
-| `supabase/functions/_shared/providers/wiring.ts` | **不屬於 T-016、T-017**。由第一張需要任何供應商的端點單建立，建立時把已合併的 adapter 全部接上；之後才合併的 adapter 單，自己在 `wiring.ts` 加上那一家（一行建立＋放進清單） |
+| `supabase/functions/_shared/providers/wiring.ts` | **不屬於 T-016、T-017**。由第一張需要任何供應商的端點單建立（在 `api/index.ts` 接成 `RouteDeps` 的一欄，§5.1.1），建立時把已合併的 adapter 全部接上；之後才合併的 adapter 單，自己在 `wiring.ts` 加上那一家（一行建立＋放進清單） |
 ```ts
 // _shared/config/provider-keys.ts（新增）
 export function loadGroqKey(get: EnvGetter): Result<string, ProviderError>;
@@ -1986,4 +2010,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.8 | 2026-11-25 | T-023 寫單前 TechLead 的 Q1～Q5：新增 §11.3 新聞類別判定與改寫、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6（第 20 條）。<br>• Q1 採 (b)：判定是只看標題和前 300 字的小呼叫，只改寫通過的那篇；T-022 不用改<br>• Q2：jsonb 用 snake_case；`sentences: string[]`、「/」是單獨的 token；`sentence_index` 和 `rewritten_text` 由程式產生；沿用原文標題<br>• Q3：用 `rewritten_text` 和原文相同的空白切字規則算 250～300 字<br>• Q4：所有檢查都寫進 `generate` 的 schema，T-023 不自己重試<br>• Q5：`_shared/news/rewrite.ts`，`LlmProvider` 由 `daily-prep` 注入<br>另改 §3.1 news 列、§4 `news_article` 列、§6 第 6、7 點、§10、§11.1.1 第 1 點 |
 | v1.9 | 2026-11-26 | 前端設計基礎（Designer 計畫第 5 步；D1 決定 R2-C、只用系統字、深色模式三態）：新增 §9.1 與 ADR-014。<br>• 預覽：`VITE_DATA_MODE` 只能是 `mock`／`supabase`（沒有預設值），前端 PR 預覽只用假資料，不連任何 Supabase；`dist/` 雙向掃描<br>• 字型：只用系統字，Q-35 結案，不新增依賴<br>• 動畫：只用 CSS／原生 Web Animations API，包在 `prefers-reduced-motion: no-preference` 裡<br>• 主題：`localStorage['ec-theme']` 三態，`<head>` 最前面的 inline script 設 `data-theme`，`color-scheme`／`theme-color` meta；加 CSP 時用 sha256<br>• token：`tooling/tokens-css.mjs` 產生 `apps/web/src/ui/tokens.css`（commit，CI `--check`），命名 `--<群組>-<名稱>`，CSS Modules 不寫色碼（`css-literals.mjs`）<br>另改：§4.6 選句字數統一用 contracts `newsWords`（ADR-013，和 T-010 一致）；§7 加預覽不連後端；§12 目錄；§17 參考；檔頭版本改正為 v1.9（v1.8 時檔頭仍寫 v1.7）<br>• 依 D2a PR #54（`e6b7866`）補充：§9.1.5「解析規則」（任何一層的 `$` 鍵都略過、頂層只能是 6 個群組、巢狀子類別用 `-` 攤平、斷點不進 tokens），U-4 已解決；§9.1.2 字型堆疊加 `"Segoe UI"`（U-5 仍未驗證）；新增 §9.1.5.1 瀏覽器範圍與 `:has()` 判斷（U-7 不確定） |
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
-| v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025）<br>• §4.14 中午模式 A／B 題目來源：新增 `plain_en`、`example_zh` 欄位<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
+| v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025）<br>• §4.14 中午模式 A／B 題目來源：新增 `plain_en`、`example_zh` 欄位<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
