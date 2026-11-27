@@ -1,0 +1,5 @@
+packages/domain/src/plan.qa.test.ts
+apps/web/src/App.test.tsx
+supabase/tests/t004_rls_test.sql
+test/e2e/t018.spec.ts
+docs/qa/mutants/T-018.json
