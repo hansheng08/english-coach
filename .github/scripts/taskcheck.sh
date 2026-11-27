@@ -33,6 +33,8 @@
 #      O-025: E2E_RESULT (needs.e2e.result: success|failure|skipped; unset = skipped),
 #      PLAYWRIGHT_JSON (downloaded artifact path; required and must be non-empty
 #      when E2E_RESULT is success or failure).
+#      O-027: when E2E_RESULT is skipped and EVENT_NAME=push, pass
+#      --e2e-skipped --event push. Never pass --e2e-skipped on pull_request.
 set -euo pipefail
 
 TOOLING_DIR="${TOOLING_DIR:-tooling}"
@@ -125,7 +127,9 @@ else
   echo "taskcheck: db-test: 未執行（沒有 supabase/config.toml）"
 fi
 # O-025: only pass --playwright when e2e actually ran. Missing/empty JSON is
-# fail-closed (die), not a silent skip. Unset or skipped keeps Vitest/TAP only.
+# fail-closed (die), not a silent skip. Unset or skipped keeps Vitest/TAP only
+# unless O-027 applies.
+# O-027: push + e2e skipped -> --e2e-skipped --event push (never on pull_request).
 E2E_RESULT="${E2E_RESULT:-skipped}"
 PLAYWRIGHT_JSON="${PLAYWRIGHT_JSON:-}"
 case "$E2E_RESULT" in
@@ -135,6 +139,9 @@ case "$E2E_RESULT" in
     ;;
   skipped)
     echo "taskcheck: ac-coverage: 未傳 --playwright（e2e 未跑或被略過）"
+    if [[ "$EVENT_NAME" == "push" ]]; then
+      cov_args+=(--e2e-skipped --event push)
+    fi
     ;;
   *)
     die "unexpected E2E_RESULT '${E2E_RESULT}'"

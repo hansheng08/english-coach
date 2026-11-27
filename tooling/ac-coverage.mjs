@@ -1,4 +1,6 @@
 // AC／TC 覆蓋檢查（O-008）：讀 `vitest run --reporter=json` 的結果。fail-closed。
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   failure,
   isMain,
@@ -79,7 +81,30 @@ function collectPlaywright(json) {
   return { tests };
 }
 
-export function checkCoverage({ branch, tasks, results, taps, playwright }) {
+// e2e 規格檔掃描（O-027）：只認標籤原文。回傳 { texts } 或 { error }。
+const E2E_FILE_RE = /\.(?:spec|test)\.(?:ts|js|mjs|cjs)$/;
+
+export function loadE2eSpecs(dirs, { explicit }) {
+  const texts = [];
+  for (const dir of dirs) {
+    let names;
+    try {
+      names = readdirSync(dir, { recursive: true });
+    } catch (e) {
+      if (!explicit && e instanceof Error && e.code === 'ENOENT') continue;
+      return { error: `cannot read e2e dir ${dir}: ${e instanceof Error ? e.message : String(e)}` };
+    }
+    for (const name of names.map(String).sort()) {
+      if (!E2E_FILE_RE.test(name)) continue;
+      const raw = readText(join(dir, name));
+      if (!raw.ok) return { error: raw.message };
+      texts.push(raw.text);
+    }
+  }
+  return { texts };
+}
+
+export function checkCoverage({ branch, tasks, results, taps, playwright, e2eSkipped = false, e2eTexts = [] }) {
   const set = tasksForBranch(branch, tasks);
   if (set.length === 0) return [{ file: branch, line: 0, rule: 'CV-NOTASK', message: `找不到分支 ${branch} 對應的任務單` }];
   if (results === undefined && taps === undefined && playwright === undefined) {
@@ -87,6 +112,9 @@ export function checkCoverage({ branch, tasks, results, taps, playwright }) {
   }
   const collected = results === undefined ? { tests: [] } : collectTests(results);
   if (collected.error !== undefined) return [{ file: '-', line: 0, rule: 'INPUT', message: collected.error }];
+  const unitNames = [];
+  const addUnit = (tests) => unitNames.push(...tests.map((t) => t.name));
+  addUnit(collected.tests);
   for (const pw of playwright ?? []) {
     const c = collectPlaywright(pw);
     if (c.error !== undefined) return [{ file: '-', line: 0, rule: 'INPUT', message: c.error }];
@@ -96,17 +124,26 @@ export function checkCoverage({ branch, tasks, results, taps, playwright }) {
     if (tap.errors.length > 0) {
       return tap.errors.map((e) => ({ file: tap.file, line: e.line, rule: 'INPUT', message: `${e.rule}: ${e.message}` }));
     }
-    collected.tests.push(...tapToTests(tap));
+    const tapTests = tapToTests(tap);
+    addUnit(tapTests);
+    collected.tests.push(...tapTests);
   }
 
   const findings = [];
   // markers：全部都要出現在測試名稱裡才算相關
+  const matches = (name, markerSets) => markerSets.some((ms) => ms.every((m) => name.includes(m)));
   const check = (file, line, label, markerSets) => {
-    const related = collected.tests.filter((t) => markerSets.some((ms) => ms.every((m) => t.name.includes(m))));
+    const related = collected.tests.filter((t) => matches(t.name, markerSets));
     if (related.some((t) => t.status === 'failed')) {
       findings.push({ file, line, rule: 'CV-FAILED', message: `${label} 有失敗的測試` });
     } else if (!related.some((t) => t.status === 'passed')) {
-      findings.push({ file, line, rule: 'CV-MISSING', message: `${label} 沒有通過的測試（略過、待辦不算覆蓋）` });
+      // 僅 E2E：不在 Vitest／TAP 任何名稱裡，且標籤出現在 e2e 規格檔原始碼（O-027）
+      const e2eOnly = e2eSkipped && !unitNames.some((n) => matches(n, markerSets)) && e2eTexts.some((x) => matches(x, markerSets));
+      if (e2eOnly) {
+        findings.push({ file, line, rule: 'CV-DEFERRED-PR', message: `${label} 只由 E2E 覆蓋，push 延到 PR 判定` });
+      } else {
+        findings.push({ file, line, rule: 'CV-MISSING', message: `${label} 沒有通過的測試（略過、待辦不算覆蓋）` });
+      }
     }
   };
 
@@ -121,14 +158,19 @@ export function checkCoverage({ branch, tasks, results, taps, playwright }) {
 }
 
 const USAGE_TEXT =
-  'usage: ac-coverage.mjs --branch <name> [--results <vitest.json>] [--tap <file.tap> ...] [--playwright <file.json> ...] [--tasks-dir <dir>]';
+  'usage: ac-coverage.mjs --branch <name> [--results <vitest.json>] [--tap <file.tap> ...] [--playwright <file.json> ...] [--tasks-dir <dir>] [--event <name>] [--e2e-skipped] [--e2e-dir <dir> ...]';
 
-// --tap、--playwright 可重複：先從 argv 抽出，其餘交給 parseArgs。
+// --tap、--playwright、--e2e-dir 可重複，--e2e-skipped 是旗標：先從 argv 抽出，其餘交給 parseArgs。
 function splitRepeatArgs(argv) {
-  const paths = { tap: [], playwright: [] };
+  const paths = { tap: [], playwright: [], 'e2e-dir': [] };
   const rest = [];
+  let e2eSkipped = false;
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? '';
+    if (arg === '--e2e-skipped') {
+      e2eSkipped = true;
+      continue;
+    }
     const name = Object.keys(paths).find((n) => arg === `--${n}` || arg.startsWith(`--${n}=`));
     if (name === undefined) {
       rest.push(arg);
@@ -143,15 +185,19 @@ function splitRepeatArgs(argv) {
       paths[name].push(value);
     }
   }
-  return { ok: true, tapPaths: paths.tap, playwrightPaths: paths.playwright, rest };
+  return { ok: true, tapPaths: paths.tap, playwrightPaths: paths.playwright, e2eDirs: paths['e2e-dir'], e2eSkipped, rest };
 }
 
 export function run(argv) {
   const split = splitRepeatArgs(argv);
   if (!split.ok) return usageFailure(TOOL, 'USAGE', split.message);
-  const args = parseArgs(split.rest, { options: ['branch', 'results', 'tasks-dir'], positional: false });
+  const args = parseArgs(split.rest, { options: ['branch', 'results', 'tasks-dir', 'event'], positional: false });
   if (!args.ok) return usageFailure(TOOL, 'USAGE', args.message);
-  const { branch, results } = args.values;
+  const { branch, results, event } = args.values;
+  // fail-closed：--e2e-skipped 只在 push 事件合法（O-027）
+  if (split.e2eSkipped && event !== 'push') {
+    return usageFailure(TOOL, 'INPUT', `--e2e-skipped 只允許搭配 --event push（目前：${event ?? '未提供'}）`);
+  }
   if (branch === undefined || (results === undefined && split.tapPaths.length === 0 && split.playwrightPaths.length === 0)) {
     return usageFailure(TOOL, 'USAGE', USAGE_TEXT);
   }
@@ -188,10 +234,26 @@ export function run(argv) {
   }
   const loaded = loadTasks(args.values['tasks-dir'] ?? 'docs/tasks');
   if (!loaded.ok) return usageFailure(TOOL, 'INPUT', loaded.message);
+  let e2eTexts = [];
+  if (split.e2eSkipped) {
+    const specs = loadE2eSpecs(split.e2eDirs.length > 0 ? split.e2eDirs : ['test/e2e'], { explicit: split.e2eDirs.length > 0 });
+    if (specs.error !== undefined) return usageFailure(TOOL, 'INPUT', specs.error);
+    e2eTexts = specs.texts;
+  }
   const findings = checkCoverage({ branch, tasks: loaded.tasks, results: json, taps: split.tapPaths.length > 0 ? taps : undefined,
     playwright: split.playwrightPaths.length > 0 ? playwright : undefined,
+    e2eSkipped: split.e2eSkipped,
+    e2eTexts,
   });
-  return findings.length > 0 ? failure(TOOL, findings) : success(TOOL, [branch]);
+  const deferred = findings.filter((f) => f.rule === 'CV-DEFERRED-PR');
+  const errors = findings.filter((f) => f.rule !== 'CV-DEFERRED-PR');
+  const deferredLines = deferred.map((f) => `${TOOL}: ${f.rule} ${f.file}:${String(f.line)}: ${f.message}\n`).join('');
+  if (errors.length > 0) {
+    const r = failure(TOOL, errors);
+    return { ...r, stderr: `${deferredLines}${r.stderr}` };
+  }
+  const ok = success(TOOL, [branch]);
+  return { ...ok, stdout: `${deferredLines}${ok.stdout}` };
 }
 
 if (isMain(import.meta.url)) runCli(TOOL, run);

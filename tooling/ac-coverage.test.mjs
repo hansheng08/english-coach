@@ -164,3 +164,95 @@ describe('ac-coverage playwright', () => {
     }
   });
 });
+
+describe('ac-coverage e2e deferral', () => {
+  const tasksDir = fileURLToPath(new URL('./fixtures/tasks', import.meta.url));
+  const e2eDir = fileURLToPath(new URL('./fixtures/o027/e2e', import.meta.url));
+  const dir = mkdtempSync(join(tmpdir(), 'o027-'));
+  const write = (name, content) => {
+    const p = join(dir, name);
+    writeFileSync(p, content);
+    return p;
+  };
+  // Vitest 只覆蓋 AC-2／TC-2；AC-1／TC-1 只在 e2e 規格檔
+  const onlyTwo = write('two.json', JSON.stringify(results(['s (AC-O901-2) (TC-2) b', 'passed'])));
+  const base = ['--branch', 'task/O-901', '--tasks-dir', tasksDir];
+  const skipArgs = ['--event', 'push', '--e2e-skipped', '--e2e-dir', e2eDir];
+
+  it('(AC-O27-2) (TC-2) push + e2e-skipped: e2e-only AC/TC -> CV-DEFERRED-PR, no CV-MISSING, exit 0', () => {
+    const r = runCli(['--results', onlyTwo, ...base, ...skipArgs]);
+    expect(r.code).toBe(0);
+    expect(r.stderr).not.toContain('CV-MISSING');
+    const f = checkCoverage({ branch: 'task/O-901', tasks, results: results(['s (AC-O901-2) (TC-2) b', 'passed']), e2eSkipped: true, e2eTexts: ['(AC-O901-1) (TC-1)'] });
+    expect(rules(f)).toEqual(['CV-DEFERRED-PR', 'CV-DEFERRED-PR']);
+  });
+
+  it('(AC-O27-2) (TC-3) deferral is printed with the AC/TC id', () => {
+    const r = runCli(['--results', onlyTwo, ...base, ...skipArgs]);
+    expect(r.stdout).toContain('CV-DEFERRED-PR');
+    expect(r.stdout).toContain('AC-O901-1');
+    expect(r.stdout).toContain('TC-1');
+  });
+
+  it('(AC-O27-3) (TC-4) --e2e-skipped on pull_request (or any non-push event) -> INPUT, non-zero', () => {
+    for (const ev of ['pull_request', 'workflow_dispatch', 'PUSH']) {
+      const r = runCli(['--results', onlyTwo, ...base, '--event', ev, '--e2e-skipped', '--e2e-dir', e2eDir]);
+      expect(r.code).not.toBe(0);
+      expect(r.stderr).toContain('INPUT');
+    }
+  });
+
+  it('(AC-O27-3) (TC-5) --e2e-skipped without --event -> INPUT, non-zero', () => {
+    const r = runCli(['--results', onlyTwo, ...base, '--e2e-skipped', '--e2e-dir', e2eDir]);
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('INPUT');
+  });
+
+  it('(AC-O27-4) (TC-6) missing playwright JSON is INPUT on pull_request and with --e2e-skipped', () => {
+    const missing = join(dir, 'nope.json');
+    const pr = runCli(['--results', onlyTwo, ...base, '--event', 'pull_request', '--playwright', missing]);
+    expect(pr.code).not.toBe(0);
+    expect(pr.stderr).toContain('INPUT');
+    const push = runCli(['--results', onlyTwo, ...base, ...skipArgs, '--playwright', missing]);
+    expect(push.code).not.toBe(0);
+    expect(push.stderr).toContain('INPUT');
+    const empty = runCli(['--results', onlyTwo, ...base, ...skipArgs, '--playwright', write('empty.json', '')]);
+    expect(empty.code).not.toBe(0);
+  });
+
+  it('(AC-O27-5) (TC-7) push + e2e-skipped: non-e2e-only gaps stay CV-MISSING / CV-FAILED, non-zero', () => {
+    // AC-2／TC-2 沒有 Vitest 結果，e2e 規格檔也沒有它們
+    const noneIn = write('one.json', JSON.stringify(results(['s (AC-O901-1) (TC-1) a', 'passed'])));
+    const r = runCli(['--results', noneIn, ...base, ...skipArgs]);
+    expect(r.code).not.toBe(0);
+    expect(r.stderr).toContain('CV-MISSING');
+    // 出現在 Vitest 名稱但失敗／略過：不得延後
+    const failed = checkCoverage({ branch: 'task/O-901', tasks, results: results(['s (AC-O901-1) (TC-1) a', 'failed'], ['s (AC-O901-2) (TC-2) b', 'passed']), e2eSkipped: true, e2eTexts: ['(AC-O901-1) (TC-1)'] });
+    expect(rules(failed)).toContain('CV-FAILED');
+    const skipped = checkCoverage({ branch: 'task/O-901', tasks, results: results(['s (AC-O901-1) (TC-1) a', 'skipped'], ['s (AC-O901-2) (TC-2) b', 'passed']), e2eSkipped: true, e2eTexts: ['(AC-O901-1) (TC-1)'] });
+    expect(rules(skipped)).toEqual(['CV-MISSING', 'CV-MISSING']);
+  });
+
+  it('(AC-O27-6) (TC-8) mutation guards: each weakening is observable', () => {
+    // 沒有 --e2e-skipped：僅 E2E 仍是 CV-MISSING，CLI 非 0
+    const plain = runCli(['--results', onlyTwo, ...base, '--event', 'push', '--e2e-dir', e2eDir]);
+    expect(plain.code).not.toBe(0);
+    expect(plain.stderr).toContain('CV-MISSING');
+    // 非 E2E 缺漏不得被當成延後
+    const gap = checkCoverage({ branch: 'task/O-901', tasks, results: results(['s (AC-O901-2) (TC-2) b', 'passed']), e2eSkipped: true, e2eTexts: [] });
+    expect(rules(gap)).toEqual(['CV-MISSING', 'CV-MISSING']);
+    // PR 不得接受 --e2e-skipped
+    expect(runCli(['--results', onlyTwo, ...base, '--event', 'pull_request', '--e2e-skipped', '--e2e-dir', e2eDir]).code).not.toBe(0);
+    // 缺 Playwright JSON 不得當成功
+    expect(runCli(['--results', onlyTwo, ...base, ...skipArgs, '--playwright', join(dir, 'gone.json')]).code).not.toBe(0);
+    // 明確指定不存在的 e2e 目錄不得當成功
+    expect(runCli(['--results', onlyTwo, ...base, '--event', 'push', '--e2e-skipped', '--e2e-dir', join(dir, 'no-such')]).code).not.toBe(0);
+  });
+
+  it('(AC-O27-7) (TC-9) changed files have no unallowed fail-open constructs', () => {
+    for (const f of ['./ac-coverage.mjs', './fixtures/o027/e2e/sample.spec.ts']) {
+      const body = readFileSync(new URL(f, import.meta.url), 'utf8');
+      expect(body).not.toMatch(/\|\|\s*true|continue-on-error/);
+    }
+  });
+});
