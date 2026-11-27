@@ -1,10 +1,11 @@
-# DESIGN：english-coach 設計系統（D2a，v1.4）
+# DESIGN：english-coach 設計系統（D2a＋D2b 第 1 批，v1.5）
 
 - 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE v1.9 §9.1／ADR-014（PR #53 已於 2026-11-26 20:03 合併，f1a6077）。
 - v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
 - v1.2（D2 第 3 輪，2026-11-26）：M2 里程碑（Hansheng 20:25 決定）、時段標示三態（AC-21 v1.4）、PM 第 2 輪文案（PR #54 留言 7191990644）。
 - v1.3（2026-11-26 22:14）：電腦快捷鍵標為「加分項、不屬 AC」（Hansheng 決定，幕僚長轉達）；§14 #1 已解決。
 - v1.4（D-004，D2a 增補，2026-11-26；分支 `design/pwa-assets`）：PWA manifest 與圖示、系統提示（斷線、新版、預覽假資料）規格見新檔 `pwa.md`；登入錯誤狀態補齊（`screens/login.md`）。沒有新增 token。
+- v1.5（D-005，D2b 第 1 批，2026-11-27；分支 `design/d2b-screens`）：素材沒備好（`screens/prep.md`）、錯誤與額度用完（`screens/errors.md`）、儀表板＋打卡日曆（`screens/dashboard.md`）、成長曲線＋練習紀錄（`screens/growth.md`）、履歷頁（`screens/resume.md`）。中午手動新增與設定頁因 G1 修改 AC-08／AC-26 暫停（§15.6 不並行），等 G1 合併後再做。沒有新增 token。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。字卡／紀錄／設定完整頁屬 D2b（原型以 `later.html` 佔位）。
@@ -86,6 +87,7 @@
 ## 7. 元件規格（展示：`system.html`）
 - **按鈕**：`.btn`（52px 高，圓角 md）、`.btn-lg`（56px）、`.btn-gold`（焦點卡內主動作）、`.btn-2`（次要，sunken 底）、`.btn-ghost`、`disabled`（ink-3 文字＋說明原因，如「還差 2 個語塊」）。`.icon-btn` 48×48。電腦版按鈕右側可帶 `kbd` 快捷鍵。
 - **焦點卡 `.hero`**：深藍漸層＋右上微弱放射光（::before）；結構＝時段標籤（gold）→ 標題 → 內容 → 進度 → 主按鈕 → 一句鼓勵（on-hero-2）。
+- **D2b 第 1 批新增**（規格在各畫面 md）：等待點 `.dot.wait`（斜紋圓，素材沒備好時不能做的步驟）、`.note-soft`（一般說明框）、錯誤卡 `.errcard`＋保留列 `.kept`＋按鈕列 `.eact`、`.kv`、`.tag`、紀錄子頁切換 `.subnav`、打卡日曆 `.cal`（每格三條，三態同 §8）、折線圖 `.chart`（inline SVG，手機／電腦各一個 viewBox）、上傳區 `.drop`、紅底按鈕 `.btn-danger`（文字 `bg` 色）。
 - **步驟狀態 `.dot`**（AC-26）：完成＝綠底白勾、下一步／進行中＝金框＋實心點（呼吸）、未做＝空心圈（可「跳過」）、已跳過＝跳過圖示＋刪除線＋「已跳過」文字。
 - **字卡狀態 `.state`**（AC-19）：名稱照 PRD 用英文 Collected／Learning／Reviewing／Mastered；形狀＝空心圈 → 半滿 → 實心 → 金色菱形；形狀＋文字，不靠顏色。
 - **進度**：`.segs` 三段（錄音／診斷／跟讀重答）、`.m2`（Mastered 累積，量尺 0～60，刻線在 15＝第 4 週、60＝第 12 週，PRD §3 M2；達成的刻線變金色，下方標數字與週次；`aria-label` 讀出是否達成）、`.meter`（一般進度，如複習 8／25）、`.spark` 7 天長條（今天＝外框）、`.pips` 次數點（跟唸 0/2、TTS 3/3）。
@@ -169,6 +171,6 @@
 4. （已解決）時段邊界照 PRD v1.4 寫入文案；PR #56 已合併（9b220d1，2026-11-26 20:36 台北），合併內容與先前對照的 a811cb2 相同。
 5. M2 里程碑「每個刻度只出現一次」的紀錄方式（存在哪裡、跨裝置是否同步、刪卡後 Mastered 數回落再跨過時算不算）→ Architect。
 6. （PM 第 2 輪已確認並修正）「今天只有 N 張」說明：「新卡和種子庫都用完了，多的到期舊卡也補不滿，今天是舊卡 14＋新卡 4，共 18 張。」
-7. D2b 畫面（字卡清單／搜尋、紀錄、設定、錯誤與額度用完狀態）尚未設計。
+7. D2b 尚未設計：字卡清單／搜尋（第 2 批）、中午手動新增與設定頁（等 G1 改 AC-08／AC-26 合併）。第 1 批的待確認項目見 `screens/{prep,errors,dashboard,growth,resume}.md`「不確定」。
 8. 診斷標記點擊範圍：相鄰標記重疊處共用邊緣（字本身一定點得到），若 QA 要求每個標記都有完整不重疊的 48×48，需要加大行高（會讓逐字稿變鬆）→ QA／TechLead。
 9. PWA 與登入錯誤的待確認項目見 `pwa.md` §4 與 `screens/login.md`「不確定」。
