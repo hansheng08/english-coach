@@ -40,4 +40,47 @@ export function setThemePreference(pref: ThemePreference, storage?: Pick<Storage
   }
   if (pref === 'system') delete target.dataset['theme'];
   else target.dataset['theme'] = pref;
+  // data-theme 設好後，讀 --color-theme-bar 的計算值給 theme-color（ADR-014 決定 4）。
+  if (root === undefined) syncThemeColor(pref);
+}
+
+const THEME_COLOR_LIGHT = '(prefers-color-scheme: light)';
+const THEME_COLOR_DARK = '(prefers-color-scheme: dark)';
+
+/** index.html 的兩個 theme-color 值；system 時恢復它們（值由測試對照 tokens.json 的 color.theme-bar）。 */
+const SYSTEM_THEME_COLORS: readonly { readonly media: string; readonly content: string }[] = [
+  { media: THEME_COLOR_LIGHT, content: '#F4F5F7' },
+  { media: THEME_COLOR_DARK, content: '#0A1420' },
+];
+
+/**
+ * theme-color meta：system → 兩個帶 media 的 meta；light／dark → 只留一個不帶 media 的 meta，值是傳入的 color。
+ * 重複呼叫不會多出 meta。
+ */
+export function applyThemeColor(pref: ThemePreference, color: string, head?: HTMLHeadElement): void {
+  const target = head ?? document.head;
+  const existing = [...target.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+  const make = (content: string, media: string | null): HTMLMetaElement => {
+    const meta = target.ownerDocument.createElement('meta');
+    meta.name = 'theme-color';
+    if (media !== null) meta.setAttribute('media', media);
+    meta.content = content;
+    return meta;
+  };
+  const wanted = pref === 'system' ? SYSTEM_THEME_COLORS.map((c) => make(c.content, c.media)) : [make(color, null)];
+  // 新的 meta 放在舊的第一個的位置（維持 index.html 的順序），再移除舊的。
+  const reference = existing[0] ?? null;
+  for (const meta of wanted) target.insertBefore(meta, reference);
+  for (const meta of existing) meta.remove();
+}
+
+/** 啟動時（main.tsx）與 setThemePreference 之後呼叫：依目前偏好與 data-theme 設好 theme-color。 */
+export function syncThemeColor(pref: ThemePreference = readThemePreference()): void {
+  const color = currentThemeBarColor();
+  if (pref !== 'system' && color === '') return; // 讀不到 token（例如測試環境沒有樣式）時保持原樣
+  applyThemeColor(pref, color);
+}
+
+function currentThemeBarColor(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--color-theme-bar').trim();
 }

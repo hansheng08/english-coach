@@ -12,6 +12,6 @@
     "outDir": "../../dist/web",
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vite.config.ts", "vite.data-mode.ts", "vite.data-mode.test.ts"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "test/**/*.tsx", "vite.config.ts", "vite.data-mode.ts", "vite.data-mode.test.ts", "vite.pwa.ts"],
   "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/domain" }, { "path": "../../test/e2e" }]
 }
