@@ -35,5 +35,5 @@
 ## 不確定
 1. `quota_exhausted` 的 `retryAfterSec` 可能是 null（每日額度，ARCH §12 Gemini 對照表），範本「約 {n} 分鐘後」填不了。建議 null 時改「明天 {台北時間} 後可重送」或「明天再重送」；範本由誰擁有、放哪裡也一起定 → Architect。
 2. 「待重送」在首頁與紀錄裡怎麼呈現、按了以後去哪（ARCH 只寫按鈕名）→ TechLead（T-043）。原型只示範錯誤卡本身。
-3. 「到設定」的目的地：設定頁因 G1 改 AC-26 暫停設計，原型先連 `later.html?s=settings`。設定頁的供應商區塊設計完成後再接上。
+3. ~~「到設定」的目的地~~ 已接上（D2b 第 2 批）：免費額度用完、`auth` 等 → `settings.html#providers`；付費上限用完、未同意 → `settings.html#paid`（見 `settings.md`）。
 4. 付費模型名稱 `gemini-3.8-flash` 取自 ARCH 範例，實際顯示名稱 → Architect。
