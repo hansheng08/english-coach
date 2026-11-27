@@ -1,5 +1,5 @@
 # CLAUDE.md — english-coach
-> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.11（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014；v1.10 語音 adapter §5.5～§5.7、ADR-015，產品單資料契約 §4.10～§4.14、§9.2、ADR-016；v1.11 設定與時段 §4.15、晚上作答 §4.16、建卡補齊 §4.17、跟讀評分 §4.18、LLM 呼叫 §5.8、畫面資訊來源 §5.9、跟唸計次 §9.3、ADR-017）。
+> 擁有者：Architect（完整路線，憲章 v4 §5、§9）。對應 `docs/ARCHITECTURE.md` v1.12（v1.3 新增 ADR-010：Edge Functions 的環境變數、身分驗證、Deno 型別；v1.4 domain 規則與 ADR-011；v1.5 T-006 資料模型 §4.8 與寫入權限 §4.9；v1.9 前端設計基礎 §9.1、ADR-014；v1.10 語音 adapter §5.5～§5.7、ADR-015，產品單資料契約 §4.10～§4.14、§9.2、ADR-016；v1.11 設定與時段 §4.15、晚上作答 §4.16、建卡補齊 §4.17、跟讀評分 §4.18、LLM 呼叫 §5.8、畫面資訊來源 §5.9、跟唸計次 §9.3、ADR-017；v1.12 寫單契約補充 §4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018）。
 > 任務單（`docs/tasks/<編號>.md`）開頭的「強制工作規則」優先於本檔與任何外掛（含 pstack）的建議。
 
 ## 1. 專案是什麼
@@ -35,6 +35,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 |---|---|---|
 | `packages/contracts` | `zod` | 其他一切 |
 | `packages/domain` | `packages/contracts` | `fetch`、`Date.now()`、無參數 `new Date()`、`Math.random`、`throw`（只限正式程式，見 §7）、資料庫、供應商 |
+| `packages/seed-data`（種子庫、題庫檢查器） | `packages/contracts`、`packages/domain`（測試另可用 `node:fs`、`node:path`） | 正式程式讀檔或任何 I/O；被 `apps/web`、`supabase/functions` import（ARCHITECTURE §4.10.1） |
 | `supabase/functions/_shared/providers/<adapter>` | `contracts`、`zod`（金鑰由工廠參數傳入） | `config`、`domain`、`db`、`news`、registry、wiring、其他 adapter（ADR-008 修訂 5 第 18 條） |
 | `supabase/functions/_shared/providers/wiring.ts` | `contracts`、`config/env.ts`、`config/provider-keys.ts`（只有這裡能 import，第 19 條）、adapters | `config/paid.ts`、備援清單 |
 | `supabase/functions/_shared/providers/registry.ts` | `contracts`、adapters、`config/paid.ts` | 備援清單、自動改選供應商 |
@@ -68,7 +69,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 12. 不抓 `news_source` 白名單以外的網址；不抓 robots.txt 不允許的網址。
 13. 不在程式裡寫 `card.mastered_at`（由資料庫 trigger 在 reviewing → mastered 時寫入，不能重設；ARCHITECTURE §4.8.1）。不改 `slot_checkin` 的事件列（只能新增），步驟清單只放在 contracts 的 `SLOT_STEPS`（§4.8.3）。
 14. 不在 `_shared/db/paid-consent.ts` 以外的地方用 secret 金鑰改 `settings.paid_consent_at`／`monthly_paid_cap_ntd`，只能呼叫 `set_paid_consent()`。secret 金鑰只給 `daily-prep`、`purge-audio` 和這個檔案用（ARCHITECTURE §4.9、ADR-010 修訂 1）。
-15. 用 secret 金鑰的查詢（會繞過 RLS）一定要自己帶 `user_id` 條件（例如 T-025 選卡）；刪除履歷要先把題目 `retired = true`，再刪履歷（§4.9）。
+15. 用 secret 金鑰的查詢（會繞過 RLS）一定要自己帶 `user_id` 條件（例如 T-025a 的 `PlanStore`）。例外只有兩個：`_shared/db/audio-purge.ts` 的過期錄音清除、`_shared/db/service-db.ts` 的 `listProfileUserIds`（只讀 `user_id`）；新增例外要先改 ARCHITECTURE §4.12.5，`tooling/secret-client-scope.test.ts` 會擋。刪除履歷要先把題目 `retired = true`，再刪履歷（§4.9）。
 16. `config.toml` 新增函式時，`[functions.<slug>]` 一定要寫 `verify_jwt = false` 和 `import_map = "./functions/deno.json"`（ADR-009 修訂 2、ADR-010）。新增 view 一定要寫 `with (security_invoker = true)`。
 17. 供應商金鑰只放請求標頭（Gemini 是 `x-goog-api-key`、Azure Speech 是 `Ocp-Apim-Subscription-Key`、Groq 是 `Authorization: Bearer`），不放網址；任何錯誤訊息或 log 回傳前，都要把金鑰字串換成 `[redacted]`。Gemini adapter 不送 `thinkingConfig`，只有「STOP 但 JSON／zod 失敗」會自動重試 1 次，其他錯誤（含 429、5xx、逾時）都不自動重試。adapter **一定要**自己用 `AbortController` 在 `timeoutMs` 時中止請求（實測 Gemini 可能 60 秒都不回）。外部 API 回應的 zod schema 不可以用 strict（Gemini 會多帶 `thoughtSignature` 等欄位）。實測樣本在 `docs/poc/A-003/`（ARCHITECTURE §5.4、ADR-012）。語音 adapter（Azure、Groq）完全不自動重試，沒聽到聲音回 `ok`＋分數 0（§5.5～§5.7、ADR-015）。
 18. AI 輸出的格式條件（字數、chunk 數、「/」斷句等）一律寫進傳給 `generate` 的 schema，讓 adapter 那 1 次自動重試就是唯一的重試；呼叫端不再自己包一層重試（ARCHITECTURE §6 第 7 點、§11.3、ADR-013）。

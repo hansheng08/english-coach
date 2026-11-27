@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.11**（v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-27｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.12**（v1.12 為寫單契約補充：§4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018；v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-27｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -54,6 +54,7 @@
 |---|---|---|---|
 | `packages/contracts` | API 請求/回應的 zod schema、供應商介面型別、錯誤型別 `AppError` | `zod` | 任何 I/O、任何其他模組 |
 | `packages/domain` | 純邏輯：字卡狀態機（AC-19）、SRS 間隔（AC-09）、每日 25 張選卡（AC-07）、跟讀比對與語速（AC-06）、停頓/贅詞/字數統計（AC-15）、chunk 命中判斷（AC-18、AC-20）、新聞類別輪替與跳類別（AC-01、§11.2）、台北日期計算 | `contracts` | `fetch`、`Date.now()` 直接呼叫（時間由參數傳入）、資料庫、任何供應商 |
+| `packages/seed-data`（v1.12） | 種子庫、面試題庫的檢查器、migration 與抽查樣本產生器（純函式，§4.10.1、§4.20）；只在 `pnpm test` 裡跑 | `contracts`、`domain`（測試另可用 `vitest`、`node:fs`、`node:path`） | 讀檔（正式程式）、任何 I/O；被 `apps/web`、`supabase/functions` import |
 | `supabase/functions/_shared/providers/<adapter>/` | 每個外部供應商一個 adapter（gemini、groq、azure-speech、webspeech 描述檔）；金鑰由工廠參數傳入（§5.4） | `contracts`、`zod` | `config`（v1.7 起，ADR-008 修訂 5 第 18 條）、`domain`、資料庫、`news`、registry、其他 adapter |
 | `supabase/functions/_shared/providers/wiring.ts` | 讀免費供應商金鑰（`config/provider-keys.ts`）、建立 adapter 清單交給 registry（§5.4.1） | `contracts`、`config/env.ts`、`config/provider-keys.ts`、各 adapter | `config/paid.ts`；任何備援或自動改選 |
 | `supabase/functions/_shared/providers/registry.ts` | 依使用者設定**只回傳被選中的那一個**供應商；檢查付費同意與月上限（ADR-003） | `contracts`、各 adapter | 任何「備援清單」或自動改選 |
@@ -213,6 +214,12 @@ export function markMastered(card: CardSchedule): { readonly schedule: CardSched
   - 注意：下面「遮字」和 T-011 正確率用的是**另一個**定義（T-011 的正規化，單獨標點不算字）。選句只看長度範圍，兩者在同一句上可能差 1～2 個字，不影響 6～25 的用途，所以不強求一致。
   - 新聞句排序：含當天 5 個語塊之一的句子優先 → 文章中的順序。改寫句排序：含升級語塊的句子優先 → 回答中的順序。
   - 一方不足時由另一方補；合計仍不足 5 句就回傳實際句數。順序：先新聞句、後改寫句。
+- **改寫句從哪裡來**（v1.12；回覆 #97 待確認 4；T-025a 照用，**不要寫死 null**）：
+  - `PlanStore.readRewriteSource(planDate)`：讀台北日期為 `planDate` 前一天、`kind = 'first'`、`diagnosis is not null` 的 `evening_answer`，取最新一筆。
+  - 用 contracts `evening.ts`（§4.16.1）的 `z.array(SeniorSentenceSchema)`、`z.array(UpgradeChunkSchema)` 分別 `safeParse` `diagnosis->'senior'` 和 `upgrade_chunks` 欄；改寫句＝`diagnosis.senior[].text`（一句一個元素，不含「/」），`containsTargetChunk`＝這句含任一 `upgrade_chunks[].chunk`（`chunkAppearsIn`，和新聞句同一個判斷）。
+  - 沒有這筆，或解析失敗 → 傳 `null`（「前一晚沒有改寫版回答」，新聞 5 句），**不讓備料失敗**。T-038 上線前一定是這種情況。
+  - `contracts/src/evening.ts` 由 T-025a、T-038 中先派工的那張照 §4.16.1 全文建立，後做的重用。
+  - v1.10 這裡寫的「`rewrite_text`」改成讀 `diagnosis.senior[].text`：`rewrite_text` 是整段接起來的文字，要再切句；`senior[]` 已經是一句一句。
 - **遮字**（`maskWords`）：以空白切字，「字」的定義同 T-011 的正規化（去掉頭尾標點後非空才算字；「/」與單獨標點不算字、永遠顯示）。第 1、3、5…個字顯示，第 2、4、6…個字遮住（從 0 起算的奇數位置），所以 n 個字遮 ⌊n/2⌋ 個，第一個字一定看得到。理由：可重現、不需要詞性判斷或字典、每隔一字留下節奏線索（**需要 Hansheng 確認**；另一個選項是「只遮實詞」，要有停用詞表）。回傳每個 token 的原文與 `masked`，畫面怎麼畫（底線、字長提示）由前端決定。
 - **確認 T-011 的計算定義**（照 ADR-004）：正規化（空白切字、轉小寫、去掉頭尾非字母數字撇號字元）、正確率＝詞級 Levenshtein 對齊中相同的詞數 ÷ 原句詞數（多講的字不扣分，因為 AC-06 比的是「原句講對多少」）、語速比＝原音長度 ÷ 使用者有聲長度（第一個字 `startMs` 到最後一個字 `endMs`）、解鎖＝正確率 ≥ 0.8 且語速比 ≥ 0.7。語速比可以大於 1（講得比原音快），畫面照實顯示百分比。
 - 已知限制（不確定）：辨識結果把數字寫成阿拉伯數字（`3`）而原句是英文（`three`），或反過來時，會被算成錯字；Azure scripted 模式通常會照參考文字輸出，但沒有實測。先不處理，PoC（A-002）或實際使用後再決定。
@@ -463,14 +470,15 @@ grant execute on function public.set_paid_consent(uuid, boolean, integer) to ser
 | 檔案 | 內容 | 建立的單 |
 |---|---|---|
 | `packages/contracts/src/card.ts` | 新增 `SEED_TAGS`、`SeedChunkSchema`、`SeedBatchSchema`（和 `ChunkTextSchema` 同檔） | T-024 |
-| `tooling/seed-chunks.ts` | `checkSeedBatch`、`renderSeedMigration`（純函式，只 import `@english-coach/contracts`、`@english-coach/domain`） | T-024 |
-| `tooling/seed-chunks.test.ts` | 規則測試（用 `tooling/fixtures/seed-chunks/` 的小型資料）＋ drift 測試 | T-024 |
+| `packages/seed-data/src/seed-chunks.ts`（v1.12 從 `tooling/` 移過來，§4.10.1） | `checkSeedBatch`、`renderSeedMigration`（純函式，只 import `@english-coach/contracts`、`@english-coach/domain`） | T-024 |
+| `packages/seed-data/src/seed-chunks.test.ts`（同上） | 規則測試（用 `packages/seed-data/test/fixtures/seed-chunks/` 的小型資料）＋ drift 測試 | T-024 |
 | `supabase/seed-chunks/batch-<n>.json`（n＝1～6） | 每批的資料 | T-050（每批一次） |
 | `supabase/migrations/<時間戳記>_t050_seed_chunk_batch_<n>.sql` | 每批的 migration（Claude 照產生器的格式手寫） | T-050 |
 - 和既有測試的關係：
-  - `tooling/o010.test.mjs` TC-15 固定 `package.json` 的 scripts 和 devDependencies：本設計**不加** script 和依賴，不會觸發。
-  - `tooling/arch-rules.test.ts` TC-24（和「剛好 15 條規則」那一項）固定 dependency-cruiser 規則：本設計**不加**規則；`tooling/` 本來就在 dependency-cruiser 的排除路徑內，`supabase/seed-chunks/*.json` 不是程式，也不會被掃。
-  - `tooling/tsconfig.json` 只 include `*.test.ts`：`seed-chunks.ts` 由測試 import，會一併型別檢查，不用改 tsconfig。
+  - **v1.12 改寫**（檢查器移到 `packages/seed-data`，§4.10.1）：
+  - `tooling/o010.test.mjs` TC-15 固定根目錄 `package.json` 的 scripts 和 devDependencies：根目錄 `package.json` **不變**，不會觸發。
+  - `tooling/arch-rules.test.ts`「剛好 15 條規則」：T-024 加 2 條 `packages/seed-data` 的規則，改成 17 條（§4.10.1）。`supabase/seed-chunks/*.json` 不是程式，不會被掃。
+  - `tooling/tsconfig.json` 不用改；根目錄 `tsconfig.json` 的 `references` 加 `packages/seed-data`。
 - **介面**：
 ```ts
 // packages/contracts/src/card.ts（新增）
@@ -487,7 +495,7 @@ export const SeedBatchSchema = z.object({ batch: z.number().int().min(1).max(6),
 export type SeedChunk = z.infer<typeof SeedChunkSchema>;
 export type SeedBatch = z.infer<typeof SeedBatchSchema>;
 
-// tooling/seed-chunks.ts
+// packages/seed-data/src/seed-chunks.ts（v1.12；原 tooling/seed-chunks.ts）
 /** others：其他已 commit 的批次（檢查跨批重複）。zod 檢查＋跨欄位與跨批檢查都在這裡；全部 issue 一次回傳。 */
 export function checkSeedBatch(input: unknown, others: readonly SeedBatch[]): Result<SeedBatch, ValidationError>;
 /** 決定性輸出：同樣的輸入永遠產生同樣的字串（結尾一個換行）。 */
@@ -506,7 +514,7 @@ export function renderSeedMigration(batch: SeedBatch): string;
 | R8 | `batch` | 1～6；檔名的 `<n>` 必須等於 `batch`；同一個 `batch` 只能有一個檔案 | `seed_chunk_batch_check` |
 - **migration 格式**（`renderSeedMigration` 的輸出，Claude 照這個手寫）：
 ```sql
--- T-050 seed_chunk batch <n> (generated format: tooling/seed-chunks.ts renderSeedMigration; source supabase/seed-chunks/batch-<n>.json).
+-- T-050 seed_chunk batch <n> (generated format: packages/seed-data/src/seed-chunks.ts renderSeedMigration; source supabase/seed-chunks/batch-<n>.json).
 insert into public.seed_chunk (chunk, meaning_zh, example_en, tags, batch) values
   ('<chunk>', '<meaning_zh>', '<example_en>', '{}'::text[], <n>),
   ('<chunk>', '<meaning_zh>', '<example_en>', array['meeting', 'email']::text[], <n>);
@@ -514,29 +522,55 @@ insert into public.seed_chunk (chunk, meaning_zh, example_en, tags, batch) value
   - 順序照 JSON 的 `items` 順序；每列兩個空白縮排；最後一列用 `;`，其他用 `,`；檔案結尾一個換行。
   - 字串裡的 `'` 寫成 `''`；不用 `E''` 字串、不用 dollar quoting。
   - 不寫 `on conflict`：重複要讓 migration 失敗，不能默默略過。
-- **drift 測試**（`tooling/seed-chunks.test.ts`）：
+- **drift 測試**（`packages/seed-data/src/seed-chunks.test.ts`）：
   - 對 `supabase/seed-chunks/` 裡的每個 `batch-<n>.json`：`checkSeedBatch` 要回 `ok`（`others` 是其他所有批次），而且 `supabase/migrations/` 裡剛好有一個檔名以 `_seed_chunk_batch_<n>.sql` 結尾的檔案，內容逐字等於 `renderSeedMigration` 的輸出。
   - 反過來，有 `_seed_chunk_batch_<n>.sql` 卻沒有對應的 JSON → 失敗。
-  - 還沒有任何批次（T-024 合併時）→ 這兩項沒有東西可比，不算失敗；規則測試用 `tooling/fixtures/seed-chunks/`。
+  - 還沒有任何批次（T-024 合併時）→ 這兩項沒有東西可比，不算失敗；規則測試用 `packages/seed-data/test/fixtures/seed-chunks/`。
   - 讀檔用 Node 內建的 `fs`／`path`（測試程式可以用）。
 - **不加欄位**：中午題目的簡單句、中文情境等素材由 `daily-prep` 每天產生，存在 `daily_plan.noon_items`（§4.14，依 PRD v1.5 AC-08）。種子庫和 `card` 都不加欄位，T-024 不需要改表的 migration。
 - **第 1 批抽查樣本**（T-050；Q-10「第 1 批後 Hansheng 抽查 20 條」）：沿用同一種「純函式＋vitest 比對已 commit 的結果」做法，不需要在 run-task 跑 node。
 ```ts
-// packages/domain/src/prng.ts（新增；T-050、T-025b 中先派工的那張建，§4.14 的中午打散也用它）
+// packages/domain/src/prng.ts（新增；T-050、T-025b、B-004 中先派工的那張建（v1.12 加 B-004），§4.14 的中午打散也用它）
 /** mulberry32：32 位元整數種子 → 回傳 [0, 1) 的決定性亂數函式。演算法照公開的 mulberry32，測試固定前 5 個輸出。 */
 export function mulberry32(seed: number): () => number;
 /** 部分 Fisher–Yates：從 items 抽 n 個（不重複），同樣的 seed 永遠同樣的結果與順序。 */
 export function sampleWithSeed<T>(items: readonly T[], n: number, seed: number): T[];
 /** FNV-1a 32 位元雜湊：把字串（例如 card_id + plan_date）變成種子。 */
 export function seedFromString(s: string): number;
-// tooling/seed-chunks.ts（新增）
+// packages/seed-data/src/seed-chunks.ts（v1.12）
 export const SEED_SAMPLE_SEED = 20261127;   // 固定，不可改
 export const SEED_SAMPLE_SIZE = 20;
 export function renderSeedSample(batch: SeedBatch): string;   // sampleWithSeed(batch.items, 20, SEED_SAMPLE_SEED) 輸出成 Markdown 表格（#、chunk、meaning_zh、example_en、tags）
 ```
-  - 檔案：`supabase/seed-chunks/batch-1.sample.md`，由 Claude 照 `renderSeedSample` 的格式手寫；`tooling/seed-chunks.test.ts` 比對它逐字等於輸出（drift 擋在 CI）。Hansheng 看這個檔案抽查。
+  - 檔案：`supabase/seed-chunks/batch-1.sample.md`，由 Claude 照 `renderSeedSample` 的格式手寫；`packages/seed-data/src/seed-chunks.test.ts` 比對它逐字等於輸出（drift 擋在 CI）。Hansheng 看這個檔案抽查。
   - 只有第 1 批要樣本；其他批有 `batch-<n>.sample.md` 也照同一規則比對。
 - migration 時間戳記：取 T-050 那一批寫檔時的台北時間，必須比 `supabase/migrations/` 裡最新的檔案晚；檔名其餘部分固定。
+
+#### 4.10.1 檢查器放在 workspace 套件 `packages/seed-data`（v1.12；回覆 #97 待確認 1；ADR-018 決定 1）
+- **問題**：`tooling/` 不是 workspace 套件，根目錄的 `package.json` 沒有依賴 `@english-coach/contracts`、`@english-coach/domain`，`tsconfig` 也沒有 `paths`，ESLint 又禁止用相對路徑進 `packages/`。所以 `tooling/seed-chunks.ts` 解析不到這兩個套件（TechLead 寫單時發現）。
+- **決定：選 (b)，新增 workspace 套件 `@english-coach/seed-data`，位置 `packages/seed-data/`**。種子庫（T-024）和面試題庫（B-004，§4.20）的檢查器、migration 產生器、抽查樣本產生器都放這裡。
+  - 不選 (a)「根目錄加 `workspace:*` devDependencies」：要改 `tooling/o010.test.mjs` TC-15（SRE 的檔案），而且會讓根目錄可以 import 所有套件，`tooling/` 就沒有模組邊界了。
+  - `pnpm-workspace.yaml` 已經包含 `packages/*`，**不用改**。
+- **檔案**（取代 §4.10 表格裡 `tooling/seed-chunks.ts`、`tooling/seed-chunks.test.ts` 兩列；其他列不變）：
+| 檔案 | 內容 | 建立的單 |
+|---|---|---|
+| `packages/seed-data/package.json` | `{"name": "@english-coach/seed-data", "private": true, "type": "module", "exports": {".": "./src/index.ts"}, "dependencies": {"@english-coach/contracts": "workspace:*", "@english-coach/domain": "workspace:*"}}`（不加任何外部套件） | T-024 |
+| `packages/seed-data/tsconfig.json` | 照 `packages/domain/tsconfig.json` 的寫法（`composite`、`allowImportingTsExtensions`、`types: []`），`references` 指向 `../contracts`、`../domain` | T-024 |
+| 根目錄 `tsconfig.json` | `references` 加 `{ "path": "./packages/seed-data" }` | T-024 |
+| `pnpm-lock.yaml` | 照 RUNBOOK「已核准的 lockfile 更新」：先改 `package.json`，再單獨跑一次 `pnpm install --no-frozen-lockfile`。只會多一個 workspace importer，**沒有新的外部套件** | T-024 |
+| `packages/seed-data/src/seed-chunks.ts` | `checkSeedBatch`、`renderSeedMigration`、`renderSeedSample`、`SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`（內容照 §4.10，只是換位置） | T-024（`renderSeedSample` 由 T-050） |
+| `packages/seed-data/src/seed-chunks.test.ts` | 規則測試＋drift 測試（照 §4.10）；fixtures 放 `packages/seed-data/test/fixtures/seed-chunks/` | T-024 |
+| `packages/seed-data/src/question-bank.ts`、`question-bank.test.ts` | 面試題庫的檢查器、產生器、drift 測試（§4.20） | B-004 |
+| `packages/seed-data/src/index.ts` | 匯出上面的函式（目前沒有其他套件 import 它；寫出來是為了照 ADR-009 的套件形狀） | T-024 |
+- **依賴規則**：
+  - 正式程式（`src/*.ts`，不含測試）只能 import `@english-coach/contracts`、`@english-coach/domain` 和自己。**不能**讀檔、不能用 `fs`、`path`、`process`、`Date.now`、`Math.random`（產生器是純函式，輸入是已解析的資料）。
+  - 測試（`*.test.ts`、`test/**`）另外可以用 `vitest` 和 Node 內建的 `node:fs`、`node:path`（drift 測試要讀 `supabase/seed-chunks/`、`supabase/question-bank/`、`supabase/migrations/`；用 `import.meta.url` 往上找 repo 根目錄，不寫死絕對路徑）。
+  - **dependency-cruiser**：T-024 新增 1 條 `adr018-01-seed-data-imports`（正式程式 `^packages/seed-data/` 只能到 `^packages/(seed-data|contracts|domain)/`，加上 zod 經由 contracts 的間接依賴）和 1 條測試用的規則，並把 `tooling/arch-rules.test.ts`「剛好 15 條」改成 17 條。這和 T-015、T-023 加規則的做法相同，`tooling/arch-rules.test.ts` 不是 SRE 的檔案。
+  - **ESLint**：`packages/**` 已經套用 ADR-009 的規則（只用套件名稱、相對 import 要寫副檔名）。`domain` 的禁用清單（`Date.now`、`Math.random`、`throw`）T-024 也套到 `packages/seed-data/src/**` 的正式程式，寫在 `eslint.config.*` 既有的 `DOMAIN` 區塊旁邊。
+  - **沒有人 import 它**：`apps/web`、`supabase/functions` 都**不准** import `@english-coach/seed-data`（ESLint `no-restricted-imports` 加一條）。它只在 CI 的 `pnpm test` 裡跑。
+- **執行指令**：不加 script。`vitest.config.ts` 的 `include` 已經有 `packages/**/*.test.{ts,tsx}`，`pnpm test`（＝`vitest run`）就會跑；`pnpm typecheck`（`tsc -b`）經根目錄的 `references` 會檢查。CLAUDE.md 的指令清單不用改，只在 §4 模組邊界表加一列。
+- §4.10「和既有測試的關係」三點改成：TC-15 **不受影響**（根目錄 `package.json` 不變）；dependency-cruiser 加 2 條規則（見上）；`tooling/tsconfig.json` 不用改。
+- 未驗證：pnpm 12 把新的 workspace 套件連進 `packages/seed-data/node_modules` 的行為，照 pnpm 文件和現有的 `packages/domain` 推論，沒有在這個 repo 實際跑過；T-024 的 CI 第一次跑就會知道。
 
 ### 4.11 `POST /reviews` 的寫入（T-032；AC-09、AC-19；ADR-016 決定 4、5）
 - **SRS（間隔排程）在 TypeScript 算**：用既有的 `domain/card-state.ts` `applyReview`（T-009，§4.3，已有單元測試）。SQL 只負責「比對沒有被別人改過，然後一次寫入兩張表」。不在 SQL 重寫一份轉換表（兩份規則會分歧）。
@@ -599,7 +633,7 @@ export function recordCardReview(client: DbClient, input: RecordReviewInput): Pr
 | `resume` | `select`、`insert`、`delete` | `update`（換履歷＝刪舊的、傳新的，§4.9 第 4 點） |
 - **signed URL 有效期**（前端拿到的播放網址；`createSignedUrl` 的秒數）：`tts` 3600 秒；`audio`（T-045 播放舊錄音）600 秒；`resume` 不發 signed URL。
   - TTS 的 signed URL 每次都帶不同的 token 查詢字串；SW 的 TTS cache-first（§9）比對時要**忽略查詢字串**（Workbox `matchOptions: { ignoreSearch: true }`），否則每次都不會命中。物件路徑是內容雜湊，同一路徑內容永遠相同，所以忽略查詢字串是安全的。這條由 T-021 一併改 SW 設定。
-- **TTS 快取鍵**（T-021）：快取鍵就是上表的 `sha256(voice + "\n" + text)`，`text` 是送給 TTS 的原文（已去掉「/」）。所有 TTS（新聞句、跟讀句、改寫全文、字卡）都走這一個規則，不需要對應欄位；`card.tts_path`、`shadow_items[i].tts_path` 只是指向同一個物件的捷徑。`/tts`：先看物件在不在，在就直接發 signed URL，不在才呼叫 Azure、上傳、再發。「物件在不在」用哪個 Storage API 由 T-021 決定，用假 Storage 測。TTS 不清除：每天約 35 個、每個約 30 KB，一年約 0.4 GB（Storage 免費 1 GB，§10），之後需要時再加清除單。
+- **TTS 快取鍵**（T-021；v1.12 補上文字正規化和唯一的計算函式，見 §4.19）：快取鍵就是上表的 `sha256(voice + "\n" + text)`，`text` 是 `normalizeTtsText` 之後的文字（已去掉「/」）。所有 TTS（新聞句、跟讀句、改寫全文、字卡）都走這一個規則，不需要對應欄位；`card.tts_path`、`shadow_items[i].tts_path` 只是指向同一個物件的捷徑。`/tts`：先看物件在不在，在就直接發 signed URL，不在才呼叫 Azure、上傳、再發。「物件在不在」用哪個 Storage API 由 T-021 決定，用假 Storage 測。TTS 不清除：每天約 35 個、每個約 30 KB，一年約 0.4 GB（Storage 免費 1 GB，§10），之後需要時再加清除單。
 - **secret 金鑰的資料庫 client**（只給 `daily-prep`、`purge-audio`；§4、§7.1、CLAUDE.md §5 第 14 條）：
 ```ts
 // _shared/config/env.ts（新增）
@@ -663,6 +697,33 @@ $$);
 - **未驗證，不擋開發，不開 PoC**：本機 Supabase／CI 的 pg_cron、pg_net、Vault 能不能用，以及排程實際觸發。T-025a、T-046 的 CI 只驗：migration 套得上；pgTAP 檢查 `audio` bucket 存在且 `public = false`、policy 存在、`cron.job` 有各自的 job 名稱和排程字串（pg_cron 在本機不能用時這一項改寫成跳過並在報告列為「未驗證」）；`purgeExpiredAudio` 用假 Storage／假 DB 做單元測試（過期被刪、未過期不動、`remove` 失敗不清欄位、逐字稿保留）。實際觸發在 G4 部署時實測。
 
 
+#### 4.12.4 `config.toml` 和 CI probe 的逐行比對（v1.12；回覆 #97 待確認 2；ADR-018 決定 2）
+- **事實**（讀過 repo 的實際檔案）：
+  - `.github/scripts/db-job-verify.sh` 在 repo 根目錄有 `supabase/config.toml` 時，**直接用根目錄的設定**，不會用 `.github/ci/supabase-probe/`。T-003 之後根目錄一定有這個檔案，所以 probe 只剩「沒有產品設定時」的備援分支，CI 實際上已經不用它了。
+  - 唯一還把兩個檔案綁在一起的，是 `tooling/supabase-config.test.ts` 的 AC-T3-1 第一個測試（逐行比對）。這個檔案在 `tooling/`，不是 `.github/`，產品單可以改。
+- **決定：推翻「SRE 先改 probe」的建議，改成拿掉逐行比對**，理由：
+  1. probe 已經不會被用到，再要求它和產品設定一致，只是讓每張加函式的單都得等 SRE，沒有保護到任何東西。
+  2. 依賴 SRE 先動手，T-046、T-025a 就要排隊；拿掉比對，兩張單各自就能完成。
+- **怎麼做**：
+  - **T-046**（先派工的那張；T-025a 若先派工就由它做）把 AC-T3-1 第一個測試換成「產品設定本身的檢查」：每個 `[functions.<slug>]` 區塊都有 `verify_jwt = false` 和 `import_map = "./functions/deno.json"`（CLAUDE.md §5 第 16 條），而且 `<slug>` 等於 `supabase/functions/` 底下的一個資料夾名稱。其他兩個 AC-T3-1 測試（註冊關閉、`deno.json` 的 imports）不變。
+  - 測試名稱保留 `(AC-T3-1)`，在名稱裡註明「v1.12 不再比對 probe（ARCHITECTURE §4.12.4）」。
+- **需要 SRE（不擋 T-046、T-025a）**：開一張 O 單，刪掉 `.github/ci/supabase-probe/`、`db-job-verify.sh` 的備援分支，以及 `ci.yml` 偵測條件裡的 `|| test -f .github/ci/supabase-probe/...`，讓 CI 只認產品設定（長期去掉重複）。在那之前 probe 留著也不會影響任何 job。
+- 不採用：「CI 從 `supabase/config.toml` 複製一份成 probe」：根目錄已經直接被使用，複製沒有意義。
+
+#### 4.12.5 secret 金鑰的查詢與 `user_id`（v1.12；回覆 #97 待確認 3；ADR-018 決定 3）
+- **原則不變**：用 secret 金鑰（繞過 RLS）的查詢，預設一定要帶 `user_id` 條件。
+- **明確的例外只有兩個**，都是「本來就要跨使用者」的維護工作，而且只碰最少的欄位：
+  | 檔案 | 函式 | 為什麼跨使用者 | 只能做什麼 |
+  |---|---|---|---|
+  | `_shared/db/audio-purge.ts` | `listExpired`、`clearAudioPath`（§4.12.2），以及 Storage 的 `removeObjects` | 錄音 90 天到期是全體一起清（Q-06） | `listExpired` 只讀 `id`、`audio_path`、`audio_expires_at`；`clearAudioPath` 只把 `audio_path` 設成 null，條件是 `id` 和同一個 `audio_path`；`removeObjects` 只刪 `audio` bucket 的路徑 |
+  | `_shared/db/service-db.ts` | `listProfileUserIds`（T-025a，`daily-prep` 逐一處理使用者用） | 要知道有哪些使用者 | 只讀 `profile.user_id`，不讀其他欄位 |
+- **`daily-prep` 的其他查詢都不是例外**：拿到 `userId` 之後，一律經過 `PlanStore`（`_shared/db/plan-store.ts` 的 `planStoreFrom(client, userId)`，T-025a；使用者 client 和 secret client 共用同一個實作），每個碰到使用者資料表的查詢都帶 `.eq('user_id', userId)`。`seed_chunk`、`news_article`、`news_source` 這些沒有 `user_id` 的共用表不在此限，但寫回 `card`、`daily_plan` 一定帶。
+- **用測試強制**（不用 lint，因為 lint 判斷不了一個查詢鏈有沒有帶條件）：
+  1. **用到 secret 金鑰的檔案只有固定幾個**：`tooling/secret-client-scope.test.ts`（T-046 建）掃 `supabase/functions/**` 的正式程式，`createServiceClient` 只能出現在 `_shared/db/service-db.ts`（定義，§4.12.1）、`purge-audio/index.ts`、`daily-prep/index.ts`、`_shared/db/paid-consent.ts`（CLAUDE.md §5 第 14 條）；`service-db.ts` 只能被這幾個檔案和 `_shared/db/audio-purge.ts` import。多出來的檔案 → 失敗。
+  2. **每個查詢都帶 `user_id`**：`plan-store.ts` 的測試（T-025a）用會記錄呼叫的假 `DbClient`，對每個函式檢查：碰到 `card`、`card_review`、`daily_plan`、`profile`、`evening_answer`、`question` 的每一次查詢都有 `eq('user_id', <傳進來的 userId>)`（題庫題 `user_id is null` 的讀取用 `or(user_id.eq.<id>,user_id.is.null)`，也算有帶）；`service-db.ts` 的 `listProfileUserIds` 另外測：只能 `select('user_id')`。
+  3. **例外只做表上寫的事**：`audio-purge.ts` 的測試（T-046）檢查 `listExpired` 只 select 那三個欄位、`clearAudioPath` 的 update 只有 `audio_path: null`。
+- CLAUDE.md §5 第 15 條同步改寫（加上這兩個例外和測試）。
+
 ### 4.13 `DailyPlan`、`shadow_items`、`failure` 的形狀與 `daily-prep` 的並發（S5；T-025a、T-025b、T-026、T-031、T-033、T-037、T-043；ADR-016 決定 11、12、14）
 #### 4.13.1 contracts（新增 `packages/contracts/src/plan.ts`，和 `api.ts` 同層，可以 import `errors.ts`；`index.ts` 加 `export * from './plan.ts';`）
 ```ts
@@ -691,6 +752,7 @@ export const DailyPlanSchema = z.discriminatedUnion('status', [
     noonItems: NoonItemsSchema,                  // 中午題目素材（§4.14）；備料時產生，前端只讀
     cardIds: z.array(CardIdSchema).max(25),      // 卡片內容由前端用 supabase-js 讀（§5.1 讀取類）
     tonightQuestion: z.object({ id: QuestionIdSchema, text: z.string(), category: z.enum(['intro', 'behavioral', 'technical']) }).nullable(),
+    seedRemaining: z.number().int().min(0).nullable(),   // v1.12：種子庫剩餘條數（T-025a 一律 null，T-025b 計算；§4.13.1 下方）
   }),
 ]);
 export type DailyPlan = z.infer<typeof DailyPlanSchema>;
@@ -707,11 +769,16 @@ export type AnswerFailure = z.infer<typeof AnswerFailureSchema>;
 ```
 - `daily_plan.error`（text）存 `AppErrorKind` 字串（例如 `plan_not_ready`、`unavailable`），不存訊息全文，方便用 SQL 查。T-025a 的 migration 加 check：`error is null or error in (<APP_ERROR_KINDS>)`。
 - `daily_plan.failure`（jsonb，v1.11）存 `PlanFailureSchema`（§5.9.2），`DailyPlan.failed.failure` 讀它；`error = failure.error.kind`。T-025a 的 migration 加 check：`(status = 'failed') = (failure is not null)`。
-- `failed` 的畫面：「今天的素材沒備好。」＋原因（§5.9.2 的分支表）＋「重試」。
+- `failed` 的畫面：「今天的素材沒備好。」＋原因（§5.9.2 的分支表）＋「重試」。`POST /plan/today` 三種狀態都回 200（v1.12；§11.2 第 4 步的 503 已作廢）。
+- **種子庫剩餘數**（v1.12；回覆 #97 待確認 8；T-033 的 rail「種子庫剩餘 N 條」；ADR-018 決定 6）：
+  - `DailyPlan`（ready）多一欄 `seedRemaining: z.number().int().min(0).nullable()`；資料庫 `daily_plan.seed_remaining int null`（check `>= 0`），由 **T-025a 的 migration 加欄位**（照 §4.13.3「契約在 T-025a 就全部定好」）。
+  - **T-025a**：一律寫 null（不做種子補位，沒有意義的數字不顯示）；前端看到 null 就不顯示那一行。
+  - **T-025b**：在種子轉卡**之後**、「完成」寫入之前算一次：`select count(*) from seed_chunk s where not exists (select 1 from card c where c.user_id = <userId> and c.seed_chunk_id = s.id)`，和「完成」一起寫入。所以這個數字已經扣掉今天轉成卡的種子，和當天中午看到的卡一致。
+  - 為什麼不讓前端直接查：要用「不存在」的子查詢，PostgREST 一般的讀表做不到，要另開 view 或 RPC；而且即時查的數字會跟著當天新增的卡變，和「今天的計畫」對不上。放在計畫裡，一天一個固定數字。
 
 #### 4.13.2 `daily-prep` 與 `POST /plan/today` 同時跑（T-025a）
 - **做法：用既有的主鍵 `(user_id, plan_date)` 搶「認領」，加一欄租約時間；不用 advisory lock。**
-- T-025a 的 migration：`daily_plan` 加 `claimed_at timestamptz not null default now()`、`failure jsonb`（§5.9.2），以及 `noon_items jsonb not null default '[]'::jsonb`（check：是陣列、長度 ≤ 25；內容形狀由 `NoonItemsSchema` 驗證，§4.14）。
+- T-025a 的 migration：`daily_plan` 加 `claimed_at timestamptz not null default now()`、`failure jsonb`（§5.9.2）、`seed_remaining int null`（v1.12，§4.13.1），以及 `noon_items jsonb not null default '[]'::jsonb`（check：是陣列、長度 ≤ 25；內容形狀由 `NoonItemsSchema` 驗證，§4.14）。
 - 備料核心是同一個函式，兩個入口都呼叫：
 ```ts
 // supabase/functions/_shared/plan/prepare.ts（T-025a 建、T-025b 延伸；只 import contracts、domain、_shared/db 的介面型別、_shared/news；不 import registry、wiring、adapter，LLM／TTS 由參數注入）
@@ -1106,6 +1173,112 @@ export const ShadowResultSchema = z.object({
   - 已知差異（**不確定**）：Whisper 不照參考文字辨識，會比 Azure 的 scripted 模式多出一些「聽錯」，正確率可能偏低；要等 A-002 或實際使用才知道差多少。
 - **`shadow_attempt` 的寫入**：兩種模式都寫；`pron_score`、`pron_provider` 可以是 null（既有欄位已允許）。失敗的嘗試不寫（沒有結果可寫），錄音照 §4.12 存在 Storage，90 天後清掉。
 
+### 4.19 TTS：`/tts` 契約、快取鍵、預設語音、前端播放器（v1.12；T-021、T-025b；回覆 #97 待確認 5；ADR-018 決定 5）
+- **預設語音**：`azure:en-US-AvaNeural`，就是 §4.15.1 `settings.tts.voice` 的預設值（v1.11 已定）。
+  - 常數 `DEFAULT_TTS_VOICE` 放在 contracts `src/tts.ts`；`ProviderSettingsSchema` 的 `tts.voice` 用它當預設，**全專案只寫這一次**。
+  - `/tts` 和 `daily-prep`（T-025b）都用 `SettingsSchema.parse(profile.settings).tts.voice`，所以同一位使用者兩邊一定是同一個語音，快取會命中。
+  - `SettingsSchema` 是 T-020 建的；T-021 若比 T-020 先做，先在 `settings.ts` 建 `TtsSettingsSchema`（只有 `provider`、`voice` 兩欄，照 §4.15.1），T-020 再把它組進 `ProviderSettingsSchema`，形狀不變。
+  - 用哪個聲音是產品選擇：**PM 可以改預設值**（只改 `DEFAULT_TTS_VOICE`）。語音名稱本身仍是**未驗證**（A-004）。
+  - `/tts` 的請求**不帶** `voice`（v1.10 §5.1 的 `{text, voice}` 改掉）：語音只從設定讀，避免前端和 `daily-prep` 用了不同的語音而對不上快取。
+- **快取鍵**（取代 §4.12.1 那一條的寫法，規則相同、補上正規化）：
+  - `ttsText = normalizeTtsText(text)`：去掉「/」（`stripBreaks`，§11.3）→ Unicode NFC → 連續空白（含換行）換成一個空白 → trim。contracts `tts.ts` 的純函式。
+  - 物件路徑＝`<user_id>/<sha256(voice + "\n" + ttsText) 的小寫 hex>.mp3`（`tts` bucket，§4.12.1）。
+  - 算路徑的函式只有一個：`_shared/tts/cache.ts` 的 `ttsObjectPath(userId, voice, ttsText): Promise<StoragePath>`（用 Web Crypto `crypto.subtle.digest`，Deno 和 Node 都有）。`/tts` 和 `daily-prep` 都呼叫它，不各自組字串。
+  - 測試：同一句帶「/」和不帶「/」、多空白和單空白、NFC 和 NFD，算出同一個路徑。
+- **`/tts` 的 schema**（contracts **新增 `src/tts.ts`**，`index.ts` 加 export；和 `api.ts` 同層）：
+```ts
+export const TTS_TEXT_MAX_CHARS = 1000;
+export const DEFAULT_TTS_VOICE: VoiceId = 'azure:en-US-AvaNeural';
+export function normalizeTtsText(text: string): string;
+export const TtsRequestSchema = z.object({
+  text: z.string().transform(normalizeTtsText).pipe(z.string().min(1).max(TTS_TEXT_MAX_CHARS)),
+}).strict();
+export const TtsResponseSchema = z.object({
+  audioUrl: z.string().url(),          // signed URL，3600 秒（§4.12.1）
+  path: StoragePathSchema,             // 物件路徑，前端可以存起來下次直接要 signed URL
+  durationMs: z.number().int().positive(),   // §5.6.3 的位元率換算；快取命中時用物件大小算，同一個公式
+  cached: z.boolean(),
+  meta: z.object({ ttsProvider: ProviderIdSchema, voice: VoiceIdSchema }),
+});
+```
+- **文字長度上限：1,000 字元（不採用 TechLead 提的 3,000）**：
+  - **Azure 的限制**（官方 quotas 頁，2026-11-27 讀取）：REST 一次最多產生 **10 分鐘**的音檔；F0 每 60 秒最多 20 次請求。官方**沒有寫** REST 的文字字元上限：**不確定**。
+  - 3,000 字元約 500 個英文字、約 3.5 分鐘，在 10 分鐘內；但用 48 kbps mp3 換算約 1.3 MB，接近 `tts` bucket 單檔 2 MB 的上限，Azure 合成時間也比較長，比較容易撞到 Edge Function 的時間限制（**未驗證**）。
+  - 實際要念的都是**一句一句**：新聞句和跟讀句最多 25 個字（§4.6）、字卡和例句更短；AC-17 的 Senior 版也照 `senior[]` 一句一句念（播放器排隊播，見下）。**沒有任何功能要一次念整篇**。1,000 字元（約 170 個字、約 70 秒、約 0.4 MB）已經是最長一句的好幾倍，也離 2 MB 很遠。
+  - 所以取比較保守的 1,000。超過時回 400 `validation`（`issues` 指向 `text`）。之後真的需要更長，改常數就好，不改契約。
+- **`audio/player`**（前端 `apps/web/src/audio/player.ts`，T-021；`audio/` 不能直接連網，§3.1，所以拿網址的函式由呼叫端注入）：
+```ts
+export type PlaySource =
+  | { readonly kind: 'text'; readonly text: string }            // 呼叫 /tts
+  | { readonly kind: 'path'; readonly path: StoragePath };      // 已有物件（例如 shadow_items[i].tts_path），只要 signed URL
+export type PlayerState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'loading'; readonly source: PlaySource }
+  | { readonly kind: 'playing'; readonly source: PlaySource; readonly repeat: { readonly index: number; readonly total: number } }
+  | { readonly kind: 'error'; readonly source: PlaySource; readonly error: ApiErrorBody['error'] };
+export type PlayerDeps = {
+  readonly resolve: (source: PlaySource) => Promise<Result<{ readonly url: string; readonly durationMs: number | null }, ApiErrorBody['error']>>;   // apps/web/src/api 實作（/tts 或 createSignedUrl）
+  readonly createAudio: () => HTMLAudioElement;                 // 測試傳假的
+};
+export interface AudioPlayer {
+  /** 播 1 次或 repeat 次（AC-04 原音 2 遍）；也可以傳多個 source 依序播（AC-17 Senior 版一句一句）。新的 play 會先停掉正在播的。 */
+  play(sources: PlaySource | readonly PlaySource[], opts?: { readonly repeat?: number }): Promise<Result<'ended' | 'stopped', ApiErrorBody['error']>>;
+  stop(): void;
+  getState(): PlayerState;
+  subscribe(listener: (state: PlayerState) => void): () => void;   // 回傳取消訂閱
+}
+export function createAudioPlayer(deps: PlayerDeps): AudioPlayer;
+```
+  - **同一時間只播一個**。播放器不管錄音：「播完原音才開始錄」的順序由錄音頁自己控制（T-028、T-031）。
+  - **錯誤**：`resolve` 失敗或 `<audio>` 的 `error` 事件 → 狀態變 `error`，帶 §5.0.4 的錯誤；畫面顯示錯誤和「重試」（再呼叫一次 `play`），**不改用 Web Speech**（§4.13.3）。
+  - **和 SW 的關係**：播放器只拿網址交給 `<audio>`；快取由 SW 做（TTS 物件 cache-first、忽略查詢字串，§4.12.1、§9）。所以第二次播同一句不會再下載，播放器不用自己快取。`/tts` 的回應本身不快取（每次的 signed URL 不同），但伺服器端物件已經在，第二次只是發新網址。
+  - 畫面（播放鈕、載入中、錯誤樣式）由 Designer 定；這裡只定狀態。
+- `card.tts_path`、`shadow_items[i].tts_path` 只是捷徑（§4.12.1）：有值就用 `{kind:'path'}`，沒有就用 `{kind:'text'}`。
+
+### 4.20 面試內建題庫（B-004；AC-13、Q-23；回覆 #97 待確認 9；ADR-018 決定 7）
+- **做法照種子庫**（§4.10）：資料檔＋純函式檢查器＋Claude 手寫 migration＋vitest 逐字比對（drift）＋先給 Hansheng 抽查。檢查器放在 `packages/seed-data`（§4.10.1）。
+- **檔案**：
+| 檔案 | 內容 | 建立的單 |
+|---|---|---|
+| `supabase/question-bank/bank-<n>.json` | 一批題目（n 從 1 起；第 1 批就要滿足下面的數量規則） | B-004 |
+| `supabase/question-bank/bank-<n>.sample.md` | 抽查樣本（`renderQuestionSample` 的輸出，Claude 手寫、測試比對逐字相同） | B-004 |
+| `supabase/migrations/<時間戳記>_b004_question_bank_<n>.sql` | 匯入（`renderQuestionMigration` 的輸出，Claude 手寫） | B-004 |
+| `packages/seed-data/src/question-bank.ts`、`question-bank.test.ts` | 檢查器、產生器、drift 測試 | B-004 |
+- **資料格式**（contracts `src/question.ts` 新增；`question` 表 T-005 已有，**不改表**）：
+```ts
+export const QUESTION_CATEGORIES = ['intro', 'behavioral', 'technical'] as const;   // = question_category_check
+export const BankQuestionSchema = z.object({
+  id: z.uuid(),                        // 寫在 JSON 裡、固定不變（daily_plan.tonight_question_id 會參照它，on delete restrict）
+  category: z.enum(QUESTION_CATEGORIES),
+  text: z.string(),                    // 規則見 QB2
+});
+export const QuestionBankBatchSchema = z.object({ batch: z.number().int().min(1), items: z.array(BankQuestionSchema) });
+```
+- **檢查規則**（`checkQuestionBatch(input, others)`，全部 issue 一次回傳）：
+  | # | 規則 |
+  |---|---|
+  | QB1 | `category` 是三類之一 |
+  | QB2 | `text`：trim 後和原值相同；`newsWords` 5～40 個字（和 §5.8.6 履歷題相同）；不含換行和「/」；結尾是 `?` 或 `.`（祈使句如 `Tell me about …`）。**題目語言待 PM**：PM 決定之前，檢查器只要求「不含漢字」（英文題目）；如果 PM 要加中文說明，`question` 表要另加欄位（另開 migration），本格式先不放 |
+  | QB3 | 第 1 批至少 30 題，三類各至少 10 題（B-004、Q-23）；之後的批次只要 ≥ 1 題 |
+  | QB4 | `id` 在同批和所有批次之間不重複 |
+  | QB5 | `text` 正規化（轉小寫、去標點、空白壓成一個）後，在同批和所有批次之間不重複 |
+  | QB6 | `batch` 等於檔名的 `<n>`；同一個 `batch` 只有一個檔案 |
+  - **技術題的主題清單待 PM**（PRD 只寫「半導體設備系統軟體、AI 開發與應用」）。清單定了之後，再決定要不要加 `topic` 欄位和「每個主題至少幾題」的規則；在那之前檢查器不檢查主題，由 Hansheng 抽查。
+- **migration 格式**（照 §4.10 的寫法：順序照 JSON、兩個空白縮排、`'` 寫成 `''`、不寫 `on conflict`）：
+```sql
+-- B-004 question bank batch <n> (generated format: packages/seed-data/src/question-bank.ts renderQuestionMigration; source supabase/question-bank/bank-<n>.json).
+insert into public.question (id, source, category, text) values
+  ('<uuid>', 'bank', '<category>', '<text>'),
+  ('<uuid>', 'bank', '<category>', '<text>');
+```
+  - `user_id`、`resume_id`、`cited_experience` 都不寫（null），`retired` 用預設 false：符合 `question_source_owner_check`、`question_retired_check`。
+- **每次抽 5 題給 Hansheng 抽查**：
+  - `renderQuestionSample(batch)`＝`sampleWithSeed(batch.items, 5, QUESTION_SAMPLE_SEED)`（`packages/domain/src/prng.ts`，§4.10），`QUESTION_SAMPLE_SEED = 20261128`，固定不改；輸出 Markdown 表格（#、category、text）。
+  - **每一批**都抽 5 題（不是只有第 1 批），因為題庫每批都會直接出現在晚上的題目裡。Hansheng 看 `bank-<n>.sample.md`，通過才合併那一批的 PR；不通過就整批重寫（換題後樣本會跟著變）。
+  - `prng.ts` 由 T-050、T-025b、B-004 中**先派工的那張**建（§4.10 原本寫 T-050、T-025b，這裡加上 B-004）。
+- **drift 測試**：照 §4.10，每個 `bank-<n>.json` 都要有逐字相同的 migration 和 sample；反過來也一樣；還沒有任何批次時不失敗。
+- **排在 T-039 之前**（TASKS 已經這樣排）：沒有履歷題也沒有題庫題時，今晚題目是 null（§4.5、#91 的過渡做法）。
+
 ## 5. API 與供應商契約
 ### 5.0 共用型別（`@english-coach/contracts`，ARCH-003；決策見 ADR-009）
 - **擁有者**：本節所有型別、zod schema 與純函式都在 `packages/contracts`（套件名稱 `@english-coach/contracts`，引用方式見 ADR-009 決定 1）。例外會在註解寫明（例如 `PaidConsent` 的建立函式在 registry，錯誤訊息文字在前端）。
@@ -1406,7 +1579,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | 端點 | 輸入 → 輸出 | 時間預算 | AC |
 |---|---|---|---|
 | `GET /health` | — → `{ ok: true }`（`HealthResponseSchema`）；沒有或無效 JWT → 401 `unauthenticated` | ≤ 1 s | NFR-05、AC-23（基礎） |
-| `POST /plan/today` | — → `DailyPlan`（冪等；已存在就直接回傳） | ≤ 2 s（已備好時） | AC-01、AC-05、AC-07、AC-13 |
+| `POST /plan/today` | — → `DailyPlan`（冪等；已存在就直接回傳；`pending`／`ready`／`failed` 都是 200，§11.2 v1.12） | ≤ 2 s（已備好時） | AC-01、AC-05、AC-07、AC-13 |
 | `POST /cards` | `{chunk, sourceSentence, sourceType, meaningZh?, exampleEn?, synonyms?}` → `Card`（**不呼叫 AI**；`exampleEn`、`synonyms` 是 v1.11 為手動生卡確認加的，§5.8.4） | ≤ 1 s p95（未驗證） | AC-03、AC-06、AC-16 |
 | `POST /cards/lookup` | `{selection, sentence}` → `{meaningZh, meta}`（反白任意詞句時才用；§5.8.2） | 見 §8 | AC-03 |
 | `POST /cards/generate` | `{input}` → 串流 NDJSON（每行一個 `CardStreamEvent`：chunk → example → synonyms → done；**不建卡**，確認後前端呼叫 `POST /cards`；§5.8.4） | 見 §8、ADR-005 | AC-10 |
@@ -1419,7 +1592,7 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | `POST /evening/upgrade` | `{answerId, chunkIndexes}` → 新字卡（`priority_new=true`） | ≤ 2 s | AC-16、AC-07 |
 | `POST /resume` | `{storagePath, redactedText}` → `Question[15～20]`（§5.8.6） | ≤ 60 s | AC-11 |
 | `DELETE /resume` | — → `{deleted: true}`（刪 Storage 原檔、`redacted_text`；舊題標 retired） | ≤ 5 s | AC-12 |
-| `POST /tts` | `{text, voice}` → `{audioUrl}`（有快取就直接回） | ≤ 3 s | AC-04、AC-05、AC-10、AC-17 |
+| `POST /tts` | `TtsRequest {text}` → `TtsResponse {audioUrl, path, durationMs, cached, meta}`（語音從設定讀、不帶在請求裡；上限 1,000 字元；有快取就直接回；§4.19） | ≤ 3 s | AC-04、AC-05、AC-10、AC-17 |
 | `POST /settings` | `SettingsPatch` → `{settings, slotStart}`（合併規則 §4.15.2；伺服器用 `SettingsSchema` 驗證：付費同意（ADR-003）、`srs` 間隔規則（§4.2）、`news` 輪替（§11.2））；付費同意與月上限經 `_shared/db/paid-consent.ts` 呼叫 `set_paid_consent()`（§4.9） | ≤ 1 s | AC-09、AC-24、AC-25 |
 | `POST /checkins` | `CheckinEvent`（`{planDate, slot, step, status}`）→ 204；冪等（重送同一事件視為成功）；`planDate` 只能是台北今天或昨天；`opened` 只在當下的時段內才寫（§4.15.3） | ≤ 1 s | AC-04、AC-21、AC-26、M1 |
 | `POST /retry/:answerId` | — → `{step, result}`（從 `failure.step` 重做；條件與回應見 §4.16.3） | 同原端點 | AC-25 |
@@ -1731,13 +1904,18 @@ export function createGroqProvider(deps: GroqDeps): SttProvider;
 | 自己的 `AbortController` 逾時中止；HTTP 408、504 | `timeout` |
 | `fetch` 丟出網路錯誤 | `unavailable` |
 | 429，且標頭 `x-ratelimit-remaining-requests` 是 `0` | `quota_exhausted`（官方：這個標頭一律指**每日**請求數 RPD） |
-| 429，且 `error.message` 含 `per day`、`RPD`、`ASD`、`ASH` 或 `audio seconds`（不分大小寫） | `quota_exhausted`（每日或每小時的音訊秒數用完；訊息格式**不確定**） |
+| 429，且 `error.message` 符合「每日額度訊息」（規則見表下，v1.12） | `quota_exhausted`（每日或每小時的音訊秒數用完；訊息格式**不確定**） |
 | 其他 429 | `rate_limited`（每分鐘請求數 RPM） |
 | 401、403 | `auth` |
 | 404 | `not_configured`（模型不存在；訊息寫模型名稱） |
 | 422 | `invalid_response`（官方：請求格式對但無法處理，可能是模型幻覺，可以重試） |
 | 400、413、其他 4xx（含 Groq 自訂的 498）、3xx | `unavailable`（訊息寫 HTTP 狀態和 `error.type`） |
 | 500、502、503、其他 5xx | `unavailable` |
+- **「每日額度訊息」的比對規則**（v1.12；ADR-018 決定 8；修正 v1.10「不分大小寫的子字串」會讓 `hash`、`crash` 命中 `ASH` 的問題）：純函式 `isGroqDailyQuotaMessage(message: string): boolean`，符合下列任一就是 `true`：
+  - 片語，**不分大小寫、要有字邊界**：`/\bper day\b/i`、`/\baudio seconds\b/i`。
+  - 縮寫，**要大寫、要有字邊界**：`/\b(RPD|ASD|ASH)\b/`（不加 `i`）。括號、冒號、空白都算字邊界，所以 `(ASH)`、`ASH:` 會命中；`hash`、`crash`、`Hash`、`HASH`、`ashes` 不會。
+  - 只看 `error.message`；`error.type`、`error.code` 的值是什麼**不確定**（官方錯誤頁沒有列），不拿來判斷。
+  - **測試要求**（T-016 的 AC-T16-6、TC-12 要改）：正例 `Rate limit reached ... on audio seconds per hour (ASH): Limit 7200`、`... requests per day (RPD) ...`、`Audio Seconds per day`；**反例**（都要是 `rate_limited`）：`hash mismatch`、`server crash`、`Hash`、`HASH`、`rpd`（小寫縮寫不算，因為一般英文字也可能剛好是這幾個字母）。
 - `retryAfterSec`：兩種 429 都照 §5.5 第 6 點讀 `retry-after`（官方：只在 429 時給，單位秒）。和 Gemini 不同（Gemini 的每日額度一律 `null`）：Groq 的 `retry-after` 是官方標頭，直接採用。但每日額度的 `retry-after` 是否代表真正的重置時間：**不確定**。
 - **分不出來時的保守預設**是 `rate_limited`：使用者看到「約 n 秒後可重送」，重送失敗時下一次 429 多半會帶 `x-ratelimit-remaining-requests: 0` 或每日訊息，就會改成 `quota_exhausted`。
 - 本專案每天只有 2 段錄音（§10），實際撞到 429 的機會很小。
@@ -2276,7 +2454,13 @@ RSS 都在 2026-11-22 18:5x（台北時間）實測回 200；robots.txt 以 Pyth
   1. 在 `planned` 類別內，依 `priority` 1→2→3 試每個啟用的來源，找第一篇「`lookback_hours` 內發布、還沒用過（URL 與原文雜湊都沒出現過）、正文 ≥ 250 字、LLM 判定屬於該類別」的文章。來源抓取失敗（HTTP 錯誤、逾時、robots 不允許）視為該來源沒有新聞，換下一個來源。
   2. 整個類別都沒有（`_shared/news` 對該類別回 `err({ kind: 'news_unavailable', category })`）→ 依 `rotation_order` 換**下一個**類別（`ai → software → semiconductor → ai`），把跳過的類別記入 `category_skipped`。
   3. 三類都沒有 → 改用最近一篇未讀的已改寫文章（優先 `planned` 類別），`is_fallback_article=true`，頁面註明「今天沒有新文章，這是 <日期> 的文章」（AC-01）。
-  4. 連舊文章都沒有（例如第一天）→ `daily_plan.status=failed`，首頁顯示原因與重試，其他練習照常。此時 `POST /plan/today` 回 `plan_not_ready`（503／可重試），**不是** `news_unavailable`：`news_unavailable` 只在 `daily-prep` 內部用來決定換類別，不直接回給前端（萬一漏到 handler，`httpStatusOf` 仍回 503、可重試，見 §5.0.4）。
+  4. 連舊文章都沒有（例如第一天）→ `daily_plan.status=failed`，首頁顯示原因與重試，其他練習照常。v1.11 以前這裡寫「`POST /plan/today` 回 `plan_not_ready`（503）」，v1.12 作廢，見下。`news_unavailable` 不會當成 HTTP 錯誤回給前端（萬一漏到 handler，`httpStatusOf` 仍回 503、可重試，見 §5.0.4）。
+- **v1.12 修正（回覆 #97 待確認 4；ADR-018 決定 4）**：上面第 4 步「`POST /plan/today` 回 `plan_not_ready`（503）」作廢，和 §4.13.1、§5.9.2 統一成：
+  - 連舊文章都沒有 → `daily_plan.status = 'failed'`，`failure = { step: 'news', error: { kind: 'news_unavailable', retryable: true, … }, timeout_sec: null, failed_at }`，`error = 'news_unavailable'`。
+  - `POST /plan/today` 回 **200**＋`{ status: 'failed', planDate, failure }`（`DailyPlanSchema`）。`pending`、`ready`、`failed` 三種都是 200；只有還沒拿到計畫列之前的錯誤（未登入 401、認領時資料庫錯誤 500 `db_failed`）才回錯誤狀態碼。
+  - `news_unavailable` 出現在 `failure.error` 裡，是「回應內容的一部分」，不是 HTTP 錯誤，所以和「`news_unavailable` 不直接回給前端」的原意不衝突；前端照 §5.9.2 顯示「三類都沒有新文章，也沒有還沒讀過的舊文章。」。
+  - 改寫失敗而且沒有舊文章 → `failure.step = 'rewrite'`，`error` 是改寫的那個供應商錯誤（§5.9.2）。
+  - `plan_not_ready` 保留給**其他端點**「需要今天的計畫但還沒有」的情況（例如計畫還沒 `ready` 就呼叫 `/shadow/attempts`），不再用在 `/plan/today`。
 - 頁面顯示「今天的類別：AI／軟體工程／半導體產業」；換過類別時多一行「今天的 <原類別> 沒有新文章，改用 <實際類別>」。
 - 測試（`domain`，時間由參數注入）：連續 9 天的類別序列；三種跳類別情況；三類全空時改用舊文章；`anchor_date` 之前的日期（mod 負數）也正確。
 
@@ -2442,7 +2626,7 @@ english-coach/
 │     ├─ tsconfig.json           # lib ES2023＋WebWorker（ADR-010）
 │     ├─ .env.example            # 只有變數名稱（§7.1）
 │     ├─ _types/deno.d.ts        # 最小 Deno 宣告（ADR-010）
-│     ├─ _shared/{config,db,providers,news,plan,ai,settings}/   # plan：備料核心 prepare.ts（§4.13.2）；ai：LLM 呼叫（§5.8）；settings：合併規則（§4.15.2）
+│     ├─ _shared/{config,db,providers,news,plan,ai,settings,tts}/   # plan：備料核心 prepare.ts（§4.13.2）；ai：LLM 呼叫（§5.8）；settings：合併規則（§4.15.2）
 │     ├─ api/                    # 單一路由函式（減少冷啟動次數）：index.ts（Deno.serve）＋router.ts（OPTIONS、requireUser、路由表）
 │     ├─ daily-prep/             # 05:00 備料（pg_cron 觸發）
 │     └─ purge-audio/            # 90 天清錄音（pg_cron 觸發）
@@ -2530,6 +2714,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 - 前端設計基礎（2026-11-26 讀取）：Cloudflare Pages 建置與環境變數 https://developers.cloudflare.com/pages/configuration/build-configuration/ 、https://developers.cloudflare.com/pages/functions/bindings/ ；Pages `_headers`（CSP）https://developers.cloudflare.com/pages/configuration/headers/ ；Supabase Auth Redirect URLs 萬用字元 https://supabase.com/docs/guides/auth/redirect-urls ；`:has()` https://developer.mozilla.org/en-US/docs/Web/CSS/:has ；Vite `build.target` https://vite.dev/guide/migration 、https://v7.vite.dev/config/build-options ；決策見 ADR-014
 - 語音 adapter（Azure 短音訊 REST、發音評估、TTS REST、配額；Groq STT、API reference、速率限制、錯誤碼；2026-11-27 讀取）：見 ADR-015「參考」
 - 種子庫、Storage bucket 與 RLS、pg_cron 排程、Edge Function 限制、Postgres 日期函式 volatility（2026-11-27 讀取）：見 ADR-016「參考」
+- 寫單契約補充（Azure Speech 配額與限制；2026-11-27 讀取）：見 ADR-018「參考」
 - 產品契約第二批（Web Audio `AnalyserNode`、Vite 環境變數與 HTML 取代、Edge Function 限制；2026-11-27 讀取）：見 ADR-017「參考」
 
 ## 18. 變更紀錄
@@ -2551,3 +2736,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
+| v1.12 | 2026-11-27 | 寫單契約補充（回覆 TechLead PR #97「待確認問題」第 1～5、8～10 題）：新增 ADR-018。依賴 v1.11（PR #96）。<br>• §4.10.1：種子庫與題庫的檢查器移到新的 workspace 套件 `@english-coach/seed-data`（`packages/seed-data/`），依賴規則、dependency-cruiser 2 條、lockfile 更新方式；根目錄 `package.json` 不變。<br>• §4.12.4：拿掉 `config.toml` 和 CI probe 的逐行比對（probe 自 T-003 起未被使用）；刪 probe 是 SRE 的 O 單，不擋產品單。<br>• §4.12.5：secret 金鑰查詢的 `user_id` 規則只有兩個例外（清錄音、列出使用者），用測試強制；CLAUDE.md §5 第 15 條同步。<br>• §11.2 第 4 步：沒有舊文章時改成 200＋`failed`＋`failure`（`news_unavailable`），和 §4.13.1、§5.9.2 一致。§4.6：T-025a 從前一晚的 `diagnosis.senior[].text` 讀改寫句。<br>• §4.13.1：`DailyPlan.seedRemaining`／`daily_plan.seed_remaining`（種子庫剩餘數，T-033）。<br>• §4.19：TTS 預設語音、快取鍵正規化、contracts `tts.ts`、文字上限 1,000 字元（Azure REST 字元上限不確定）、`audio/player` 介面。§4.20：面試題庫的格式、QB1～QB6、migration、每批抽 5 題（語言與技術題主題待 PM）。<br>• §5.7.4：Groq 每日額度訊息改成完整單字比對（縮寫要大寫），附正反例測試要求。§3.1、§5.1、§12 同步。 |
