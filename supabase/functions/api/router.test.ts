@@ -2,7 +2,14 @@ import { ApiErrorBodySchema, err, ok, HealthResponseSchema, type AppError, type 
 import { describe, expect, it } from 'vitest';
 import type { KeyPresence } from '../_shared/config/env.ts';
 import type { TokenClaims, VerifyToken } from '../_shared/db/auth.ts';
-import { createRouter, ROUTES, routePath, type RouterDeps } from './router.ts';
+import type { UserDb } from '../_shared/db/user-db.ts';
+import { createRouter, ROUTES, routePath, type RouteDeps, type RouterDeps } from './router.ts';
+
+const NEVER_DB: UserDb = {
+  insertProviderCall: () => Promise.resolve(ok(null)),
+  insertCheckin: () => Promise.resolve(ok(null)),
+};
+const ROUTE_DEPS: RouteDeps = { userDb: () => NEVER_DB, now: () => new Date('2026-11-27T04:00:00Z') };
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c1a-0d2e6f7a8b9c';
 const PRESENCE: KeyPresence = { hasSupabaseUrl: true, hasPublishable: true, hasSecret: true, onlyLegacyKeys: false };
@@ -15,6 +22,7 @@ function harness(opts: {
   readonly verify?: VerifyToken;
   readonly auth?: Result<{ readonly verifyToken: VerifyToken }, AppError>;
   readonly origins?: readonly string[];
+  readonly routeDeps?: Result<RouteDeps, AppError>;
 }): Harness {
   let calls = 0;
   const inner: VerifyToken = opts.verify ?? (() => Promise.resolve(ok(GOOD)));
@@ -25,6 +33,7 @@ function harness(opts: {
   const logs: string[] = [];
   const deps: RouterDeps = {
     auth: opts.auth ?? ok({ verifyToken: counted }),
+    routeDeps: opts.routeDeps ?? ok(ROUTE_DEPS),
     allowedOrigins: opts.origins ?? ['http://localhost:5173'],
     keyPresence: PRESENCE,
     log: (line) => {
@@ -92,6 +101,17 @@ describe('GET health', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5173');
     expect(res.headers.get('Vary')).toBe('Origin');
+  });
+});
+
+describe('routeDeps wiring', () => {
+  it('(AC-T53-7) (TC-13) GET /health is 200 { ok: true } whether routeDeps is ok or err', async () => {
+    for (const routeDeps of [ok(ROUTE_DEPS), err<AppError>({ kind: 'internal', message: 'x' })]) {
+      const h = harness({ routeDeps });
+      const res = await h.handle(req('GET', '/api/health', bearer));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true });
+    }
   });
 });
 

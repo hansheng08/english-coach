@@ -1,12 +1,16 @@
 import { httpStatusOf, toApiErrorBody, type AppError, type HealthResponse, type Result } from '@english-coach/contracts';
 import { formatAdr010EnvLine, type KeyPresence } from '../_shared/config/env.ts';
 import { requireUser, type AuthContext, type RequireUserDeps } from '../_shared/db/auth.ts';
+import type { UserDb } from '../_shared/db/user-db.ts';
+import { postCheckins } from './checkins.ts';
 
-export type Route = (req: Request, ctx: AuthContext) => Promise<Response>;
-export type RouteKey = 'GET /health';
+export type RouteDeps = { readonly userDb: (ctx: AuthContext) => UserDb; readonly now: () => Date };
+export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise<Response>;
+export type RouteKey = 'GET /health' | 'POST /checkins';
 
 export type RouterDeps = {
   readonly auth: Result<RequireUserDeps, AppError>;
+  readonly routeDeps: Result<RouteDeps, AppError>;
   readonly allowedOrigins: readonly string[];
   readonly keyPresence: KeyPresence;
   readonly log: (line: string) => void;
@@ -14,7 +18,7 @@ export type RouterDeps = {
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
-const health: Route = () => {
+const health = (): Promise<Response> => {
   const body: HealthResponse = { ok: true };
   return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: JSON_HEADERS }));
 };
@@ -22,6 +26,7 @@ const health: Route = () => {
 /** 沒有公開路由：每一條都只會在 requireUser 成功後被呼叫。 */
 export const ROUTES: Readonly<Record<RouteKey, Route>> = {
   'GET /health': health,
+  'POST /checkins': postCheckins,
 };
 
 const PATH_PREFIX = /^(?:\/functions\/v1)?(?:\/api)?(\/.*)$/;
@@ -82,7 +87,10 @@ export function createRouter(deps: RouterDeps): (req: Request) => Promise<Respon
           cors,
         );
       }
-      return withCors(await ROUTES[key](req, user.value), cors);
+      // health 不使用 deps：routeDeps 載入失敗時仍要回 200。
+      if (key === 'GET /health') return withCors(await health(), cors);
+      if (!deps.routeDeps.ok) return errorResponse(deps.routeDeps.error, cors);
+      return withCors(await ROUTES[key](req, user.value, deps.routeDeps.value), cors);
     } catch (e) {
       deps.log(`api-handler-error name=${e instanceof Error ? e.name : 'unknown'}`);
       return errorResponse({ kind: 'internal', message: 'unhandled error' }, cors);
