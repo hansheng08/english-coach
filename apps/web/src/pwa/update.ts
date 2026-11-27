@@ -1,5 +1,7 @@
-/** registerSW 的形狀（和 virtual:pwa-register 的相同；實作在 register.ts，不用那個虛擬模組，原因見該檔）。 */
-export type RegisterSW = (options: { onNeedRefresh?: () => void }) => (reloadPage?: boolean) => Promise<void>;
+import { registerServiceWorker } from './register';
+import type { RegisterSW } from './register';
+
+export type { RegisterSW };
 
 /**
  * 「要不要現在顯示新版卡片」的唯一判斷點。本單恆為顯示；之後若加錄音中暫緩之類的條件，只改這裡。
@@ -10,10 +12,9 @@ export function shouldShowUpdatePrompt(): boolean {
 
 /**
  * 有新版（SW 等待中）時呼叫 onNeedUpdate，並交出 apply（重新載入成新版）。不自動重整。
- * register 由呼叫端傳入（main.tsx 傳 register.ts 的 registerServiceWorker）；沒傳就什麼都不註冊。
+ * register 沒傳就用 register.ts 的 registerServiceWorker（不支援 SW 的環境它什麼都不做）。
  */
-export function watchForUpdate(onNeedUpdate: (apply: () => Promise<void>) => void, register?: RegisterSW): void {
-  if (register === undefined) return;
+export function watchForUpdate(onNeedUpdate: (apply: () => Promise<void>) => void, register: RegisterSW = registerServiceWorker): void {
   const updateSW = register({
     onNeedRefresh() {
       if (shouldShowUpdatePrompt()) {
@@ -31,3 +32,8 @@ export const previewUpdateRegister: RegisterSW = (options) => {
   options.onNeedRefresh?.();
   return () => Promise.resolve();
 };
+
+/** 只有預覽（mock）建置且網址帶 ?pwa=update 才用 previewUpdateRegister；其餘（含正式建置）一律真的註冊 SW。 */
+export function chooseRegister(previewActive: boolean, search: string): RegisterSW {
+  return previewActive && new URLSearchParams(search).get('pwa') === 'update' ? previewUpdateRegister : registerServiceWorker;
+}

@@ -98,6 +98,27 @@ describe('registerWith', () => {
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
+  it('(AC-T19-17) (TC-27) apply reloads once when another tab already activated the new version, without posting anything', async () => {
+    const { worker, postMessage } = fakeWorker('installed');
+    let waiting: WorkerLike | null = worker;
+    const reg: RegistrationLike = {
+      get waiting() {
+        return waiting;
+      },
+      installing: null,
+      addEventListener: vi.fn(),
+    };
+    const onNeedRefresh = vi.fn();
+    const reload = vi.fn();
+    const apply = registerWith({ onNeedRefresh }, fakeContainer({}, reg).container, reload);
+    await flush();
+    expect(onNeedRefresh).toHaveBeenCalledTimes(1);
+    waiting = null;
+    await apply(true);
+    expect(reload).toHaveBeenCalledTimes(1);
+    expect(postMessage).not.toHaveBeenCalled();
+  });
+
   it('(AC-T19-3) (TC-4) without service worker support nothing is registered and apply resolves', async () => {
     const apply = registerWith({}, undefined, vi.fn());
     await expect(apply(true)).resolves.toBeUndefined();

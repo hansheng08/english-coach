@@ -50,7 +50,11 @@ export function RequireSession({ children }: { readonly children: ReactNode }) {
 function Layout({ register }: { readonly register: RegisterSW | undefined }) {
   const { preview } = useApi();
   const online = useOnlineStatus();
-  const [openedOffline] = useState(() => !window.navigator.onLine);
+  // 「離線開啟」只在開啟時離線、而且還沒恢復過連線時成立；恢復後再斷線只多斷線條，內容區不換掉。
+  const [openedOffline, setOpenedOffline] = useState(() => !window.navigator.onLine);
+  useEffect(() => {
+    if (online) setOpenedOffline(false);
+  }, [online]);
   const applyUpdate = useUpdateApply(register);
   return (
     <>

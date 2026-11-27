@@ -1,4 +1,5 @@
-import type { RegisterSW } from './update';
+/** registerSW 的形狀（和 virtual:pwa-register 的相同；放在這裡，update.ts 再匯出，避免兩檔循環相依）。 */
+export type RegisterSW = (options: { onNeedRefresh?: () => void }) => (reloadPage?: boolean) => Promise<void>;
 
 /*
  * Service Worker 註冊。不用 virtual:pwa-register：它需要 workbox-window，而任務單不准加 workbox 相關依賴
@@ -55,7 +56,11 @@ export function registerWith(options: { onNeedRefresh?: () => void }, container:
 
   return () => {
     const waiting = registration?.waiting ?? null;
-    if (waiting === null) return Promise.resolve();
+    if (waiting === null) {
+      // 別的分頁已讓新版接手：這個分頁沒有東西在等，直接重新載入成新版。
+      if (registration !== undefined) reload();
+      return Promise.resolve();
+    }
     return new Promise<void>((resolve) => {
       let reloaded = false;
       container.addEventListener('controllerchange', () => {

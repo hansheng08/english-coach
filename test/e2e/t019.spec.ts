@@ -28,6 +28,13 @@ async function serviceWorkerReady(page: Page) {
   });
 }
 
+/** 卡片上所有動畫（ec-up 上移＋淡入）都結束後才量位置；決定性等待，不用固定時間。 */
+async function animationsFinished(locator: Locator) {
+  await locator.evaluate(async (el) => {
+    await Promise.all(el.getAnimations().map((a) => a.finished));
+  });
+}
+
 const offlineBar = (page: Page) => page.getByRole('status').filter({ hasText: OFFLINE_TITLE });
 const updateCard = (page: Page) => page.getByRole('status').filter({ hasText: UPDATE_TITLE });
 
@@ -46,7 +53,7 @@ async function themeColors(page: Page) {
 }
 
 test.describe('service worker cache', () => {
-  test('(AC-T19-4) (TC-5) Cache Storage holds only same-origin shell URLs, the four icons, and nothing under /functions/', async ({ page, baseURL }) => {
+  test('(AC-T19-4) (AC-T19-15) (TC-5) (TC-22) Cache Storage holds only same-origin shell URLs, the four icons, and nothing under /functions/', async ({ page, baseURL }) => {
     await page.goto('/');
     await serviceWorkerReady(page);
     const urls = await page.evaluate(async () => {
@@ -63,7 +70,7 @@ test.describe('service worker cache', () => {
       expect(new URL(url).origin).toBe(origin);
       expect(url).not.toContain('/functions/');
     }
-    for (const icon of ICON_FILES) expect(urls.some((u) => u.endsWith(`/icons/${icon}`))).toBe(true);
+    for (const icon of ICON_FILES) expect(urls.some((u) => new URL(u).pathname.endsWith(`/icons/${icon}`))).toBe(true);
   });
 
   test('(AC-T19-1) (AC-T19-2) the served manifest is linked from the page and its four icons are fetchable', async ({ page, request }) => {
@@ -84,6 +91,21 @@ test.describe('service worker cache', () => {
 
 test.describe('offline', () => {
   test.use({ viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true });
+
+  test('(AC-T19-16) (TC-26) offline cold open, back online, offline again: the page stays and only the bar returns', async ({ page, context }) => {
+    await page.goto('/');
+    await serviceWorkerReady(page);
+    await context.setOffline(true);
+    await page.reload();
+    await expect(page.getByText(PANEL_TITLE)).toBeVisible();
+    await context.setOffline(false);
+    await expect(page.getByRole('button', { name: '帳號與外觀' })).toBeVisible();
+    await expect(page.getByText(PANEL_TITLE)).toHaveCount(0);
+    await context.setOffline(true);
+    await expect(offlineBar(page)).toBeVisible();
+    await expect(page.getByRole('button', { name: '帳號與外觀' })).toBeVisible();
+    await expect(page.getByText(PANEL_TITLE)).toHaveCount(0);
+  });
 
   test('(AC-T19-5) (TC-7) going offline shows the status bar without a button; coming back removes it', async ({ page, context }) => {
     await page.goto('/');
@@ -155,11 +177,14 @@ test.describe('update card', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 360, height: 640 }, hasTouch: true, isMobile: true });
 
-    test('(AC-T19-9) (TC-12) (TC-13) 12px from the sides, 76px from the bottom, the last content above it, and the button is at least 48x88', async ({ page }) => {
+    test('(AC-T19-9) (AC-T19-15) (TC-12) (TC-13) (TC-23) 12px from the sides, 76px from the bottom, the last content above it, and the button is at least 48x88', async ({
+      page,
+    }) => {
       await page.goto('/?pwa=update');
       const card = updateCard(page);
       await expect(card).toBeVisible();
       await expect(card).toContainText('按更新會重新載入頁面。');
+      await animationsFinished(card);
       const box = await boxOf(card);
       expect(Math.round(box.x)).toBe(12);
       expect(Math.round(360 - (box.x + box.width))).toBe(12);
@@ -188,10 +213,11 @@ test.describe('update card', () => {
   test.describe('on a desktop', () => {
     test.use({ viewport: { width: 1280, height: 800 }, hasTouch: false, colorScheme: 'light', reducedMotion: 'no-preference' });
 
-    test('(AC-T19-9) (TC-12) 24px from the right and bottom, 380px wide', async ({ page }) => {
+    test('(AC-T19-9) (AC-T19-15) (TC-12) (TC-23) 24px from the right and bottom, 380px wide', async ({ page }) => {
       await page.goto('/?pwa=update');
       const card = updateCard(page);
       await expect(card).toBeVisible();
+      await animationsFinished(card);
       const box = await boxOf(card);
       expect(Math.round(1280 - (box.x + box.width))).toBe(24);
       expect(Math.round(800 - (box.y + box.height))).toBe(24);
@@ -241,25 +267,28 @@ test.describe('reduced motion', () => {
 });
 
 test.describe('theme-color', () => {
-  test('(AC-T19-12) (TC-18) choosing dark leaves one theme-color #0A1420, before and after a reload', async ({ page }) => {
+  // 建置後的 CSS 會把色碼壓成小寫，所以 content 轉成大寫再比；media 與個數照原本嚴格比對。
+  const upperThemeColors = async (page: Page) => (await themeColors(page)).map((m) => ({ media: m.media, content: m.content?.toUpperCase() ?? null }));
+
+  test('(AC-T19-12) (AC-T19-15) (TC-18) (TC-24) choosing dark leaves one theme-color #0A1420, before and after a reload', async ({ page }) => {
     await page.goto('/');
-    expect(await themeColors(page)).toEqual([
+    expect(await upperThemeColors(page)).toEqual([
       { media: '(prefers-color-scheme: light)', content: '#F4F5F7' },
       { media: '(prefers-color-scheme: dark)', content: '#0A1420' },
     ]);
     await page.getByRole('button', { name: '帳號與外觀' }).click();
     await page.getByRole('radio', { name: '深色' }).check();
-    expect(await themeColors(page)).toEqual([{ media: null, content: '#0A1420' }]);
+    expect(await upperThemeColors(page)).toEqual([{ media: null, content: '#0A1420' }]);
     await page.reload();
     await expect(page.getByRole('button', { name: '帳號與外觀' })).toBeVisible();
-    expect(await themeColors(page)).toEqual([{ media: null, content: '#0A1420' }]);
+    expect(await upperThemeColors(page)).toEqual([{ media: null, content: '#0A1420' }]);
   });
 
-  test('(AC-T19-12) choosing light then system restores the media pair', async ({ page }) => {
+  test('(AC-T19-12) (AC-T19-15) (TC-24) choosing light then system restores the media pair', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: '帳號與外觀' }).click();
     await page.getByRole('radio', { name: '淺色' }).check();
-    expect(await themeColors(page)).toEqual([{ media: null, content: '#F4F5F7' }]);
+    expect(await upperThemeColors(page)).toEqual([{ media: null, content: '#F4F5F7' }]);
     await page.getByRole('radio', { name: '跟隨系統' }).check();
     expect((await themeColors(page)).map((m) => m.media)).toEqual(['(prefers-color-scheme: light)', '(prefers-color-scheme: dark)']);
   });

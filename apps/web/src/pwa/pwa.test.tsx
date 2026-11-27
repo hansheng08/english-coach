@@ -7,7 +7,8 @@ import { App } from '../App';
 import { ApiProvider } from '../api';
 import { createMockApi } from '../api/mock';
 import { OfflinePanel } from './OfflinePanel';
-import { shouldShowUpdatePrompt, watchForUpdate } from './update';
+import { registerServiceWorker } from './register';
+import { chooseRegister, previewUpdateRegister, shouldShowUpdatePrompt, watchForUpdate } from './update';
 import type { RegisterSW } from './update';
 
 afterEach(() => {
@@ -70,11 +71,22 @@ describe('watchForUpdate', () => {
     expect(updateSW).toHaveBeenCalledWith(true);
   });
 
-  it('(AC-T19-7) (TC-9) without a register nothing happens, and the show-or-hold decision is a single point that is on for now', () => {
+  it('(AC-T19-7) (AC-T19-18) (TC-9) without a register the default registration is used (no SW support here: no throw, no notice), and the show-or-hold decision is a single point that is on for now', () => {
+    const onNeedUpdate = vi.fn();
     expect(() => {
-      watchForUpdate(() => undefined);
+      watchForUpdate(onNeedUpdate);
     }).not.toThrow();
+    expect(onNeedUpdate).not.toHaveBeenCalled();
     expect(shouldShowUpdatePrompt()).toBe(true);
+  });
+});
+
+describe('chooseRegister', () => {
+  it('(AC-T19-19) (TC-29) ?pwa=update only counts in a preview build; everything else registers the real service worker', () => {
+    expect(chooseRegister(false, '?pwa=update')).toBe(registerServiceWorker);
+    expect(chooseRegister(true, '?pwa=update')).toBe(previewUpdateRegister);
+    expect(chooseRegister(true, '')).toBe(registerServiceWorker);
+    expect(chooseRegister(true, '?pwa=other')).toBe(registerServiceWorker);
   });
 });
 
@@ -159,6 +171,22 @@ describe('offline bar and panel', () => {
     expect(screen.queryByRole('button', { name: '帳號與外觀' })).toBeNull();
     expect(screen.getByText('需要連網')).toBeTruthy();
     expect(screen.getByRole('button', { name: '重新載入' })).toBeTruthy();
+  });
+
+  it('(AC-T19-16) (TC-25) offline at open, then online, then offline again: panel, page, page with the bar and no panel', async () => {
+    vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false);
+    renderApp();
+    expect(screen.getByText('今天的課表要連網才能載入')).toBeTruthy();
+    vi.restoreAllMocks();
+    act(() => {
+      window.dispatchEvent(new Event('online'));
+    });
+    expect(await screen.findByRole('button', { name: '帳號與外觀' })).toBeTruthy();
+    expect(screen.queryByText('今天的課表要連網才能載入')).toBeNull();
+    goOffline();
+    expect(screen.getByRole('button', { name: '帳號與外觀' })).toBeTruthy();
+    expect(screen.getByText('需要連網')).toBeTruthy();
+    expect(screen.queryByText('今天的課表要連網才能載入')).toBeNull();
   });
 
   it('(AC-T19-6) (TC-8) the reload button calls onReload', () => {
