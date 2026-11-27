@@ -74,6 +74,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 17. 供應商金鑰只放請求標頭（Gemini 是 `x-goog-api-key`、Azure Speech 是 `Ocp-Apim-Subscription-Key`、Groq 是 `Authorization: Bearer`），不放網址；任何錯誤訊息或 log 回傳前，都要把金鑰字串換成 `[redacted]`。Gemini adapter 不送 `thinkingConfig`，只有「STOP 但 JSON／zod 失敗」會自動重試 1 次，其他錯誤（含 429、5xx、逾時）都不自動重試。adapter **一定要**自己用 `AbortController` 在 `timeoutMs` 時中止請求（實測 Gemini 可能 60 秒都不回）。外部 API 回應的 zod schema 不可以用 strict（Gemini 會多帶 `thoughtSignature` 等欄位）。實測樣本在 `docs/poc/A-003/`（ARCHITECTURE §5.4、ADR-012）。語音 adapter（Azure、Groq）完全不自動重試，沒聽到聲音回 `ok`＋分數 0（§5.5～§5.7、ADR-015）。
 18. AI 輸出的格式條件（字數、chunk 數、「/」斷句等）一律寫進傳給 `generate` 的 schema，讓 adapter 那 1 次自動重試就是唯一的重試；呼叫端不再自己包一層重試（ARCHITECTURE §6 第 7 點、§11.3、ADR-013）。
 19. 不加動畫、UI 元件、字型相關的套件（Framer Motion、GSAP、MUI、Tailwind、Google Fonts、woff2 字型檔等），只用系統字（ADR-014）；也不要讓 mock 建置帶 `VITE_SUPABASE_*`，或讓 mock 假資料出現真新聞原文。
+20. 測試（含 QA probe）建 `RouteDeps`、`RouterDeps`、`UserDb`、`DbClient` 一律用 `makeTest…` 工廠函式（ARCHITECTURE §5.1.1），不寫完整物件字面值；在這些介面加必填欄位時，同一個 commit 補工廠函式的預設值。新依賴不要為了避開 QA 檔而改成選填（過渡期的例外以任務單為準）。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。

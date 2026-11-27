@@ -1157,16 +1157,16 @@ export const ShadowResultSchema = z.object({
   recognizedText: z.string(),
   accuracy: z.number().min(0).max(1),
   speedRatio: z.number().min(0),
-  pronScore: z.number().min(0).max(100).nullable(),   // null＝畫面顯示「發音分數：無」
+  pronScore: z.number().min(0).max(100).nullable(),   // 只有「不評分」模式是 null（畫面顯示「發音分數：無」）；一般模式一定有值（v1.12）
   passed: z.boolean(),                                // §4.6：accuracy ≥ 0.8 且 speedRatio ≥ 0.7；pronScore 不影響
   scoring: z.enum(['azure', 'off']),                  // 'off'＝這次是「不評分」模式
   meta: z.object({ sttProvider: ProviderIdSchema, pronProvider: ProviderIdSchema.nullable() }),
 });
 ```
 - **一般模式（`settings.pronunciation.scoring = true`，預設）**：呼叫 Azure 發音評估（§5.6），辨識文字和逐字時間都來自 Azure，domain 算正確率和語速比。
-  - Azure 有回辨識文字、但沒有分數（例如只回 `RecognitionStatus` 成功但分數欄位缺）→ `pronScore = null`，照樣算正確率、語速比、照樣可以解鎖。這就是 §6 第 5 點的降級。
-  - **Azure 整個失敗**（429、5xx、逾時、未設定）→ **沒有辨識文字，就算不出正確率**，所以回錯誤（§5.0.4，例如 `quota_exhausted`），**不解鎖**，也**不自動改用 Groq**（§6 第 4 點、ADR-003）。前端保留錄音，提供兩個按鈕：「重送」，以及「改用不評分」（手動；按下等於到設定頁把 `pronunciation.scoring` 改成 `false`，再用同一段錄音重送）。
-  - 這修正了 v1.10 §6 第 5 點「發音評分失敗 → 仍顯示正確率與語速」的寫法：那只適用於「有辨識文字、沒有分數」，不適用於 Azure 整個失敗。
+  - ~~Azure 有回辨識文字、但沒有分數 → `pronScore = null`，照樣解鎖~~（v1.11 的寫法，v1.12 作廢；ADR-018 決定 9）。改成照 §5.6.2：`Success` 但 `NBest[0].PronScore` 缺少 → adapter 回 `invalid_response`，和下一點的「Azure 整個失敗」走**同一個分支**（回錯誤、不解鎖、保留錄音、「重送」或手動「改用不評分」）。理由：有開發音評估（`Dimension: Comprehensive`）時，有 `Display` 就應該有 `PronScore`，缺少是異常回應；`NoMatch` 等沒聽到聲音的情況已另外處理（`ok`、分數 0，ADR-015 決定 4）。contracts 的 `score0to100` 維持不允許 null。
+  - **Azure 整個失敗**（429、5xx、逾時、未設定、`invalid_response`）→ **沒有辨識文字，就算不出正確率**，所以回錯誤（§5.0.4，例如 `quota_exhausted`），**不解鎖**，也**不自動改用 Groq**（§6 第 4 點、ADR-003）。前端保留錄音，提供兩個按鈕：「重送」，以及「改用不評分」（手動；按下等於到設定頁把 `pronunciation.scoring` 改成 `false`，再用同一段錄音重送）。
+  - v1.12：§6 第 5 點的「發音評分失敗 → 仍顯示正確率與語速」只剩「不評分」模式適用；一般模式下 Azure 沒有給出完整結果（含分數）就是失敗。
 - **「不評分」模式（`scoring = false`）**：不呼叫發音評估；用 `settings.stt`（預設 Groq Whisper，要 `wordTimestamps: true`）轉文字，domain 照同一套規則算正確率和語速比，`pronScore = null`、`pron_provider = null`、`scoring = 'off'`。
   - 這是 ADR-004 寫好的替代方案，使用者在設定頁自己選（AC-25「手動改用其他供應商」），不會自動切換。
   - STT 也失敗 → 照樣回錯誤，處理方式同上。
@@ -1622,6 +1622,24 @@ export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise
 | Storage（使用者身分，§4.12.1） | 例如 `storage: (ctx) => …` | `_shared/db` 的建立函式 | T-021、T-030 |
 | 備料核心的 `PlanDeps`（§4.13.2） | 由上面幾欄組成，不另加 | `POST /plan/today` 內組合 | T-025a |
   - secret 金鑰 client（§4.12.1 `createServiceClient`）**不進 `RouteDeps`**：它只給 `daily-prep`、`purge-audio` 兩個獨立函式（CLAUDE.md §5 第 14 條），`api` 函式一律用使用者身分。
+- **測試用的依賴一律用工廠函式建，不寫死完整介面形狀**（v1.12；ADR-018 決定 10；起因：T-053 的 QA probe `checkins-path.qa.test.ts`、`checkins.qa.test.ts` 用字面值寫出完整的 `UserDb`、`RouteDeps`、`DbClient`，之後任何單加必填欄位，QA 檔就編譯失敗，而 Claude 不能改 QA 檔）：
+  - **不採用「新依賴一律選填」**：選填會讓「`index.ts` 忘了接上」變成執行時才發現的錯誤，型別擋不住，違反 §3.2「錯的程式寫不出來」。新依賴**照常是必填**。
+  - **工廠函式**（測試程式，照 §3.2 第 6 點的定義放在 `test/` 資料夾；不是 QA 檔：RUNBOOK 的 QA 檔只有 `*.qa.test.ts` 等，`test/` 裡的 fake 不算，所以由 Claude 維護）：
+    | 檔案 | 函式 | 預設值 |
+    |---|---|---|
+    | `supabase/functions/_shared/db/test/fakes.ts` | `makeTestDbClient(overrides?: { from?: (table: string) => Partial<…> })`、`makeTestUserDb(overrides?: Partial<UserDb>)` | 沒覆寫的方法一律回錯誤（`DbClient` 回 `{ data: null, error: { code: 'TEST', message: 'not stubbed: <表>.<方法>' } }`；`UserDb` 回 `err({ kind: 'internal', message: 'not stubbed: <名稱>' })`），用到沒準備的依賴時測試會失敗，不會默默通過 |
+    | `supabase/functions/api/test/route-deps.ts` | `makeTestRouteDeps(overrides?: Partial<RouteDeps>)`、`makeTestRouterDeps(overrides?: Partial<RouterDeps>)` | `userDb` 用 `makeTestUserDb()`；`now` 固定在 `2026-11-27T00:00:00Z`；`RouterDeps` 的 `auth` 回固定的測試使用者、`allowedOrigins` 一個測試 origin、`log` 不輸出；其他欄位同樣「沒覆寫就回錯誤」 |
+    - 回傳型別就是完整的 `RouteDeps`／`UserDb`／`DbClient`，所以工廠函式本身會被型別檢查：加了必填欄位卻沒補預設值，**工廠函式**編譯失敗（而不是 QA 檔），由加欄位的那張單在同一個 commit 補上。
+    - 依賴方向：只給測試用（dependency-cruiser 既有的 `adr008-11-no-test-code-in-production` 已經禁止正式程式 import `test/`），不用加規則。`api/test/route-deps.ts` 可以 import `_shared/db/test/fakes.ts`（測試程式之間互相引用，現有規則允許）。
+  - **規則**：
+    1. 測試（含 QA probe）建 `RouteDeps`、`RouterDeps`、`UserDb`、`DbClient` 時，一律呼叫上面的工廠函式，只傳要覆寫的部分；不寫完整的物件字面值。
+    2. 任何單在這四個介面加**必填**欄位，同一張單要更新工廠函式的預設值（TechLead 寫單時列進檔案範圍）。
+    3. 之後新增的類似依賴介面（例如 §4.13.2 的 `PlanDeps`、§4.12.2 的 `PurgeDeps`）也照這個做法：建介面的那張單同時建 `make<介面名>`。
+  - **過渡**（現在 main 上的兩個 QA probe 還是寫死的）：
+    1. **建工廠函式**：T-032、T-025a、T-021 中**先派工**、而且會改到這四個介面的那張（依目前的排序是 T-032）。同一張單把自己新增的依賴（T-032 v1.1 的 `reviewDb`）**暫時**寫成選填，因為 QA 檔還沒改。
+    2. **QA 改 probe**：QA 在驗收那張單時，把 `checkins-path.qa.test.ts`、`checkins.qa.test.ts` 改成用工廠函式（照憲章：QA 的驗收測試追加在被驗證的 `task/T-xxx` 分支上），測試內容不變，只換建依賴的寫法。
+    3. **改回必填**：QA 改好的 probe 合併進 main 之後，**下一張**改到這四個介面的單（依目前的排序是 T-025a）把所有暫時選填的依賴（`reviewDb`，以及在那之前其他單加的）改回必填，並刪掉相關的 `?? …` 判斷。TechLead 寫那張單時列進範圍。
+    4. 過渡期間（第 1 步到第 3 步之間）新加的依賴都可以暫時選填，但每一個都要在 TASKS 該單的備註寫「暫時選填，待 <單號> 改回必填」。
 
 ### 5.2 供應商介面（`packages/contracts/src/providers.ts`）
 - 完整定義見 §5.0.4（`ProviderError`）與 §5.0.7（四種介面、`PaidConsent`）。v1.1 這裡的程式碼已由 §5.0 取代；`Tier`、`Capability`、`ProviderErrorKind` 三個型別內容不變。
@@ -2075,7 +2093,7 @@ z.object({ status: z.literal('failed'), planDate: PlanDateSchema, failure: PlanF
 2. **錯誤回應格式**：`ApiErrorBodySchema`（§5.0.4）：`{ error: { kind, message, retryable, provider?, capability?, retryAfterSec?, reason?, issues? } }`；`kind` 只能是 `APP_ERROR_KINDS` 之一，HTTP 狀態、可否重試、畫面文字與降級方式見 §5.0.4 錯誤碼對照表（驗證失敗 400、未登入 401、付費未同意 403、額度用完／太頻繁 429、供應商失敗 502、未設定金鑰或素材沒備好 503、逾時 504）。
 3. **錄音先存再處理**（AC-25）：前端錄完先寫進 IndexedDB，再上傳 Storage，成功後才呼叫 STT；任何一步失敗，錄音仍在 IndexedDB 或 Storage，`evening_answer.status=failed`＋`failure`，畫面顯示原因（例如「Groq 免費額度今天用完，約 X 分鐘後可重送」）與兩個按鈕：「稍後重送」「改用其他供應商」（手動）。
 4. **絕不自動改用其他供應商或付費**：registry 沒有備援清單（ADR-003）；`quota_exhausted` 直接回給使用者。
-5. **降級模式**（不花錢、不換供應商）：Azure 有回辨識文字、但沒有發音分數 → 仍顯示正確率與語速、發音分數「無」，不擋關（AC-06 允許）；**Azure 整個失敗**（沒有辨識文字）→ 算不出正確率，回錯誤、保留錄音，使用者可以重送或手動改用「不評分」（§4.18；v1.11 修正範圍）；當天新聞抓不到 → 用最近一篇未讀文章並在頁面註明（AC-01）；`daily-prep` 整體失敗 → 開 App 時重試一次，再失敗就顯示「今天的素材沒備好」＋原因（§5.9.2）＋重試按鈕，字卡複習（不需 AI）照常可用。
+5. **降級模式**（不花錢、不換供應商）：發音評估失敗（含 Azure 回應缺 `PronScore` 的 `invalid_response`）→ 回錯誤、保留錄音，使用者可以重送或手動改用「不評分」；「不評分」模式只用 STT 算正確率與語速、發音分數「無」，不擋關（AC-06：發音分數不影響解鎖；§4.18，v1.12 修正）；當天新聞抓不到 → 用最近一篇未讀文章並在頁面註明（AC-01）；`daily-prep` 整體失敗 → 開 App 時重試一次，再失敗就顯示「今天的素材沒備好」＋原因（§5.9.2）＋重試按鈕，字卡複習（不需 AI）照常可用。
 6. **逾時**：每次外部呼叫都設 `timeoutMs`（生卡 8 s、STT 25 s、診斷 25 s、新聞判定 8 s、新聞改寫 30 s；其他 LLM 呼叫見 §5.8.1 的表），逾時回 `timeout`，不自動重試到別家。
 7. **AI 輸出不合格**：zod 驗證失敗、字數不在 250～300、chunk 不是 5 個 → 同模型重試 1 次，再失敗記錄 `failed` 並走降級。這「1 次」就是 adapter 的自動重試（§5.4.4）：所有可以機械檢查的條件都寫進傳給 `generate` 的 schema，呼叫端**不再自己重試**（v1.8，ADR-013 決定 4；新聞見 §11.3.5）。
 
@@ -2736,4 +2754,4 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
-| v1.12 | 2026-11-27 | 寫單契約補充（回覆 TechLead PR #97「待確認問題」第 1～5、8～10 題）：新增 ADR-018。依賴 v1.11（PR #96）。<br>• §4.10.1：種子庫與題庫的檢查器移到新的 workspace 套件 `@english-coach/seed-data`（`packages/seed-data/`），依賴規則、dependency-cruiser 2 條、lockfile 更新方式；根目錄 `package.json` 不變。<br>• §4.12.4：拿掉 `config.toml` 和 CI probe 的逐行比對（probe 自 T-003 起未被使用）；刪 probe 是 SRE 的 O 單，不擋產品單。<br>• §4.12.5：secret 金鑰查詢的 `user_id` 規則只有兩個例外（清錄音、列出使用者），用測試強制；CLAUDE.md §5 第 15 條同步。<br>• §11.2 第 4 步：沒有舊文章時改成 200＋`failed`＋`failure`（`news_unavailable`），和 §4.13.1、§5.9.2 一致。§4.6：T-025a 從前一晚的 `diagnosis.senior[].text` 讀改寫句。<br>• §4.13.1：`DailyPlan.seedRemaining`／`daily_plan.seed_remaining`（種子庫剩餘數，T-033）。<br>• §4.19：TTS 預設語音、快取鍵正規化、contracts `tts.ts`、文字上限 1,000 字元（Azure REST 字元上限不確定）、`audio/player` 介面。§4.20：面試題庫的格式、QB1～QB6、migration、每批抽 5 題（語言與技術題主題待 PM）。<br>• §5.7.4：Groq 每日額度訊息改成完整單字比對（縮寫要大寫），附正反例測試要求。§3.1、§5.1、§12 同步。 |
+| v1.12 | 2026-11-27 | 寫單契約補充（回覆 TechLead PR #97「待確認問題」第 1～5、8～10 題）：新增 ADR-018。依賴 v1.11（PR #96）。<br>• §4.10.1：種子庫與題庫的檢查器移到新的 workspace 套件 `@english-coach/seed-data`（`packages/seed-data/`），依賴規則、dependency-cruiser 2 條、lockfile 更新方式；根目錄 `package.json` 不變。<br>• §4.12.4：拿掉 `config.toml` 和 CI probe 的逐行比對（probe 自 T-003 起未被使用）；刪 probe 是 SRE 的 O 單，不擋產品單。<br>• §4.12.5：secret 金鑰查詢的 `user_id` 規則只有兩個例外（清錄音、列出使用者），用測試強制；CLAUDE.md §5 第 15 條同步。<br>• §11.2 第 4 步：沒有舊文章時改成 200＋`failed`＋`failure`（`news_unavailable`），和 §4.13.1、§5.9.2 一致。§4.6：T-025a 從前一晚的 `diagnosis.senior[].text` 讀改寫句。<br>• §4.13.1：`DailyPlan.seedRemaining`／`daily_plan.seed_remaining`（種子庫剩餘數，T-033）。<br>• §4.19：TTS 預設語音、快取鍵正規化、contracts `tts.ts`、文字上限 1,000 字元（Azure REST 字元上限不確定）、`audio/player` 介面。§4.20：面試題庫的格式、QB1～QB6、migration、每批抽 5 題（語言與技術題主題待 PM）。<br>• §5.7.4：Groq 每日額度訊息改成完整單字比對（縮寫要大寫），附正反例測試要求。§3.1、§5.1、§12 同步。<br>• （第 2 個 commit）§4.18：缺 `PronScore` 照 §5.6.2 是 `invalid_response`，走「Azure 失敗」分支，作廢 v1.11「pronScore=null 照樣解鎖」；§6 第 5 點同步。§5.1.1：測試依賴一律用工廠函式建（`makeTestRouteDeps` 等），新依賴維持必填，附 T-053 QA probe 的過渡安排。 |
