@@ -1,6 +1,6 @@
 # ADR-021：T-030 錄音驗證與孤兒清理規則（兼 T-021 工廠／SW 快取）
-- 狀態：**已接受**（Architect，2026-11-28；G2 PR，Hansheng Merge 即核准；修訂 1、修訂 2 同日）｜日期：2026-11-28｜提出：Architect
-- 相關：ARCHITECTURE v1.16 §4.18.1、§4.12.2.1、§4.12.5、§5.0.4、§5.0.5、§9、§9.1.7；ADR-020；TASKS T-021、T-030、T-046
+- 狀態：**已接受**（Architect，2026-11-28；G2 PR，Hansheng Merge 即核准；修訂 1、修訂 2、修訂 3 同日）｜日期：2026-11-28｜提出：Architect
+- 相關：ARCHITECTURE v1.17 §4.18.1、§4.12.2.1、§4.12.5、§5.0.4、§5.0.5、§9、§9.1.7；ADR-020；TASKS T-021、T-030、T-046
 - 來源：QA 在設計 T-030／孤兒測試案例時提出的待釐清（A1～A16、B1～B8、N1～N7、M1～M5），以及 T-021 的 AC-T21-13／AC-T21-14 與 §9.1.7 的衝突。
 
 ## 決定
@@ -51,3 +51,10 @@
    7. **M3**：刪前複查走 RPC `public.audio_paths_in_use`，不用 GET `in=(…)`。
    8. **N3**（一併裁定）：`parseWav16kMono` 預設下限為 0；300 ms 由 T-030 handler 傳入，以免短測試 WAV 失敗。
    9. **M4**（一併裁定）：`selected` 含因競態拿掉的路徑，`selected >= purged + failed`。
+3. **2026-11-28（新分支 `docs/g2-t030-qa-v3`，ARCHITECTURE 升 v1.17；#123 已合併）**：回覆 QA 在 #125（v3 案例）末尾提出的 P2、Q1、Q2、Q3。決定 1、3 的現行文字在實作上以本修訂為準：
+   1. **P2**：宣告 `0xFFFFFFFF` 時，從資料區到檔尾全部是音訊，不解析成 chunk；後面接合法 `LIST` 也當取樣（計入長度與門檻、進入正規化輸出）。不回 400，因為沒有宣告長度就分不出音訊與 chunk。仍受 9_600／960_000 位元組與偶數限制，繞不過 30 秒上限。與修訂 2 的 N1、N5～N7 不衝突：那些規則只適用有宣告大小的 `data`。
+   2. **Q1**：列出函式加 keyset 游標 `(p_after_created_at, p_after_name)`，每次執行最多呼叫 5 次、游標推進到每次的最後一列，使永遠刪不掉的最舊孤兒只在該次執行被試一次。不存黑名單狀態；超過 1,000 個永遠刪不掉的孤兒時仍會擋住更新的孤兒，列為已知上限，靠 `failed` log 發現。M1（SQL 內排除有列）、M4（`selected` 含複查拿掉的）、M5（不含等於）不變。
+   3. **Q3**：刪前複查失敗 → 整批不刪、孤兒階段停止、回 `db_failed`（不新增種類）、不計入 `failed`；log 只含種類與三組數字。
+   4. **Q2**：T-046 以 pgTAP 驗證兩支 RPC 的 `anon`／`authenticated`／PUBLIC 無 `EXECUTE`、`service_role` 可執行、`security definer`、`search_path`；檔案 `supabase/tests/t046_orphan_audio_rpc_test.sql`，指令 `pnpm db:test`。
+   5. **TechLead 審查後的補充（同修訂，未推送前修訂）**：①`purgeExpiredAudio` 回 `PurgeRun = { stats, error }`，stats 永遠有，log 只由 handler 寫、每次執行一行（出錯時尾端加 `error=<kind> phase=<shadow|evening|orphan>`），取代先前草稿的專用 recheck log；②`PurgeDeps` 補 `listOrphanCandidates`、`pathsInUse`，孤兒刪除重用 `removeObjects`，`purgeOrphans` 匯出，`PurgeDbClient` 明確定義；③游標只給一個 → SQL `22023`（函式改 `plpgsql`）；④每次呼叫 `p_limit` 等於本次執行的 `limit`；複查後 0 筆不呼叫 `remove`；⑤pgTAP 權限與行為測試放新檔 `t046_orphan_audio_rpc_test.sql`，並列出未驗證項；⑥`0xFFFFFFFF` 例外寫進 §4.18.1 與 §5.0.5；⑦`parseWav16kMono` 的毫秒參數須為非負整數，否則回 `err`；⑧`fake-fetch.ts`／azure-speech 測試允許但不要求改。
+   - 未採用：複查失敗時假設「沒回傳＝沒有列」而照刪（會誤刪剛寫入的錄音）；每天隨機或輪流改排序（結果不可重現、測試難寫）；在資料庫存「刪失敗次數」黑名單表（為少見情況新增狀態與 migration）；`0xFFFFFFFF` 後面猜 chunk 並回 400（會誤擋合法錄音）。
