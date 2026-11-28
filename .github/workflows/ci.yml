@@ -124,6 +124,7 @@ jobs:
           bash .github/scripts/ci-guard-mode-test.sh
           bash .github/scripts/pr-body-check-test.sh
           bash .github/scripts/ci-supersede-test.sh
+          bash .github/scripts/supabase-start-test.sh
           node .github/scripts/claude-permission-check.mjs .
           node .github/scripts/fail-open-lint.mjs .
           node .github/scripts/ci-workflow-check.mjs .
@@ -227,6 +228,8 @@ jobs:
       # TAP file to ac-coverage. Not started for main pushes (task-lint only).
       # Fail-closed: if this start fails the job fails; if it is skipped while
       # config.toml exists, db-test cannot connect and taskcheck fails.
+      # O-031: every `supabase start` goes through supabase-start.sh (bounded
+      # retry on port-bind / registry only; RUNBOOK "Supabase start 重試").
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         if: hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')
         with:
@@ -235,7 +238,7 @@ jobs:
         if: hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')
         run: |
           psql --version
-          supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor
+          bash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor
       - name: Download Playwright JSON results
         if: needs.e2e.result == 'success' || needs.e2e.result == 'failure'
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
@@ -314,6 +317,8 @@ jobs:
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
+      # O-031: db-job-verify.sh starts Supabase via supabase-start.sh, which runs
+      # tooling/supabase-start-policy.mjs with node; setup-cli above ensures Node >= 20.
       - name: Verify local Supabase, Auth (signup off), functions health, ADR-009 (1)(2), ADR-010 keys
         run: bash .github/scripts/db-job-verify.sh
 
@@ -335,8 +340,9 @@ jobs:
       - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
+      # O-031: bounded retry on port-bind / registry only (supabase-start.sh).
       - name: Start local Supabase
-        run: supabase start -x studio,imgproxy,logflare,vector
+        run: bash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector
       - run: pnpm exec playwright install --with-deps chromium
       - name: Run e2e (fake providers)
         env:

@@ -61,7 +61,8 @@ mask_keys() {
 }
 
 echo "== supabase start =="
-supabase --workdir "$WORKDIR" start -x "$EXCLUDES" 2>&1 | mask_keys
+# O-031: bounded retry + diagnostics; the wrapper masks keys with the same rules.
+bash "$(dirname "${BASH_SOURCE[0]}")/supabase-start.sh" --workdir "$WORKDIR" -x "$EXCLUDES"
 
 echo "== supabase db reset =="
 supabase --workdir "$WORKDIR" db reset 2>&1 | mask_keys
