@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import migration from '../supabase/migrations/20261128100000_t032_card_review_date_record_review.sql?raw';
+import migration from '../supabase/migrations/20261128100001_t032_card_review_date_record_review.sql?raw';
 import pgtap from '../supabase/tests/t032_record_card_review_test.sql?raw';
 
 const SIGNATURE = /public\.record_card_review\(([^)]*)\)/;
