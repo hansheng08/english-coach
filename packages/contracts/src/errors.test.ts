@@ -110,6 +110,16 @@ describe('toApiErrorBody', () => {
   });
 });
 
+describe('storage_failed op list (T-046)', () => {
+  it('(AC-T46-16) (TC-34) op "list" is accepted and maps to 502 like the other ops', () => {
+    const e: AppError = { kind: 'storage_failed', op: 'list', message: 'list failed' };
+    expect(httpStatusOf(e)).toBe(502);
+    const body = toApiErrorBody(e);
+    expect(ApiErrorBodySchema.safeParse(body).success).toBe(true);
+    expect(body.error).toEqual({ kind: 'storage_failed', message: 'list failed', retryable: true });
+  });
+});
+
 describe('ApiErrorBodySchema', () => {
   it('rejects an unknown kind', () => {
     const r = ApiErrorBodySchema.safeParse({ error: { kind: 'nope', message: 'm', retryable: false } });

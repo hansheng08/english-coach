@@ -9,7 +9,7 @@ import {
   type UserId,
 } from '@english-coach/contracts';
 import { createClient } from '@supabase/supabase-js';
-import type { SupabaseEnv } from '../config/env.ts';
+import type { SupabaseEnv, SupabaseSecretEnv } from '../config/env.ts';
 
 /** 只有本檔可以建立（ADR-008 修訂 3）。 */
 export type AuthContext = Brand<{ readonly userId: UserId; readonly accessToken: string }, 'AuthContext'>;
@@ -37,6 +37,21 @@ export async function requireUser(req: Request, deps: RequireUserDeps): Promise<
   if (!userId.success) return err(unauthenticated());
 
   return ok({ userId: userId.data, accessToken: token } as AuthContext);
+}
+
+/** 固定時間比較：長度不同直接不符；相同長度時逐字元累加差異，不因第一個不同字元提早結束。 */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** cron 函式（purge-audio）用：只看 `apikey` 標頭，和 secret 金鑰比對。message 不含任何金鑰。 */
+export function requireServiceKey(req: Request, env: SupabaseSecretEnv): Result<void, AppError> {
+  const header = req.headers.get('apikey');
+  if (header === null || !constantTimeEqual(header, env.secretKey)) return err(unauthenticated());
+  return ok(undefined);
 }
 
 /** 連網路（getClaims 驗 JWKS），不寫單元測試；由 CI db job 的 401／200 驗證。 */
