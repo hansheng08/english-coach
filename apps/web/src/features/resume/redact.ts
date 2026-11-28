@@ -59,13 +59,59 @@ function isTwSegment(segment: string): boolean {
   return TW_KEYWORD.test(segment) || TW_POSTAL.test(segment) || TW_COUNTRY.test(segment);
 }
 
+const ZH_CITY_ABBREVIATIONS: readonly string[] = [
+  '北市', '新北', '桃市', '中市', '南市', '高市', '基市', '竹市', '竹縣', '苗縣',
+  '彰縣', '投縣', '雲縣', '嘉市', '嘉縣', '屏縣', '宜縣', '花縣', '東縣', '澎縣',
+];
+const ZH_ADDRESS_START = String.raw`(?:\p{Script=Han}{2}[市縣]|${ZH_CITY_ABBREVIATIONS.join('|')})`;
+
 const ZH_ADDRESS_RE = new RegExp(
   String.raw`(?<!\d)(?:\d{3,6})?` +
-    String.raw`(?=\p{Script=Han}{2}[市縣])` +
+    `(?=${ZH_ADDRESS_START})` +
     String.raw`(?=[\p{Script=Han}\d]*(?:路|街|大道|巷|弄))` +
     String.raw`[\p{Script=Han}\d]+號(?:\d+樓|之\d+|-\d+)*`,
   'gu',
 );
+
+// 區碼＋兩個年份（19xx／20xx）的區間，不當市話。
+const YEAR_RANGE_RE = /^(?:\(0[2-8]\d?\)|0[2-8]\d?)[ .-]?(?:19|20)\d{2}[ .-](?:19|20)\d{2}$/u;
+
+/** 全形 U+FF01～U+FF5E 換成半形 U+0021～U+007E，U+3000 換成半形空白；其他字元不變，長度不變。 */
+export function foldWidth(text: string): string {
+  let out = '';
+  for (let i = 0; i < text.length; i += 1) {
+    const c = text.charCodeAt(i);
+    if (c >= 0xff01 && c <= 0xff5e) out += String.fromCharCode(c - 0xfee0);
+    else if (c === 0x3000) out += ' ';
+    else out += text[i] ?? '';
+  }
+  return out;
+}
+
+type Pair = { readonly raw: string; readonly folded: string };
+type Replacement = { readonly mark: string; readonly keepTail: number };
+
+/** 在 folded 上找範圍，原字串與 folded 的同一段一起換；keepTail 是比對結果尾端要原樣保留的字元數。 */
+function substitute(
+  pair: Pair,
+  re: RegExp,
+  decide: (match: RegExpExecArray) => Replacement | null,
+): Pair {
+  let raw = '';
+  let folded = '';
+  let last = 0;
+  for (const match of pair.folded.matchAll(re)) {
+    const r = decide(match);
+    if (r === null) continue;
+    const start = match.index;
+    const end = start + match[0].length;
+    const keepFrom = end - r.keepTail;
+    raw += pair.raw.slice(last, start) + r.mark + pair.raw.slice(keepFrom, end);
+    folded += pair.folded.slice(last, start) + r.mark + pair.folded.slice(keepFrom, end);
+    last = end;
+  }
+  return { raw: raw + pair.raw.slice(last), folded: folded + pair.folded.slice(last) };
+}
 
 /** 把電話、Email、街道地址換成 [phone]、[email]、[address]；標記以外的字元不變。純函式。 */
 export function redactPii(text: string): { readonly text: string; readonly removed: PiiCounts } {
@@ -73,26 +119,29 @@ export function redactPii(text: string): { readonly text: string; readonly remov
   let phone = 0;
   let address = 0;
 
-  let out = text.replace(EMAIL_RE, () => {
+  let cur: Pair = { raw: text, folded: foldWidth(text) };
+
+  cur = substitute(cur, EMAIL_RE, () => {
     email += 1;
-    return EMAIL_MARK;
+    return { mark: EMAIL_MARK, keepTail: 0 };
   });
 
-  out = out.replace(TW_PHONE_RE, () => {
+  cur = substitute(cur, TW_PHONE_RE, (m) => {
+    if (YEAR_RANGE_RE.test(m[0])) return null;
     phone += 1;
-    return PHONE_MARK;
+    return { mark: PHONE_MARK, keepTail: 0 };
   });
-  out = out.replace(US_PHONE_RE, (match: string) => {
-    if (TEN_DIGITS.test(match)) return match;
+  cur = substitute(cur, US_PHONE_RE, (m) => {
+    if (TEN_DIGITS.test(m[0])) return null;
     phone += 1;
-    return PHONE_MARK;
+    return { mark: PHONE_MARK, keepTail: 0 };
   });
 
-  out = out.replace(TW_EN_RE, (match: string, rest: string) => {
-    const parts = rest.split(',');
+  cur = substitute(cur, TW_EN_RE, (m) => {
+    const parts = (m[1] ?? '').split(',');
     let accepted = 1;
     while (accepted < parts.length && isTwSegment(parts[accepted] ?? '')) accepted += 1;
-    if (accepted === 1) return match;
+    if (accepted === 1) return null;
     address += 1;
     const lastAccepted = parts[accepted - 1] ?? '';
     const tail = TRAILING_SPACE.exec(lastAccepted)?.[0] ?? '';
@@ -100,16 +149,16 @@ export function redactPii(text: string): { readonly text: string; readonly remov
       .slice(accepted)
       .map((p) => `,${p}`)
       .join('');
-    return `${ADDRESS_MARK}${tail}${leftover}`;
+    return { mark: ADDRESS_MARK, keepTail: tail.length + leftover.length };
   });
-  out = out.replace(US_ADDRESS_RE, () => {
+  cur = substitute(cur, US_ADDRESS_RE, () => {
     address += 1;
-    return ADDRESS_MARK;
+    return { mark: ADDRESS_MARK, keepTail: 0 };
   });
-  out = out.replace(ZH_ADDRESS_RE, () => {
+  cur = substitute(cur, ZH_ADDRESS_RE, () => {
     address += 1;
-    return ADDRESS_MARK;
+    return { mark: ADDRESS_MARK, keepTail: 0 };
   });
 
-  return { text: out, removed: { phone, email, address } };
+  return { text: cur.raw, removed: { phone, email, address } };
 }
