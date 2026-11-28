@@ -1,6 +1,6 @@
 import { expectErr, expectOk } from '@english-coach/contracts/testing';
 import { describe, expect, it } from 'vitest';
-import { loadAzureSpeechConfig, loadGeminiKey } from './provider-keys.ts';
+import { loadAzureSpeechConfig, loadGeminiKey, loadGroqKey } from './provider-keys.ts';
 
 const run = (value: string | undefined) => {
   const read: string[] = [];
@@ -55,6 +55,33 @@ describe('loadAzureSpeechConfig（ARCHITECTURE §5.5）', () => {
       const e = expectErr(azure({ AZURE_SPEECH_KEY: 'k-1', AZURE_SPEECH_REGION: region }));
       expect(e.kind).toBe('not_configured');
       expect(e.message).toBe('invalid env AZURE_SPEECH_REGION');
+    }
+  });
+});
+
+describe('loadGroqKey（ARCHITECTURE §5.5）', () => {
+  it('(AC-T16-1) (TC-1) undefined、空字串、只有空白 → not_configured，只讀 GROQ_API_KEY', () => {
+    for (const value of [undefined, '', '   ']) {
+      const read: string[] = [];
+      const e = expectErr(
+        loadGroqKey((name) => {
+          read.push(name);
+          return value;
+        }),
+      );
+      expect(e).toEqual({
+        kind: 'not_configured',
+        provider: 'groq',
+        capability: 'stt',
+        message: 'missing env GROQ_API_KEY',
+      });
+      expect(read).toEqual(['GROQ_API_KEY']);
+    }
+  });
+
+  it('(AC-T16-1) (TC-1) 有值 → 回傳 trim 後的值', () => {
+    for (const value of ['test-key', '  test-key\n']) {
+      expect(expectOk(loadGroqKey(() => value))).toBe('test-key');
     }
   });
 });
