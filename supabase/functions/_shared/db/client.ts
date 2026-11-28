@@ -80,8 +80,53 @@ export function planDbClientFrom(sb: { from(table: string): unknown }): PlanDbCl
   };
 }
 
-/** createUserClient 的結果：POST /checkins、POST /reviews 與 PlanStore 各用一個欄位／介面。 */
-export type UserClient = DbClient & ReviewDbClient & { readonly plan: PlanDbClient };
+export type StorageError = { readonly message: string; readonly statusCode?: string | undefined };
+
+/** `tts` bucket 用到的 Storage 操作（T-021）：list、upload、createSignedUrl；回 `{ data, error }`，不丟例外以外的東西。 */
+export interface TtsStorageBucket {
+  list(
+    path: string,
+    options: { readonly search: string; readonly limit: number },
+  ): PromiseLike<{
+    readonly data: readonly { readonly name: string; readonly metadata?: Readonly<Record<string, unknown>> | null | undefined }[] | null;
+    readonly error: StorageError | null;
+  }>;
+  upload(
+    path: string,
+    body: Uint8Array,
+    options: { readonly contentType: string; readonly upsert: boolean },
+  ): PromiseLike<{ readonly error: StorageError | null }>;
+  createSignedUrl(
+    path: string,
+    expiresIn: number,
+  ): PromiseLike<{ readonly data: { readonly signedUrl: string } | null; readonly error: StorageError | null }>;
+}
+
+/**
+ * TtsStore（`tts-store.ts`）用到的 client：讀 `profile`、寫 `provider_call`、操作 `tts` bucket。
+ * 另開一個欄位，因為 DbClient 與 ReviewDbClient 的 `from` 是兩個不同的形狀。
+ */
+export interface TtsDbClient {
+  from(table: string): {
+    insert(row: Readonly<Record<string, unknown>>): PromiseLike<DbResponse<unknown>>;
+    select(columns: string): {
+      eq(column: string, value: string): { maybeSingle(): PromiseLike<DbResponse<Readonly<Record<string, unknown>> | null>> };
+    };
+  };
+  readonly storage: { from(bucket: string): TtsStorageBucket };
+}
+
+/** createUserClient 的結果：POST /checkins、POST /reviews、PlanStore 與 TtsStore 各用一個欄位／介面。 */
+export type UserClient = DbClient & ReviewDbClient & { readonly plan: PlanDbClient; readonly tts: TtsDbClient };
+
+const readStatusCode = (e: unknown): string | undefined => {
+  if (typeof e !== 'object' || e === null || !('statusCode' in e)) return undefined;
+  const code: unknown = e.statusCode;
+  return typeof code === 'string' || typeof code === 'number' ? String(code) : undefined;
+};
+
+const toStorageError = (e: { readonly message: string } | null): StorageError | null =>
+  e === null ? null : { message: e.message, statusCode: readStatusCode(e) };
 
 /** 以使用者身分、受 RLS 限制的 client（ADR-010 決定 3：publishable 金鑰＋該使用者的 token）。 */
 export function createUserClient(ctx: AuthContext, env: SupabaseEnv): UserClient {
@@ -90,22 +135,45 @@ export function createUserClient(ctx: AuthContext, env: SupabaseEnv): UserClient
     global: { headers: { Authorization: `Bearer ${ctx.accessToken}` } },
   });
   // 手寫轉接：supabase-js 的泛型型別直接指定給兩個最小介面會讓 tsc 超出型別深度（TS2589）。
-  return {
-    from: (table) => ({
-      insert: (row) => sb.from(table).insert(row),
-      select: (columns) => ({
-        eq: (column, value) => ({
-          maybeSingle: async () => {
-            const { data, error } = await sb.from(table).select(columns).eq(column, value).maybeSingle();
-            const row: unknown = data;
-            const isRow = typeof row === 'object' && row !== null && !Array.isArray(row);
-            return { data: isRow ? { ...row } : null, error };
-          },
-        }),
+  const fromTable: TtsDbClient['from'] = (table) => ({
+    insert: (row) => sb.from(table).insert(row),
+    select: (columns) => ({
+      eq: (column, value) => ({
+        maybeSingle: async () => {
+          const { data, error } = await sb.from(table).select(columns).eq(column, value).maybeSingle();
+          const row: unknown = data;
+          const isRow = typeof row === 'object' && row !== null && !Array.isArray(row);
+          return { data: isRow ? { ...row } : null, error };
+        },
       }),
     }),
+  });
+  return {
+    from: fromTable,
     rpc: (fn, args) => sb.rpc(fn, args),
     plan: planDbClientFrom(sb),
+    tts: {
+      from: fromTable,
+      storage: {
+        from: (bucket) => {
+          const files = sb.storage.from(bucket);
+          return {
+            list: async (path, options) => {
+              const { data, error } = await files.list(path, options);
+              return { data, error: toStorageError(error) };
+            },
+            upload: async (path, body, options) => {
+              const { error } = await files.upload(path, body, options);
+              return { error: toStorageError(error) };
+            },
+            createSignedUrl: async (path, expiresIn) => {
+              const { data, error } = await files.createSignedUrl(path, expiresIn);
+              return { data, error: toStorageError(error) };
+            },
+          };
+        },
+      },
+    },
   };
 }
 

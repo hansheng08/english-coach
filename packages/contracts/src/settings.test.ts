@@ -1,10 +1,21 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
-import { SrsSettingsSchema, type SrsSettings } from './settings.ts';
+import { SrsSettingsSchema, TtsSettingsSchema, type SrsSettings } from './settings.ts';
 
 function pathsOf(input: unknown): (string | number)[][] {
   const r = SrsSettingsSchema.safeParse(input);
   return r.success ? [] : r.error.issues.map((i) => i.path.map((p) => (typeof p === 'symbol' ? String(p) : p)));
 }
+
+describe('TtsSettingsSchema defaults (AC-T21-4)', () => {
+  it('(AC-T21-4) parse({}) gives the default provider and DEFAULT_TTS_VOICE', () => {
+    expect(TtsSettingsSchema.parse({})).toEqual({ provider: 'azure-speech', voice: 'azure:en-US-AvaNeural' });
+  });
+
+  it('(AC-T21-4) a custom voice is kept and a non-voice value fails', () => {
+    expect(TtsSettingsSchema.parse({ voice: 'azure:en-US-AndrewNeural' }).voice).toBe('azure:en-US-AndrewNeural');
+    expect(TtsSettingsSchema.safeParse({ voice: 1 }).success).toBe(false);
+  });
+});
 
 describe('SrsSettingsSchema defaults (AC-T8-1)', () => {
   it('parse({}) gives the documented defaults', () => {

@@ -1,6 +1,7 @@
 import { err, type AppError, type Result } from '@english-coach/contracts';
 import type { DbClient, DbResponse } from '../client.ts';
 import type { PlanStore } from '../plan-store.ts';
+import type { TtsStore } from '../tts-store.ts';
 import type { UserDb } from '../user-db.ts';
 
 type FromResult = ReturnType<DbClient['from']>;
@@ -42,6 +43,18 @@ export function makeTestPlanStore(overrides?: Partial<PlanStore>): PlanStore {
     listCardCandidates: () => notStubbed('listCardCandidates'),
     listQuestionCandidates: () => notStubbed('listQuestionCandidates'),
     readRewriteSource: () => notStubbed('readRewriteSource'),
+    ...overrides,
+  };
+}
+
+/** 測試用 TtsStore：沒覆寫的方法回 `err({ kind: 'internal', message: 'not stubbed: <名稱>' })`（ARCHITECTURE §5.1.1）。 */
+export function makeTestTtsStore(overrides?: Partial<TtsStore>): TtsStore {
+  return {
+    readVoice: () => notStubbed('readVoice'),
+    find: () => notStubbed('find'),
+    upload: () => notStubbed('upload'),
+    signedUrl: () => notStubbed('signedUrl'),
+    recordCall: () => notStubbed('recordCall'),
     ...overrides,
   };
 }

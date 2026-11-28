@@ -127,10 +127,23 @@ describe('icon output', () => {
 describe('service worker options', () => {
   const options = createPwaOptions(readTokens());
 
-  it('(AC-T19-3) (TC-4) prompt registration, generateSW, and no runtime caching', () => {
+  it('(AC-T19-3) (TC-4) prompt registration and generateSW', () => {
     expect(options.registerType).toBe('prompt');
     expect(options.strategies).toBe('generateSW');
-    expect(options.workbox?.runtimeCaching).toBeUndefined();
+  });
+
+  it('(AC-T21-13) (TC-18) runtime caching is exactly one cache-first rule for tts signed URLs (ignoreSearch, 50 entries, 7 days)', () => {
+    const rules = options.workbox?.runtimeCaching ?? [];
+    expect(rules).toHaveLength(1);
+    const [rule] = rules;
+    expect(rule?.handler).toBe('CacheFirst');
+    expect(rule?.urlPattern).toBeInstanceOf(RegExp);
+    const pattern = rule?.urlPattern instanceof RegExp ? rule.urlPattern : /$^/;
+    const host = 'https://example.supabase.co';
+    expect(pattern.test(`${host}/storage/v1/object/sign/tts/u/h.mp3?token=a`)).toBe(true);
+    expect(pattern.test(`${host}/functions/v1/tts`)).toBe(false);
+    expect(rule?.options?.matchOptions?.ignoreSearch).toBe(true);
+    expect(rule?.options?.expiration).toEqual({ maxEntries: 50, maxAgeSeconds: 604800 });
   });
 
   it('(AC-T19-3) (TC-4) precache patterns are only shell extensions and icons/*.png', () => {

@@ -30,3 +30,4 @@ export * from './news.ts';
 export * from './card.ts';
 export * from './evening.ts';
 export * from './plan.ts';
+export * from './tts.ts';
