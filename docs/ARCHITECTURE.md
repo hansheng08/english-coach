@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.16**（v1.16 為 T-030 錄音規則修正：§4.12.2.1 列出函式改在 SQL 排除有列物件並更名、§4.18.1 chunk id 與時長門檻、ADR-021 修訂 2；v1.15 為 T-030 錄音驗證與孤兒清理規則，以及 T-021 工廠／SW 快取補充：§4.18.1、§4.12.2.1、§5.0.5、§5.0.4、§9、§9.1.7、ADR-021；v1.14 為 PRD v1.6 對齊與寫單契約補充（三）：§4.15.4 中午 0 張、§5.9.3 Azure 用字、§5.9.4 語音顯示名稱、ApiClient 工廠、T-030 multipart 與孤兒錄音、T-021 必寫 `provider_call`、`storage_failed`、T-036 履歷欄位、ADR-020；v1.13 為寫單契約補充（二）：§4.2 錯誤種類、§4.14 輸出上限、月上限與付費用量（當時編號 §4.15.4～§4.15.5，v1.14 改為 §4.15.5～§4.15.6）、ADR-019；v1.12 為寫單契約補充：§4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018；v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-28｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.17**（v1.17 為 T-030 錄音與孤兒清理規則補充（QA v3）：§4.18.1 `0xFFFFFFFF` 後的位元組、§4.12.2.1 毒丸批次與複查失敗、pgTAP 權限測試、ADR-021 修訂 3；v1.16 為 T-030 錄音規則修正：§4.12.2.1 列出函式改在 SQL 排除有列物件並更名、§4.18.1 chunk id 與時長門檻、ADR-021 修訂 2；v1.15 為 T-030 錄音驗證與孤兒清理規則，以及 T-021 工廠／SW 快取補充：§4.18.1、§4.12.2.1、§5.0.5、§5.0.4、§9、§9.1.7、ADR-021；v1.14 為 PRD v1.6 對齊與寫單契約補充（三）：§4.15.4 中午 0 張、§5.9.3 Azure 用字、§5.9.4 語音顯示名稱、ApiClient 工廠、T-030 multipart 與孤兒錄音、T-021 必寫 `provider_call`、`storage_failed`、T-036 履歷欄位、ADR-020；v1.13 為寫單契約補充（二）：§4.2 錯誤種類、§4.14 輸出上限、月上限與付費用量（當時編號 §4.15.4～§4.15.5，v1.14 改為 §4.15.5～§4.15.6）、ADR-019；v1.12 為寫單契約補充：§4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018；v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-28｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -644,7 +644,7 @@ export function loadSupabaseSecretEnv(get: EnvGetter): Result<SupabaseSecretEnv,
 // _shared/db/auth.ts（新增）
 export function requireServiceKey(req: Request, env: SupabaseSecretEnv): Result<void, AppError>;   // 比對 apikey 標頭（固定時間比較）；不符 → unauthenticated
 // _shared/db/service-db.ts（新增；照 user-db.ts 的寫法：對外只有回 Result 的函式，不交出 client）
-export function createServiceClient(env: SupabaseSecretEnv): DbClient;
+export function createServiceClient(env: SupabaseSecretEnv): DbClient & PurgeDbClient;   // PurgeDbClient 定義在 _shared/db/audio-purge.ts（§4.12.2，type import；audio-purge.ts 不 import 本檔）；daily-prep 只用 DbClient 的部分
 ```
   - 這三個由 **T-025a、T-046 中先派工的那張**建立，後做的重用。
   - 每支 cron 函式在 `config.toml` 都要有 `[functions.<slug>]`：`verify_jwt = false`、`import_map = "./functions/deno.json"`（CLAUDE.md §5 第 16 條），由各自的單加。
@@ -652,48 +652,89 @@ export function createServiceClient(env: SupabaseSecretEnv): DbClient;
 #### 4.12.2 `purge-audio`（T-046）
 | 檔案 | 內容 | 建立的單 |
 |---|---|---|
-| `supabase/functions/purge-audio/index.ts` | `Deno.serve`：`requireServiceKey` → `purgeExpiredAudio` → 回 JSON 統計 | T-046 |
-| `supabase/functions/_shared/db/audio-purge.ts` | `purgeExpiredAudio`、`purgeDepsFrom` | T-046 |
+| `supabase/functions/purge-audio/index.ts` | `Deno.serve`：**只做組裝**（讀 env、呼叫 `createServiceClient`、把 client 交給 `purgeDepsFrom`、把 `createPurgeHandler` 接上 `serve`）。不寫 log、不決定 HTTP 狀態、不直接呼叫 `purgeExpiredAudio` 來回 JSON。 | T-046 |
+| `supabase/functions/purge-audio/handler.ts` | `createPurgeHandler`：呼叫 `requireServiceKey` 與 `purge`（＝`purgeExpiredAudio`）、寫**一行** log、依 `PurgeRun` 決定 200 或錯誤狀態碼。不建立 secret client。 | T-046 |
+| `supabase/functions/_shared/db/audio-purge.ts` | `purgeExpiredAudio`（整次執行的入口，含孤兒階段）、`purgeOrphans`、`purgeDepsFrom`、`PurgeDbClient` | T-046 |
 | `supabase/config.toml` | `[functions.purge-audio]`：`verify_jwt = false`、`import_map = "./functions/deno.json"`（CLAUDE.md §5 第 16 條） | T-046 |
 ```ts
 // _shared/db/audio-purge.ts
 export type AudioTable = 'shadow_attempt' | 'evening_answer';
 export type ExpiredAudio = { readonly id: string; readonly audioPath: StoragePath };
+export type OrphanObject = { readonly path: StoragePath; readonly createdAt: string };   // createdAt：RPC 回的 ISO 字串原樣保留（見下）
+export type OrphanCursor = { readonly createdAt: string; readonly name: string };       // name＝上一列的 path；兩個欄位一定一起給
 export type PurgeDeps = {
   readonly listExpired: (table: AudioTable, now: Date, limit: number) => Promise<Result<readonly ExpiredAudio[], AppError>>;
-  readonly removeObjects: (paths: readonly StoragePath[]) => Promise<Result<null, AppError>>;   // bucket 'audio'
+  readonly removeObjects: (paths: readonly StoragePath[]) => Promise<Result<null, AppError>>;   // bucket 'audio'；到期與孤兒共用同一個方法
   readonly clearAudioPath: (table: AudioTable, row: ExpiredAudio) => Promise<Result<null, AppError>>;   // where id = … and audio_path = …
+  /** rpc list_orphan_audio_objects（§4.12.2.1）。cutoff＝now − 24 小時；limit＝本次執行的 limit；after＝null 表示從頭。失敗 → storage_failed（op: 'list'）；回傳不是預期形狀也算失敗。 */
+  readonly listOrphanCandidates: (cutoff: Date, limit: number, after: OrphanCursor | null) => Promise<Result<readonly OrphanObject[], AppError>>;
+  /** rpc audio_paths_in_use：回傳 paths 之中「現在有列指到」的那些（刪前複查）。失敗 → db_failed；回傳不是預期形狀也算失敗，不當成空集合。 */
+  readonly pathsInUse: (paths: readonly StoragePath[]) => Promise<Result<readonly StoragePath[], AppError>>;
 };
-export function purgeDepsFrom(client: DbClient): PurgeDeps;
+/** 最小的 supabase-js 子集（只含本檔用到的方法）；createServiceClient 的回傳型別同時滿足 DbClient 與它（§4.12.1）。測試用「記錄呼叫」的假物件。 */
+type PgResult<T> = PromiseLike<{ readonly data: T | null; readonly error: { readonly code?: string; readonly message: string } | null }>;
+export interface PurgeDbClient {
+  from(table: AudioTable): {
+    select(columns: string): { not(column: string, op: 'is', value: null): { lte(column: string, value: string): {
+      order(column: string, options: { ascending: boolean }): { limit(n: number): PgResult<readonly Record<string, unknown>[]> } } } };
+    update(values: { audio_path: null }): { eq(column: 'id', value: string): { eq(column: 'audio_path', value: string): PgResult<unknown> } };
+  };
+  rpc(fn: 'list_orphan_audio_objects' | 'audio_paths_in_use', args: Record<string, unknown>): PgResult<unknown>;
+  readonly storage: { from(bucket: 'audio'): { remove(paths: string[]): PromiseLike<{ readonly data: unknown; readonly error: { readonly message: string } | null }> } };
+}
+export function purgeDepsFrom(client: PurgeDbClient): PurgeDeps;
 export type PurgeTableStats = { readonly selected: number; readonly purged: number; readonly failed: number };
-export type PurgeStats = { readonly shadow: PurgeTableStats; readonly evening: PurgeTableStats };
+export type PurgeStats = { readonly shadow: PurgeTableStats; readonly evening: PurgeTableStats; readonly orphan: PurgeTableStats };
+/** 整次執行的結果：stats 永遠有（沒跑到的階段全 0），error 是第一個錯誤（沒有則 null）。 */
+export type PurgeRun = { readonly stats: PurgeStats; readonly error: AppError | null };
 export const PURGE_BATCH_LIMIT = 200;
-export function purgeExpiredAudio(deps: PurgeDeps, now: Date, limit?: number): Promise<Result<PurgeStats, AppError>>;
+export const PURGE_ORPHAN_MAX_CALLS = 5;   // 孤兒每次執行最多呼叫列出函式幾次（§4.12.2.1）
+/** 入口：依序做 shadow 到期、evening 到期、孤兒三個階段，彼此獨立；不丟例外，不寫 log。 */
+export function purgeExpiredAudio(deps: PurgeDeps, now: Date, limit?: number /* 預設 PURGE_BATCH_LIMIT */): Promise<PurgeRun>;
+/** 孤兒階段（§4.12.2.1），匯出以便單獨測試；purgeExpiredAudio 呼叫它。error 非 null 時 stats 是失敗當下為止的累計。 */
+export function purgeOrphans(deps: PurgeDeps, now: Date, limit?: number): Promise<{ readonly stats: PurgeTableStats; readonly error: AppError | null }>;
 ```
+- **回傳與 log 由誰負責（v1.17）**：`purgeExpiredAudio` 回 `PurgeRun`（取代原本的 `Result<PurgeStats, AppError>`；handler 的 `purge` 依賴同步改成 `(env) => Promise<PurgeRun>`），所以任何階段出錯，已完成階段的數字都不會遺失。**log 由 handler 寫**（`PurgeHandlerDeps.log`；`audio-purge.ts` 不寫 log、不拿 log 依賴）。`error` 是 null → 200＋`PurgeStats`；非 null → `toApiErrorBody` 的狀態碼與 body（body 是 `ApiErrorBody`，不含統計；統計只在 log）。**每次執行只寫一行 log**（AC-T46-7 的「一行」不變）：`purge-audio shadow=<selected>/<purged>/<failed> evening=<s>/<p>/<f> orphan=<s>/<p>/<f>`，出錯時尾端加 ` error=<AppError.kind> phase=<shadow|evening|orphan>`；不含路徑、id、金鑰、錯誤 `message`。`phase` 指第一個錯誤發生的階段（到期的 `listExpired` 失敗、孤兒的列出或複查失敗都適用）。孤兒複查失敗**不另外**寫第二行，也不用先前草稿的 `purge-audio orphan recheck failed …` 格式（作廢）。
+- **`PurgeDbClient` 與游標的細節**：`createServiceClient` 回 `DbClient & PurgeDbClient`；`audio-purge.ts` 只做 type import，不 import `service-db.ts`。`OrphanCursor.createdAt` 必須是上一列 RPC 回來的 ISO 字串**原樣**傳回，**不轉成 `Date` 再轉字串**：`timestamptz` 有微秒、`Date` 只有毫秒，截斷會讓游標落在上一列之前而重複列出同一列。`name` 是上一列的 `path`。
 - **刪除行為**（兩張表各做一次，彼此獨立）：
   1. 選出 `audio_path is not null and audio_expires_at <= now` 的列，依 `audio_expires_at` 排序，最多 `limit` 筆。
   2. 先刪 Storage 物件（一次 `remove` 送這批路徑）。
   3. `remove` 沒有回錯誤 → 這批路徑都算成功，包括物件本來就不存在的（冪等）；再 `update … set audio_path = null where id = … and audio_path = <同一個路徑>`。逐字稿、分數保留（Q-06）。
   4. `remove` 回錯誤 → 這批的 `audio_path` 都不動，算 `failed`，隔天自然重試。
   - supabase-js 對「不存在的路徑」是否不回錯誤：**未驗證**，T-046 用假 Storage 測兩種情況；如果真的會回錯，改成逐一判斷「not found 算成功」。
-  - 回應：200 加 `PurgeStats`（`failed > 0` 也回 200，數字寫進 log；pg_net 不會重試，回 500 也沒有用）。
-- **每批上限 200 筆／表**：每天新增約 17 個錄音（跟讀 5 句 × 約 3 次＋晚上 2 段，§10），Supabase 暫停 7 天後回來的積壓也只有約 120 筆，200 一次清得完。每次只有 2 次查詢、2 次 `remove`、最多 400 次小 update，遠低於 Edge Function 免費方案的 150 秒牆鐘時間和 2 秒 CPU 時間（官方 limits 頁）。`remove` 一次能送幾個路徑：**不確定**，200 是保守值。
-#### 4.12.2.1 孤兒錄音（v1.14；v1.15 補列出與時間規則；v1.16 改在 SQL 排除有列物件；T-030、T-046；ADR-020 決定 2、ADR-021）
+  - 回應：200 加 `PurgeStats`（`failed > 0` 也回 200，數字寫進 log；pg_net 不會重試，回 500 也沒有用）。`error` 非 null 時見上方 PurgeRun 規則（500）。
+- **每批上限 200 筆／表**：每天新增約 17 個錄音（跟讀 5 句 × 約 3 次＋晚上 2 段，§10），Supabase 暫停 7 天後回來的積壓也只有約 120 筆，200 一次清得完。**到期階段**每次只有 2 次查詢、2 次 `remove`、最多 400 次小 update；**孤兒階段**（§4.12.2.1）最多 5 次列出 RPC、5 次複查 RPC、5 次 `remove`（v1.17）。合計仍遠低於 Edge Function 免費方案的 150 秒牆鐘時間和 2 秒 CPU 時間（官方 limits 頁）。`remove` 一次能送幾個路徑：**不確定**，200 是保守值。
+#### 4.12.2.1 孤兒錄音（v1.14；v1.15 補列出與時間規則；v1.16 改在 SQL 排除有列物件；v1.17 補游標、複查失敗與 pgTAP；T-030、T-046；ADR-020 決定 2、ADR-021）
 - **定義**：`audio` bucket 裡已有物件，但沒有任何 `shadow_attempt.audio_path` 或 `evening_answer.audio_path` 等於該路徑。典型原因是 T-030／晚上流程「先上傳、再寫列」時，寫列失敗（500 `db_failed`）；請求仍在進行時（秒級）也會短暫出現這種狀態。
 - **誰清、不另開 job**：沿用既有的 `purge-audio`（T-046）與同一個每日排程（台北 03:30）。不新增函式、不另排 cron。T-046 尚未合併時，把本節寫進同一張單（建議出 v1.3）；若 T-046 已派工或已合併，再開一張補在**同一個函式**上。
 - **怎麼列出（不要用 Storage JS `list` 逐層走資料夾）**：JS `list` 不遞迴、要分頁，跟讀路徑還多一層 `planDate`，當主路徑容易漏頁。改由 secret 金鑰呼叫下面這支 SQL 函式（T-046 的 migration 建）。**函式在 SQL 內就用 `NOT EXISTS` 排除兩張表已有相同 `audio_path` 的物件，只回傳孤兒候選**，再 `ORDER BY`／`LIMIT`。不要先取最舊的 200 個物件再於應用層過濾：那樣最舊的「有列」錄音會佔滿名額，較新的孤兒要等前面的物件被 90 天規則清掉才輪得到（接近 90 天，而不是 24 小時）。修訂 1 的名稱 `list_audio_objects_for_purge` **作廢**，改用 `list_orphan_audio_objects`（名稱與「只回孤兒」一致）。
 ```sql
-create function public.list_orphan_audio_objects(p_cutoff timestamptz, p_limit integer)
+create function public.list_orphan_audio_objects(
+  p_cutoff timestamptz,
+  p_limit integer,
+  p_after_created_at timestamptz default null,
+  p_after_name text default null
+)
 returns table(object_name text, created_at timestamptz)
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
+begin
+  if (p_after_created_at is null) <> (p_after_name is null) then
+    raise exception 'p_after_created_at and p_after_name must both be null or both be set'
+      using errcode = '22023';
+  end if;
+  return query
   select o.name, o.created_at
   from storage.objects as o
   where o.bucket_id = 'audio'
     and o.created_at < p_cutoff
+    and (
+      p_after_created_at is null
+      or (o.created_at, o.name) > (p_after_created_at, p_after_name)
+    )
     and (storage.foldername(o.name))[1] is not null
     and (
       (
@@ -718,6 +759,7 @@ as $$
     )
   order by o.created_at asc, o.name asc
   limit p_limit;
+end;
 $$;
 
 create function public.audio_paths_in_use(p_paths text[])
@@ -737,8 +779,8 @@ as $$
     );
 $$;
 
-revoke all on function public.list_orphan_audio_objects(timestamptz, integer) from public, anon, authenticated;
-grant execute on function public.list_orphan_audio_objects(timestamptz, integer) to service_role;
+revoke all on function public.list_orphan_audio_objects(timestamptz, integer, timestamptz, text) from public, anon, authenticated;
+grant execute on function public.list_orphan_audio_objects(timestamptz, integer, timestamptz, text) to service_role;
 revoke all on function public.audio_paths_in_use(text[]) from public, anon, authenticated;
 grant execute on function public.audio_paths_in_use(text[]) to service_role;
 
@@ -753,12 +795,24 @@ create index evening_answer_audio_path_idx
   - **路徑判定不用 `like '%…%'`**（會誤中 `…/foo/shadow/…` 這類多一段的路徑）。跟讀實際格式是 `<user_id>/shadow/<plan_date>/<item_index>-<uuid>.wav`，晚上是 `<user_id>/evening/<answer_id>.webm`（§4.12.1）。用 `o.bucket_id = 'audio'` 加上 `storage.foldername(name)` 精確比對每一段：`[1]` 有值（user_id）、`[2]` 是 `shadow` 或 `evening`；跟讀還要有且只有第 3 段（`plan_date`），晚上不能有第 3 段。
   - 時間**只看** `storage.objects.created_at`（`timestamptz`）。`p_cutoff` 由呼叫端傳入，等於 `deps.now() - 24 hours`。不用 `updated_at`、`last_accessed_at`，也不用路徑裡的 `planDate`。
   - 24 小時邊界**不含等於**：`created_at < p_cutoff` 才入選。剛好滿 24 小時的物件這輪不刪，留給下一次排程。`created_at` 缺值或無法解析 → **不刪**（fail-safe；這類列不進結果）。
-  - `p_limit` 預設 `PURGE_BATCH_LIMIT`（200），指 **200 個孤兒候選**（不是 200 個含有列的物件，也不是 200 個資料夾）。排序：`created_at` 升序，再以 `name` 升序。一次刪不完，隔天接著刪。
+  - `p_limit` 預設 `PURGE_BATCH_LIMIT`（200），指**每次呼叫** 200 個孤兒候選（不是 200 個含有列的物件，也不是 200 個資料夾）。排序：`created_at` 升序，再以 `name` 升序。
+  - **游標（keyset）與每次執行的呼叫數（v1.17，防毒丸）**：`p_after_created_at`、`p_after_name` 必須同時給或同時為 null。**只給一個時 SQL 內明確拒絕**：函式是 `plpgsql`，開頭檢查 `(p_after_created_at is null) <> (p_after_name is null)`，成立就 `raise exception … using errcode = '22023'`（`invalid_parameter_value`），不查表、不回列（pgTAP 可直接斷言，不依賴 `coalesce` 的暗中行為）。呼叫端的型別（`OrphanCursor | null`）本來就保證兩個欄位一起給。給了游標就只回 `(created_at, name)` **嚴格大於**游標的列。`purgeOrphans` 在**同一次執行**內最多呼叫 `PURGE_ORPHAN_MAX_CALLS = 5` 次（每次執行最多 5 × `limit` 個孤兒候選，預設 1,000）；**每次呼叫的 `p_limit` 都等於本次執行的 `limit`**（`purgeExpiredAudio(deps, now, limit?)` 的參數，預設 `PURGE_BATCH_LIMIT` 200；到期與孤兒階段共用同一個 `limit`）。游標一律推進到**本次呼叫回傳的最後一列**，不論那批是刪成功、`remove` 失敗、或被刪前複查拿掉；所以永遠刪不掉的最舊孤兒（Storage 回錯、物件名稱被拒）只會在這次執行內被試一次，不會每天佔滿整個額度、也不會在同一次執行內被重試。停止條件：某次列出回傳 **0 筆**（已無更多，見下）、或回傳少於 `limit` 筆但仍大於 0（以列出筆數判斷，不看複查後剩幾筆，游標推進後結束）、或已呼叫 5 次、或複查／列出失敗。**列出 0 筆**：不呼叫 `pathsInUse`、不呼叫 `removeObjects`，立刻結束孤兒迴圈（沒有最後一列，游標也不推進）。下一次排程游標從頭開始（不存狀態），所以仍刪不掉的舊孤兒隔天會再被試一次並計入 `failed`，這是刻意的（可能是暫時性的錯誤）。已知上限：同時有超過 5 × `limit` 個永遠刪不掉的孤兒時，更新的孤兒仍會被擋住；這種量表示 Storage 出了系統性問題，由 `failed` 的 log 發現，不在本契約內自動處理（不加黑名單表）。`selected` 是整次執行所有呼叫回傳筆數的總和，仍含複查拿掉的（M4 不變）；排序、`created_at < p_cutoff` 不含等於（M5）與 SQL 內 `NOT EXISTS`（M1）都不變。每次呼叫最多 1 次 `remove`、5 批共最多 5 次（耗時**未驗證**，G4 實測）。
 - **怎樣算「沒有對應資料列」**：由 `list_orphan_audio_objects` 在 SQL 內用 `NOT EXISTS` 判定（`o.name` 對兩張表的 `audio_path`）。應用層**不要**再對列出結果做一次「有列就拿掉」的初篩。此查詢本來就跨使用者，不帶 `user_id`，列入 §4.12.5 例外表。
 - **`pathsInUse` 只留給刪前複查，不負責初篩**：`PurgeDeps.pathsInUse` 仍保留。24 小時已經蓋過進行中的上傳和晚上 IndexedDB 重送窗；殘餘風險是「列出之後、刪除之前剛好寫入對應列」。刪除前**再查一次**，已有列的路徑從本批拿掉，不刪。實作必須走 RPC `public.audio_paths_in_use(p_paths text[])`（POST 帶陣列，回傳仍在使用的路徑），**不要**用 PostgREST GET 的 `audio_path=in.(…)`：200 條路徑（各約 80～100 字元）的查詢字串可能超過網關 URL 長度上限。
+- **刪前複查（v1.17 補失敗與空批）**：列出回傳 **1 筆以上** 時，才對該次回傳的路徑呼叫一次 `pathsInUse`，已有列的路徑從本批拿掉；**剩下的路徑才送 `removeObjects`，剩下 0 個就不呼叫 `removeObjects`**（游標照樣推進；若列出筆數已小於 `limit` 就結束，否則繼續下一次呼叫）。列出回傳 0 筆時見上：不呼叫 `pathsInUse`、不呼叫 `removeObjects`、停止迴圈。`pathsInUse` 回 `err`（RPC 失敗、逾時、回傳格式錯誤）時 fail-safe：**這一批一個都不刪**（不呼叫 `removeObjects`），**不當成已刪**，也**不假設**「沒回傳＝沒有列」。錯誤種類沿用既有的 `db_failed`（500、可重試，§5.0.4；RPC 是資料庫呼叫，不用 `storage_failed`），不新增種類。處理方式：孤兒階段**立刻停止**（不再呼叫下一次列出，因為資料庫很可能暫時不可用，繼續只會重複失敗），該批的路徑已計入 `selected`，**不計入** `purged` 或 `failed`（`failed` 只指 `remove` 失敗）；因此 `selected >= purged + failed` 仍成立。`purgeOrphans` 回 `error: db_failed`、`stats` 是到失敗當下為止的累計；兩張表的到期階段不受影響（三階段獨立，`purgeExpiredAudio` 回第一個錯誤）。log 與 HTTP 見 §4.12.2：由 handler 寫的**那一行**，尾端是 `error=db_failed phase=orphan`，不含路徑。不在函式內重試；pg_net 不會重試，隔天排程再跑，物件仍在 Storage 裡不會遺失。
 - **索引**：T-046 的 migration 必須為兩張表的 `audio_path` 建部分索引（`where audio_path is not null`），供列出函式的 `NOT EXISTS` 與 `audio_paths_in_use` 使用。名稱：`shadow_attempt_audio_path_idx`、`evening_answer_audio_path_idx`。
-- **做法與統計**：在兩張表的到期清理之後跑孤兒批次（即使某一張表的 `listExpired` 回錯，孤兒仍跑；三個階段彼此獨立，最後回第一個錯誤，與 AC-T46-5 同一精神）。`PurgeDeps` 加 `listOrphanCandidates`（呼叫 `list_orphan_audio_objects`）、`pathsInUse`（呼叫 `audio_paths_in_use`）、以及依路徑刪除。`PurgeStats` 加 `orphan: { selected, purged, failed }`，與兩張表同一形狀；log 改成三組數字。`selected`＝此次 `list_orphan_audio_objects` 回傳的筆數（列出時已是孤兒）。刪前複查拿掉的路徑仍計入 `selected`，不計入 `purged` 或 `failed`；因此 `selected >= purged + failed`，差額即因競態而跳過的筆數。刪成功的物件沒有對應列要更新。單批 `remove` 失敗則這批算 `failed`，函式本身仍回 `ok(PurgeStats)`、HTTP 200（與到期清理相同）。列出候選失敗則整段回 `err`（`storage_failed`，`op: 'list'`，§5.0.4），handler 依 `toApiErrorBody` 回非 200；pg_net 不會重試，隔天排程再跑。
-- **測試**（假的列出／假 DB，不連正式 Storage）：未滿 24 小時不動；剛好等於 24 小時不動；已滿且無列就刪；有列的物件即使超過 24 小時也不出現在列出結果、不當孤兒刪（由到期規則清）；缺 `created_at` 不刪；刪前複查發現已有列則不刪，但該路徑仍計入 `selected`；大量較舊的有列物件不得讓較新的孤兒餓死（同一次執行仍刪那些孤兒）。
+- **做法與統計**：在兩張表的到期清理之後跑孤兒批次（即使某一張表的 `listExpired` 回錯，孤兒仍跑；三個階段彼此獨立，最後回第一個錯誤，與 AC-T46-5 同一精神）。型別、`PurgeDeps` 的兩個新方法（`listOrphanCandidates`、`pathsInUse`）、`PurgeStats.orphan`、`PurgeRun` 與 `purgeOrphans` 的簽名都在 §4.12.2 的程式區塊；孤兒的刪除**重用 `removeObjects`**（同一個 `audio` bucket、同一套冪等語意），不新增刪除方法，也沒有 `clearAudioPath`（孤兒沒有列）。`PurgeStats.orphan` 與兩張表同一形狀 `{ selected, purged, failed }`。`selected`＝此次執行所有 `list_orphan_audio_objects` 回傳筆數的總和（列出時已是孤兒）。刪前複查拿掉的路徑仍計入 `selected`，不計入 `purged` 或 `failed`；因此 `selected >= purged + failed`，差額即因競態而跳過的筆數。刪成功的物件沒有對應列要更新。單批 `remove` 失敗則這批算 `failed`，函式本身仍不回錯誤（`error: null`）、HTTP 200（與到期清理相同）。列出候選失敗（含同一次執行第 2～5 次呼叫失敗，已刪的不回復）則孤兒階段停止並設 `error: storage_failed`（`op: 'list'`，§5.0.4），handler 依 `toApiErrorBody` 回非 200；pg_net 不會重試，隔天排程再跑。
+- **測試**（假的列出／假 DB，不連正式 Storage）：未滿 24 小時不動；剛好等於 24 小時不動；已滿且無列就刪；有列的物件即使超過 24 小時也不出現在列出結果、不當孤兒刪（由到期規則清）；缺 `created_at` 不刪；刪前複查發現已有列則不刪，但該路徑仍計入 `selected`；大量較舊的有列物件不得讓較新的孤兒餓死（同一次執行仍刪那些孤兒）；**毒丸**：最舊的 200 個孤兒 `remove` 一律失敗時，同一次執行的第 2 次呼叫以游標略過它們、刪掉較新的孤兒，`failed` 為 200、`purged` 為較新那批的筆數；游標推進到最後一列（含被複查拿掉的）；一次執行最多呼叫 5 次；**複查失敗**：`removeObjects` 一次都不被呼叫、`purgeOrphans` 回 `error: db_failed` 與累計 `stats`、不再呼叫列出、兩張表的階段照常；handler 只寫**一行** log（尾端 `error=db_failed phase=orphan`、不含路徑）、HTTP 500；**列出 0 筆**：不呼叫 `pathsInUse` 也不呼叫 `removeObjects`、迴圈停止；**複查後 0 個剩下**（列出曾有筆數）：不呼叫 `removeObjects`、游標照樣推進；**每次呼叫的 `p_limit`**：等於傳入的 `limit`（預設 200）；**游標的 `createdAt` 原樣傳回**（微秒字串不轉 `Date`）；**到期階段出錯**（`listExpired` 回錯）：`PurgeRun.stats` 仍含另一張表與孤兒的數字，log 尾端 `phase=shadow` 或 `phase=evening`。
+
+- **pgTAP：兩支 RPC 的權限與行為（v1.17；T-046）**：PostgREST 預設把 `public` schema 的函式當成 RPC 暴露，Supabase 對新函式的預設權限也會直接授予 `anon`／`authenticated`，所以只靠 migration 裡的 `revoke`／`grant` 還不夠，要有測試證明。pgTAP 在這個專案的堆疊裡已存在：測試檔放 `supabase/tests/`，由 `pnpm db:test`（`tooling/db-test.mjs`，psql＋pgTAP 對本機 Supabase 資料庫逐檔執行）跑，PR CI 的 `db` job 驗證；先例是 `t004_rls_test.sql` 用 `set local role anon` 加 `throws_ok(…, '42501', …)`。
+  - **檔案（決定）**：新增 `supabase/tests/t046_orphan_audio_rpc_test.sql`（沿用 `t0NN_<主題>_test.sql` 命名），**專放這兩支 RPC 的測試**；既有的 `supabase/tests/t046_audio_purge_test.sql`（bucket、policy、cron，任務單 TC-21）**不放這些**，兩個檔案各自獨立、可分別失敗。T-046 的範圍要多列這一個檔案路徑。
+  - **必做（不依賴 `storage.objects` 能不能寫入）**：
+    1. 對 `list_orphan_audio_objects(timestamptz, integer, timestamptz, text)` 與 `audio_paths_in_use(text[])`，用 `function_privs_are('public', <名稱>, <參數型別陣列>, '<角色>', <權限陣列>)`：`anon`、`authenticated` 的權限是空陣列；`service_role` 是 `{EXECUTE}`。PUBLIC 也要沒有 `EXECUTE`。
+    2. `set local role anon` 後各呼叫一次兩支函式，`throws_ok(…, '42501', …)`；`set local role authenticated` 同樣各一次；`set local role service_role` 呼叫成功（`lives_ok`）。
+    3. 兩支函式都是 `security definer`（`is_definer`），且 `proconfig` 含 `search_path=""`（空字串）。
+    4. **游標只給一個**：以 `service_role` 呼叫 `list_orphan_audio_objects(now(), 1, now(), null)` 與 `(now(), 1, null, 'x')` → 各 `throws_ok(…, '22023', …)`；兩個都給或都不給 → `lives_ok`。
+  - **盡力做（需要往 `storage.objects` 插測試列）**：`NOT EXISTS` 排除有列物件、`p_limit`、游標嚴格大於、`created_at < p_cutoff` 不含等於、路徑形狀（跟讀三段、晚上兩段、多一段不入選）。測試先用 `lives_ok` 插入列；**插不進去**（權限或 `storage.objects` 的限制）時，T-046 **停下**、寫進報告、這一組改由 G4 手動檢查（與 §4.12.3 對 `pg_cron` 的處理方式相同），必做那一組照常交付，不因此整個檔案失敗。
+  - **未驗證／不確定（不擋開發，PR CI 第一次跑就會知道）**：①`function_privs_are` 對 PUBLIC 的支援，以及專案用的 pgTAP 版本是否有這個函式；不行時 PUBLIC 改查 `pg_proc.proacl` 不含 `=X/…`，`function_privs_are` 整個不能用時改用 `has_function_privilege(role, oid, 'EXECUTE')`（**不確定**，需 SRE 確認 pgTAP 版本時再改）。②pgTAP（以 `postgres` 身分）能不能對 `storage.objects` 插列：**未驗證**，t004～t006 沒有先例。③「正式專案的預設權限和本機一致」：**未驗證**，G4 部署後以同樣的查詢抽查一次。④`set local role service_role` 在本機可用：t004 已依賴 `anon`／`authenticated` 角色，`service_role` 視同一類，仍 **未驗證**。
 
 #### 4.12.3 排程（pg_cron＋pg_net＋Vault；T-025a、T-046）
 - 寫法（`purge-audio` 的 job 由 T-046 的 migration 建；`daily-prep` 的 job 由 T-025a 的 migration 建，只換 job 名稱、時間和函式路徑；`create extension` 由先做的那張寫，`if not exists`）。pg_cron 的時間是 **UTC**：
@@ -799,11 +853,11 @@ $$);
 - **明確的例外只有兩個**，都是「本來就要跨使用者」的維護工作，而且只碰最少的欄位：
   | 檔案 | 函式 | 為什麼跨使用者 | 只能做什麼 |
   |---|---|---|---|
-  | `_shared/db/audio-purge.ts` | `listExpired`、`clearAudioPath`（§4.12.2），`listOrphanCandidates`、`pathsInUse`（§4.12.2.1），以及 Storage 的 `removeObjects` | 有列的錄音 90 天到期（Q-06）；孤兒 24 小時後清 | `listExpired` 只讀 `id`、`audio_path`、`audio_expires_at`；`clearAudioPath` 只把 `audio_path` 設成 null，條件是 `id` 和同一個 `audio_path`；`listOrphanCandidates` 只經 `public.list_orphan_audio_objects` 讀孤兒候選的 `name`、`created_at`（路徑用 `storage.foldername` 精確比對，SQL 內已排除有列物件）；`pathsInUse` 只經 `public.audio_paths_in_use` 回傳仍在使用的 `audio_path`（不帶 `user_id`，本列允許的跨使用者例外；只在刪前複查時呼叫）；`removeObjects` 只刪 `audio` bucket 的路徑 |
+  | `_shared/db/audio-purge.ts` | `listExpired`、`clearAudioPath`（§4.12.2），`listOrphanCandidates`、`pathsInUse`（§4.12.2.1），以及 Storage 的 `removeObjects` | 有列的錄音 90 天到期（Q-06）；孤兒 24 小時後清 | `listExpired` 只讀 `id`、`audio_path`、`audio_expires_at`；`clearAudioPath` 只把 `audio_path` 設成 null，條件是 `id` 和同一個 `audio_path`；`listOrphanCandidates` 只經 `public.list_orphan_audio_objects`（可帶游標 `p_after_created_at`、`p_after_name`）讀孤兒候選的 `name`、`created_at`（路徑用 `storage.foldername` 精確比對，SQL 內已排除有列物件）；`pathsInUse` 只經 `public.audio_paths_in_use` 回傳仍在使用的 `audio_path`（不帶 `user_id`，本列允許的跨使用者例外；只在刪前複查時呼叫）；`removeObjects` 只刪 `audio` bucket 的路徑 |
   | `_shared/db/service-db.ts` | `listProfileUserIds`（T-025a，`daily-prep` 逐一處理使用者用） | 要知道有哪些使用者 | 只讀 `profile.user_id`，不讀其他欄位 |
 - **`daily-prep` 的其他查詢都不是例外**：拿到 `userId` 之後，一律經過 `PlanStore`（`_shared/db/plan-store.ts` 的 `planStoreFrom(client, userId)`，T-025a；使用者 client 和 secret client 共用同一個實作），每個碰到使用者資料表的查詢都帶 `.eq('user_id', userId)`。`seed_chunk`、`news_article`、`news_source` 這些沒有 `user_id` 的共用表不在此限，但寫回 `card`、`daily_plan` 一定帶。
 - **用測試強制**（不用 lint，因為 lint 判斷不了一個查詢鏈有沒有帶條件）：
-  1. **用到 secret 金鑰的檔案只有固定幾個**：`tooling/secret-client-scope.test.ts`（T-046 建）掃 `supabase/functions/**` 的正式程式，`createServiceClient` 只能出現在 `_shared/db/service-db.ts`（定義，§4.12.1）、`purge-audio/index.ts`、`daily-prep/index.ts`、`_shared/db/paid-consent.ts`（CLAUDE.md §5 第 14 條）；`service-db.ts` 只能被這幾個檔案和 `_shared/db/audio-purge.ts` import。多出來的檔案 → 失敗。
+  1. **用到 secret 金鑰的檔案只有固定幾個**：`tooling/secret-client-scope.test.ts`（T-046 建）掃 `supabase/functions/**` 的正式程式，`createServiceClient` 只能**出現**在 `_shared/db/service-db.ts`（定義，§4.12.1）、`purge-audio/index.ts`、`daily-prep/index.ts`、`_shared/db/paid-consent.ts`（CLAUDE.md §5 第 14 條）。對 `purge-audio` 來說，client **只在** `purge-audio/index.ts` 建立（組裝時呼叫一次、交給 `purgeDepsFrom`）；`handler.ts` 與 `audio-purge.ts` 都不呼叫、也都不 import `service-db.ts`。`daily-prep` 同樣只在自己的 `index.ts` 建立。`service-db.ts` 只能被這三個呼叫端和定義本身 import（`audio-purge.ts` 只做 `PurgeDbClient` 的 type import，不 import 本檔）。多出來的檔案 → 失敗。
   2. **每個查詢都帶 `user_id`**：`plan-store.ts` 的測試（T-025a）用會記錄呼叫的假 `DbClient`，對每個函式檢查：碰到 `card`、`card_review`、`daily_plan`、`profile`、`evening_answer`、`question` 的每一次查詢都有 `eq('user_id', <傳進來的 userId>)`（題庫題 `user_id is null` 的讀取用 `or(user_id.eq.<id>,user_id.is.null)`，也算有帶）；`service-db.ts` 的 `listProfileUserIds` 另外測：只能 `select('user_id')`。
   3. **例外只做表上寫的事**：`audio-purge.ts` 的測試（T-046）檢查 `listExpired` 只 select 那三個欄位、`clearAudioPath` 的 update 只有 `audio_path: null`、`pathsInUse` 只經 `audio_paths_in_use` 回傳 `audio_path`、`listOrphanCandidates` 只讀物件的 `name` 與 `created_at`。
 - CLAUDE.md §5 第 15 條同步改寫（加上這兩個例外和測試）。
@@ -1309,7 +1363,7 @@ export const ShadowResultSchema = z.object({
   - 已知差異（**不確定**）：Whisper 不照參考文字辨識，會比 Azure 的 scripted 模式多出一些「聽錯」，正確率可能偏低；要等 A-002 或實際使用才知道差多少。
 - **`shadow_attempt` 的寫入**：兩種模式都寫；`pron_score`、`pron_provider` 可以是 null（既有欄位已允許）。供應商失敗時不寫列、也**不上傳**錄音（沒有結果可寫）。只有「Storage 上傳已成功、接著寫列失敗」才會留下沒有對應列的物件，由 `purge-audio` 依 §4.12.2.1 清掉（保留 24 小時），不是 90 天。有對應列的錄音仍依 `audio_expires_at` 90 天後清掉（Q-06）。
 
-#### 4.18.1 `POST /shadow/attempts` 的 multipart（v1.14；v1.15 補驗證與時長；v1.16 補 chunk 與時長門檻；T-030；ADR-020 決定 2、ADR-021）
+#### 4.18.1 `POST /shadow/attempts` 的 multipart（v1.14；v1.15 補驗證與時長；v1.16 補 chunk 與時長門檻；v1.17 補 `0xFFFFFFFF`；T-030；ADR-020 決定 2、ADR-021）
 - **Content-Type**：`multipart/form-data`。認可的欄位只有 `audio`（檔案）和 `meta`（JSON 字串）。其他名稱的欄位忽略（和 §5.1.1 JSON 多欄位被 schema 去掉同一精神）。不是 multipart、或缺欄，回 400 `validation`（缺 `audio` 時 path 為 `audio`；缺 `meta` 時 path 為 `meta`）。
   - 同名欄位出現兩次以上（兩個 `audio` 或兩個 `meta`）→ 400 `validation`，path 為該欄位名，不默默取第一個或最後一個。
   - `audio` 不是檔案（例如只是字串）→ 400 `validation`，path 為 `audio`。`meta` 不是字串（例如是檔案）或不是合法 UTF-8 JSON → 400 `validation`，path 為 `meta`。
@@ -1317,14 +1371,17 @@ export const ShadowResultSchema = z.object({
 - **`audio` 先檢查大小，再交給 `parseWav16kMono`**（contracts `src/audio.ts`，§5.0.5；常數也放在同一檔）：
   - `SHADOW_AUDIO_MAX_BYTES = 1_048_576`（1 MiB）。整個 buffer（含檔頭）超過此值 → 400 `validation`，path 為 `audio`，**不呼叫** `parseWav16kMono`。剛好 1 MiB 的合格 WAV 可以進入解析。30 秒的 16 kHz mono 16-bit 約 960 KB 加檔頭，1 MiB 留餘裕，遠低於 `audio` bucket 的 5 MB（§4.12.1）。
   - **只接受一種 PCM**：RIFF/WAVE、`fmt ` 出現在 `data` 之前（與現有 parser／探針一致）、`audioFormat = 1`（整數 PCM，不是 IEEE float、extensible、A-law、μ-law）、16-bit little-endian、16 kHz、單聲道、`blockAlign = 2`、`byteRate = 32_000`。其他取樣率、聲道數或格式 → 400 `validation`，path 為 `audio`。這和 §9 跟讀錄音（AudioWorklet → 16 kHz mono WAV）以及 Azure 短音訊 REST 的要求一致。
-  - **依 RIFF 規則逐個走 chunk**（每個 chunk：4 位元組 id、4 位元組 little-endian 大小，然後是資料；奇數大小後面有 1 位元組 padding，padding 不計入宣告大小）。除必備的 `fmt ` 與 `data` 外，其他合法 chunk（例如 `LIST`／`JUNK`／`INFO`）無論出現在 `fmt ` 之前、兩者之間、或 `data` 之後，一律**忽略**（不計入時長、不進入正規化輸出）。`fmt ` 仍必須出現在 `data` 之前。
+  - **依 RIFF 規則逐個走 chunk**（每個 chunk：4 位元組 id、4 位元組 little-endian 大小，然後是資料；奇數大小後面有 1 位元組 padding，padding 不計入宣告大小）。除必備的 `fmt ` 與 `data` 外，其他合法 chunk（例如 `LIST`／`JUNK`／`INFO`）無論出現在 `fmt ` 之前、兩者之間、或 `data` 之後，一律**忽略**（不計入時長、不進入正規化輸出）。`fmt ` 仍必須出現在 `data` 之前。**例外（v1.17）**：`data` 的宣告大小是 `0xFFFFFFFF` 時，`data` 之後**不再走 chunk 規則**，資料區到檔尾全部算音訊（見下面 `0xFFFFFFFF` 的說明）。
   - **合法 chunk 的 id**：4 個位元組都必須是可印 ASCII（`0x20`–`0x7E`），且**第一個位元組不可為空白**（`0x21`–`0x7E`）。因此 `"fmt "`、`"data"`、`"LIST"` 合格；`\0\0\0\0` 或四個空白不合格。id 不合法 → 400 `validation`，path 為 `audio`。這樣少報 `data` 大小、後面接全 0 靜音取樣時，不會被讀成一串大小為 0 的空 chunk 而誤過。
   - **時長以 `data` chunk 的宣告大小計算**：`dataBytes`＝宣告大小。宣告大小超過從 `data` 資料區起到檔尾的剩餘位元組，或不是 `blockAlign`（2）的倍數 → 400 `validation`，path 為 `audio`。`durationMs = round(dataBytes / 32_000 * 1000)` 只作為 `Wav16kMono.durationMs` 的結果欄位，**不用來和上下限比較**。
-    - 宣告為 `0xFFFFFFFF`（部分錄音器的「未知長度」寫法）＝`data` 從資料區起到**檔尾**；`dataBytes` 取實際剩餘，檔裡不應再有後續 chunk。剩餘位元組數同樣必須是 `blockAlign` 的倍數，奇數 → 400。這樣 31 秒的檔仍會被 30 秒上限擋住。
+    - 宣告為 `0xFFFFFFFF`（部分錄音器的「未知長度」寫法）＝`data` 從資料區起到**檔尾**；`dataBytes` 取實際剩餘。剩餘位元組數同樣必須是 `blockAlign` 的倍數，奇數 → 400。這樣 31 秒的檔仍會被 30 秒上限擋住。
+    - **`0xFFFFFFFF` 時，`data` 之後的位元組一律是音訊，不解析成 chunk（v1.17；P2）**：沒有宣告長度就無法分辨「音訊」與「後面接的 `LIST`」（PCM 位元組本來就可能長得像 chunk 標頭），所以規則是確定的：從資料區起到檔尾全部算 `dataBytes`，不走第 N1／N5／N6 的 chunk 規則。後面即使接著一個合法的 `LIST`，那些位元組也被當成取樣，**計入** `dataBytes` 與時長門檻、**會**進入正規化後的 `data` 送給 Azure 並存入 Storage（聽起來是一小段雜音）。回應只看總長：`9_600 ≤ dataBytes ≤ 960_000` 且是 2 的倍數 → 通過（200 路徑），否則 400。因此它仍繞不過 30 秒上限（被當成音訊的位元組已被總長擋住）。不另外回 400：要偵測就得猜音訊的哪一段像 chunk，會誤擋合法錄音。瀏覽器的 AudioWorklet 產生的 WAV（§9）永遠寫真實大小，不會走這條路；這是對第三方錄音器的寬容，不是正常路徑。
     - 其他 chunk 必須標頭完整、宣告大小加 padding 不超過檔尾。**檔尾例外**：若某個 chunk 的宣告大小是奇數，且檔案剛好在最後一個資料位元組結束（省略最後那 1 個 padding 位元組），視為合法並忽略。padding 缺失且後面還有位元組 → 400。無法解析的尾巴（標頭不完整、大小超出檔尾、id 不合法、或剩餘位元組構不成 chunk）→ 400 `validation`，path 為 `audio`。
     - 送給 Azure、寫入 Storage、以及放進 `Wav16kMono.bytes` 的，都是同一份正規化後的 WAV：只含 RIFF／`fmt `／`data`，大小欄與實際 data 一致。被忽略的 chunk 不送出，因此少報 `data` 大小繞不過 30 秒上限。
   - **時長門檻用 `dataBytes` 比較，不用四捨五入後的毫秒**：`SHADOW_AUDIO_MIN_DATA_BYTES = 9_600`（300 ms × 32_000）、`SHADOW_AUDIO_MAX_DATA_BYTES = 960_000`（30 s × 32_000）。`dataBytes < 9_600`（含 0 個取樣、0 秒）或 `dataBytes > 960_000` → 400 `validation`，path 為 `audio`。剛好 9_600 或 960_000 可以通過。因此 9_584 位元組（299.5 ms，四捨五入後是 300）與 960_002 位元組（30.0000625 s，四捨五入後是 30_000）都回 400。毫秒常數 `SHADOW_AUDIO_MIN_DURATION_MS = 300`、`SHADOW_AUDIO_MAX_DURATION_MS = 30_000` 仍保留，與位元組常數一起放在 `audio.ts`。不採用 §9.3 的 `minVoicedMs`（那是裝置端計次，且隨參考句長度變化）；伺服器不依 VAD 收檔。
   - **`parseWav16kMono` 的預設下限是 0**：共用解析函式預設只套用上限（`maxDurationMs` 預設 30_000，`minDurationMs` 預設 0），讓既有的短測試 WAV（例如 10 ms）仍可當「合法 PCM」解析。跟讀上傳的 300 ms 下限由 T-030 handler 傳入 `minDurationMs: SHADOW_AUDIO_MIN_DURATION_MS`（並傳入對應的上限）。門檻比較仍用上列位元組規則。
+  - **參數必須是非負整數毫秒（v1.17；P3）**：`maxDurationMs`、`minDurationMs` 都要滿足 `Number.isInteger(x) && x >= 0`，且 `minDurationMs <= maxDurationMs`；位元組門檻＝毫秒 × 32（整數毫秒才換算得精確）。不合格（例如 `299.5`、`NaN`、負數、下限大於上限）→ 回 `err`（`ValidationError`，`issues` 的 path 為 `minDurationMs` 或 `maxDurationMs`），**不丟例外**（contracts 正式程式不 `throw`，§5.0 第 4 點）。這是呼叫端寫錯的情形（常數都是整數），不是使用者錄音的錯，所以 handler 不會遇到；測試要固定這個行為。
+  - **既有測試與 T-030 範圍（v1.17；N3）**：因為預設下限是 0，`fake-fetch.ts` 的 `makeWav()`（預設 160 個取樣＝10 ms）以及 `azure-speech` 的測試（含 QA 的 `azure-speech.qa.test.ts`）**不需要因為這次規則而修改**。T-030 的範圍**允許但不要求**動它們：只在實際編譯或測試失敗時才改，改了要在報告寫明原因；QA 檔仍由 QA 改。`packages/contracts/src/audio.test.ts` 在 `origin/main` 只有**一個**截斷測試，名稱是 `UNDECIDED: a data chunk larger than the file is clamped to the bytes that exist`（同檔另有兩個 UNDECIDED，分別測 30 s 上限含等於、以及拒收 `WAVE_FORMAT_EXTENSIBLE`，不是截斷）。這個截斷測試必須改成預期 400（與本節相反的舊行為）。
 - **MIME**：有給時，比對 type／subtype（忽略 `;` 之後的參數，大小寫不敏感），必須是 `audio/wav`、`audio/wave` 或 `audio/x-wav`。因此 `audio/WAV`、`audio/wav; codecs=1` 算合格。沒給 MIME 也可以，只要位元組通過 `parseWav16kMono`。其他 MIME（例如 `audio/mpeg`、`audio/webm`）→ 400 `validation`，path 為 `audio`。
 - **`meta`**：UTF-8 JSON 字串，用 contracts 的 `ShadowAttemptMetaSchema` 驗證：
 ```ts
@@ -1700,7 +1757,7 @@ export const SHADOW_AUDIO_MIN_DURATION_MS = 300;
 export const SHADOW_AUDIO_MIN_DATA_BYTES = 9_600;
 export const SHADOW_AUDIO_MAX_DATA_BYTES = 960_000;
 export function parseWav16kMono(bytes: Uint8Array, maxDurationMs?: number /* 預設 30_000 */, minDurationMs?: number /* 預設 0 */): Result<Wav16kMono, ValidationError>;
-// 時長用 data chunk 宣告大小（0xFFFFFFFF＝到檔尾）；門檻用 dataBytes 與 32_000 換算的位元組比較，不用四捨五入後的毫秒。合法 chunk（id 為可印 ASCII，首字元非空白）忽略；無法解析的尾巴、id 不合法、或宣告超出檔尾 → validation。規則見 §4.18.1。
+// 時長用 data chunk 宣告大小（0xFFFFFFFF＝到檔尾）；門檻用 dataBytes 與 32_000 換算的位元組比較，不用四捨五入後的毫秒。合法 chunk（id 為可印 ASCII，首字元非空白）忽略；無法解析的尾巴、id 不合法、或宣告超出檔尾 → validation。例外：宣告 0xFFFFFFFF 時資料區到檔尾全部算音訊，不解析後面的 chunk（即使後面像 LIST）。maxDurationMs／minDurationMs 必須是非負整數毫秒且 min <= max，否則回 err（不丟例外）。規則見 §4.18.1。
 
 /** STT 的輸入。晚上的回答是瀏覽器錄的 WebM/Opus；跟讀是 WAV。 */
 export type AudioPayload =
@@ -3013,6 +3070,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
+| v1.17 | 2026-11-28 | T-030 錄音與孤兒清理規則補充（QA 在 #125 的 v3 案例末尾提出的 P2、Q1、Q2、Q3）：ADR-021 修訂 3。依賴 #123（v1.16）已合併。<br>• §4.18.1（P2）：`data` 宣告 `0xFFFFFFFF` 時，資料區到檔尾全部算音訊，不解析後面的 chunk；後面接合法 `LIST` 也當取樣、計入長度、送去評分並存入 Storage；仍受 300 ms／30 s 與偶數位元組限制，不回 400。<br>• §4.12.2.1（Q1）：`list_orphan_audio_objects` 加游標參數 `p_after_created_at`、`p_after_name`（嚴格大於）；`purgeOrphans` 每次執行最多呼叫 `PURGE_ORPHAN_MAX_CALLS = 5` 次，游標推進到每次的最後一列，永遠刪不掉的最舊孤兒不會每天佔滿額度；`selected` 為各次總和，M1／M4／M5 語意不變。<br>• §4.12.2.1（Q3）：`audio_paths_in_use` 失敗時整批不刪、孤兒階段停止並回 `db_failed`，不計入 `failed`，log 只含種類與三組數字。<br>• §4.12.2.1（Q2）：T-046 新增 `supabase/tests/t046_orphan_audio_rpc_test.sql`，以 pgTAP 驗證 `anon`、`authenticated`、PUBLIC 對兩支 RPC 無 `EXECUTE`、`service_role` 可執行、`security definer` 與 `search_path`；由 `pnpm db:test` 與 PR CI 的 `db` job 執行（部分行為標未驗證）。<br>• §4.12.5 同步游標參數。不改模型選擇，不改 `DEFAULT_TTS_VOICE`。<br>• （TechLead 審查後同版修訂，已作為 PR #126 的首個 commit）§4.12.2：補 `PurgeDeps.listOrphanCandidates`／`pathsInUse` 完整簽名、`OrphanCursor`、`OrphanObject`、明確的 `PurgeDbClient`（取代 `purgeDepsFrom(client: DbClient)`）、`PurgeStats.orphan`、匯出的 `purgeOrphans`、孤兒刪除重用 `removeObjects`；`purgeExpiredAudio` 改回 `PurgeRun`（stats 永遠有、error 為第一個錯誤），log 只由 handler 寫且每次執行一行，出錯時尾端加 `error=<kind> phase=<…>`（作廢先前的 `orphan recheck failed` 專用格式）。§4.12.1 `createServiceClient` 回 `DbClient & PurgeDbClient`。§4.12.2 的呼叫數說明更新。§4.12.2.1：游標只給一個 → SQL 以 `22023` 拒絕（函式改 `plpgsql`）；每次呼叫 `p_limit` 等於 `limit`；複查後 0 筆不呼叫 `remove`；游標 `createdAt` 原樣傳回；pgTAP 檔定為新的 `t046_orphan_audio_rpc_test.sql`（必做／盡力做／未驗證清單）。§4.18.1、§5.0.5：`0xFFFFFFFF` 例外寫進 chunk 規則與註解；`parseWav16kMono` 的毫秒參數須為非負整數（否則回 `err`）；確認 `fake-fetch.ts` 與 azure-speech 測試允許但不要求修改。<br>• （**本關卡第 1 次修改**，憲章 §10；PR #126）改寫 ADR-021 決定 1、3 本文與現行規則對齊。§4.12.2：釐清 `index.ts` 只做組裝、`handler.ts` 負責 log 與 HTTP；到期步驟補上「`error` 非 null 時見上方 PurgeRun 規則（500）」。§4.12.5：`createServiceClient` 對 `purge-audio` 只在 `index.ts` 建立。§4.12.2.1：列出 0 筆則不呼叫 `pathsInUse`／`removeObjects` 並停止迴圈。§4.18.1：`audio.test.ts` 在 main 上只有一個截斷測試（名稱見該節）。 |
 | v1.16 | 2026-11-28 | T-030 錄音規則修正（QA 對 #118 提出的 M1、N1、N2、N5～N7、M3，以及 ADR-021 決定 1 與修訂 1.4 的矛盾）：ADR-021 修訂 2。<br>• §4.12.2.1：列出函式更名為 `public.list_orphan_audio_objects`，在 SQL 內用 `NOT EXISTS` 排除有列物件後再 `LIMIT 200`，避免有列錄音佔滿名額讓孤兒餓死。`pathsInUse` 只留給刪前複查，改走 RPC `public.audio_paths_in_use`（不用 GET `in=(…)`）。T-046 為兩張表的 `audio_path` 建部分索引。`selected` 含因競態拿掉的路徑。<br>• §4.18.1：chunk id 須為可印 ASCII，且首字元不可為空白；`fmt `／`data` 以外的合法 chunk（無論位置）忽略；檔尾可省略最後 1 個 padding；`0xFFFFFFFF` 的剩餘位元組仍須是 2 的倍數。時長門檻改用 `dataBytes` 與 `SHADOW_AUDIO_MIN_DATA_BYTES`／`MAX` 比較。送給 Azure 與寫入 Storage 的都是正規化後的 RIFF／`fmt `／`data`。`parseWav16kMono` 預設下限為 0，跟讀 300 ms 由 handler 傳入。<br>• §4.12.5、§5.0.5 同步。不改模型選擇，不改 `DEFAULT_TTS_VOICE`。<br>• （同日補 T-024 寫單裁定，版本仍為 v1.16；ADR-016、ADR-018 各加修訂）§4.10：`checkSeedBatch` 比照 B-004 帶 `fileName`，R8 在檢查器執行。R2 的 `meaning_zh` 比照 R3，擋頭尾空白與控制字元。`SEED_TAGS` 清掉「待 Hansheng 決定」（#91 合併即核准 8 個標籤；先前誤寫成 ADR-016 決定 3，改回決定 2）。§4.10.1：第二條 dependency-cruiser 規則定名 `adr018-01t-seed-data-tests-imports`；檔案表補 `test/node-builtins.d.ts`。`SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`、`renderSeedSample` 歸 T-050（與 `prng.ts` 一起，加進 T-024 已建的 `seed-chunks.ts`）。§4.20 同步 `checkQuestionBatch` 的 `fileName` 簽名。 |
 | v1.15 | 2026-11-28 | T-030 錄音驗證與孤兒清理規則（QA 測試案例設計 PR 文末待釐清），以及 T-021 工廠／SW 快取補充：新增 ADR-021。<br>• §4.18.1：時長以實際 `data` 位元組計算；檔頭少報／多報（`0xFFFFFFFF` 除外）回 400；下限 300 ms（含 0 秒拒收）；只接受 16 kHz mono 16-bit 整數 PCM；MIME 忽略大小寫與參數；`issues` 可同時列 `audio` 與 `meta`；`planDate` 先於讀計畫。並寫明設定壞掉回 `internal`、0 位元組快取視為未命中、一般模式的 `sttProvider`、不評分缺逐字時間回 `invalid_response`、`resolve` 失敗不寫 `provider_call`。<br>• §4.12.2.1：以 `storage.objects.created_at` 經 security definer 函式列出；24 小時不含等於；缺時間不刪；刪前複查有無列；每批 200 個物件；`PurgeStats.orphan` 與兩張表同形；列出失敗用 `storage_failed`／`op: 'list'`。§4.12.5 例外表補 `pathsInUse`。<br>• §5.0.4：`storage_failed.op` 加 `list`（不是新 kind）。§5.0.5 同步常數與時長規則。<br>• §9：SW TTS cache-first 確認上限 50 筆、保留 7 天（`maxEntries`／`maxAgeSeconds`）。§9.1.7：`getAccessToken` 回 `Promise<string \| null>`，未登入回 `null` 不丟例外；T-021 驗收不改 `login-errors`／`app` 的 qa 檔（AC-T21-14），改 probe 延到下一張改 `ApiClient` 的單。<br>• （**本關卡第 1 次修改**，憲章 §10；回覆 TechLead 7 題；版本仍為 v1.15；ADR-021 修訂 1）§5.1／§4.21：確認不新增 `GET /resume`，改由 `api/supabase/` 讀表。§4.19：`recordCall` 失敗不改回應，log 固定為 `tts recordCall kind=<kind>`。§4.11：`review_date` 不加 default，必由呼叫端傳入台北日期。§4.18.1：改依 RIFF 走 chunk，時長用 `data` 宣告大小，後續合法 chunk 忽略。§4.12.2.1：函式定名 `public.list_audio_objects_for_purge`，`set search_path = ''`，路徑用 `storage.foldername` 精確比對。§9.1.7：收尾指名 T-020（若 T-020 先合併則改下一張）。 |
 | v1.14 | 2026-11-28 | PRD v1.6 對齊與寫單契約補充（三）（TechLead 於任務單 PR 提出的五題）：新增 ADR-020；ADR-019 修訂 2（節次改號）。<br>• §4.15.4：0 張卡打開即同時進入與完成，文案「今天只有 0 張」（PRD v1.6 Q-42／AC-26），不再列待決；手動新增與今晚預覽隨時可用、不是中午步驟（AC-10／Q-41）。AC-10 對應表拿掉「只在 noon」的暗示。<br>• §5.9.3：Azure 免費額度沒有 `retryAfterSec` 時，用字改為「下個月再試」，不寫確切日期（Q-44／AC-25）。<br>• §5.9.4：朗讀語音顯示名稱 Ava／Andrew／Kore／Puck 加性別（Q-43／AC-24）；不改識別值、不改 `DEFAULT_TTS_VOICE`。<br>• 節次：v1.13 誤把月上限、用量插成第二個 §4.15.4／§4.15.5；現改為 §4.15.5、§4.15.6，中午步驟維持 §4.15.4。<br>• §9.1.7：前端 `ApiClient` 用工廠函式注入 `fetch` 與 token 來源；測試用 `makeTestApiClient`；禁止全域正式單例與元件內直接 `fetch`。<br>• §4.18.1、§4.12.2.1：跟讀 multipart 欄位／MIME／大小與時長上限；孤兒錄音由既有 `purge-audio` 在 24 小時後清掉。§4.18 更正「失敗也存 90 天」的舊寫法。<br>• §4.19：T-021 在實際呼叫 `synthesize` 時必寫 `provider_call`；快取命中不寫。<br>• `storage_failed` 已在 contracts 與 §5.0.4（502、可重試），Storage 錯誤用它，不用 `db_failed`。<br>• §4.21：履歷存清理後的原始檔名與 `PiiCounts`；`POST /resume` 契約同步。 |
