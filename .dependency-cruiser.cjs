@@ -126,6 +126,22 @@ module.exports = {
       from: { path: '^supabase/functions/_shared/news/', pathNot: TEST },
       to: { path: '^supabase/functions/_shared/(providers|db)/' },
     },
+    {
+      name: 'adr018-01-seed-data-imports',
+      comment:
+        'ADR-018 #1 (ARCHITECTURE §4.10.1): packages/seed-data production code may only import packages/seed-data, contracts and domain (no fs, path, zod directly)',
+      severity: 'error',
+      from: { path: '^packages/seed-data/', pathNot: TEST },
+      to: { pathNot: '^packages/(seed-data|contracts|domain)/' },
+    },
+    {
+      name: 'adr018-01t-seed-data-tests-imports',
+      comment:
+        'ADR-018 #1t (ARCHITECTURE §4.10.1): seed-data tests may also import vitest and node:fs, node:path, node:url (with or without the node: prefix)',
+      severity: 'error',
+      from: { path: testOf('packages/seed-data') },
+      to: { pathNot: ['^packages/(seed-data|contracts|domain)/', VITEST, '^(node:)?(fs|path|url)$'] },
+    },
   ],
   options: {
     // 目錄不存在也不會讓指令失敗：掃描根目錄 "."，只用 exclude 排除非產品程式。

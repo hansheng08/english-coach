@@ -1,0 +1,12 @@
+{
+  "name": "@english-coach/seed-data",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@english-coach/contracts": "workspace:*",
+    "@english-coach/domain": "workspace:*"
+  }
+}

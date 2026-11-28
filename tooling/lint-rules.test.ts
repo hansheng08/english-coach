@@ -295,3 +295,30 @@ describe('ESLint rules (ADR-008 revision 3)', () => {
     });
   }
 });
+
+describe('ESLint rules (ARCHITECTURE §4.10.1, T-024)', () => {
+  const SEED = 'packages/seed-data/src/x.ts';
+  const rows: [string, string, string][] = [
+    ['Date.now', 'export const t = Date.now();', 'ADR-008 #9'],
+    ['Math.random', 'export const r = Math.random();', 'ADR-008 #9'],
+    ['throw', "export function f(): never { throw new Error('x'); }", 'ADR-008 #9'],
+  ];
+  for (const [label, code, marker] of rows) {
+    it(`(AC-T24-15) (TC-24) ${label} in seed-data production code is an error from exactly one block`, async () => {
+      const msgs = await lint(SEED, code);
+      expect(msgs.filter((m) => m.message.includes(marker)), JSON.stringify(msgs)).toHaveLength(1);
+    });
+  }
+
+  it('(AC-T24-15) (TC-24) throw in a seed-data test file is allowed', async () => {
+    const msgs = await lint('packages/seed-data/src/x.test.ts', "export function f(): never { throw new Error('x'); }");
+    expect(has(msgs, 'ADR-008 #9'), JSON.stringify(msgs)).toBe(false);
+  });
+
+  for (const file of ['apps/web/src/features/a/x.ts', 'supabase/functions/api/x.ts']) {
+    it(`(AC-T24-15) (TC-25) ${file}: importing @english-coach/seed-data is an error`, async () => {
+      const msgs = await lint(file, "import { checkSeedBatch } from '@english-coach/seed-data';\nexport const c = checkSeedBatch;");
+      expect(has(msgs, '@english-coach/seed-data must not be imported'), JSON.stringify(msgs)).toBe(true);
+    });
+  }
+});

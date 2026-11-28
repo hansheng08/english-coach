@@ -3,7 +3,8 @@
     "baseUrl": ".",
     "paths": {
       "@english-coach/contracts": ["packages/contracts/src/index.ts"],
-      "@english-coach/contracts/testing": ["packages/contracts/test/index.ts"]
+      "@english-coach/contracts/testing": ["packages/contracts/test/index.ts"],
+      "@english-coach/domain": ["packages/domain/src/good.ts"]
     }
   }
 }

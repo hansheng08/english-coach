@@ -138,12 +138,37 @@ const CASES: Case[] = [
     bad: ['supabase/functions/_shared/news/bad-registry.ts', 'supabase/functions/_shared/news/bad-db.ts'],
     good: ['supabase/functions/_shared/news/good-zod.ts', 'supabase/functions/_shared/news/ingest.test.ts'],
   },
+  {
+    rule: 'adr018-01-seed-data-imports',
+    adr: '#1 (ADR-018)',
+    bad: ['packages/seed-data/src/bad-fs.ts', 'packages/seed-data/src/bad-fs-plain.ts', 'packages/seed-data/src/bad-zod.ts'],
+    good: ['packages/seed-data/src/good.ts'],
+  },
+  {
+    rule: 'adr018-01t-seed-data-tests-imports',
+    adr: '#1t (ADR-018)',
+    bad: ['packages/seed-data/src/bad-zod.test.ts', 'packages/seed-data/src/bad-child-process.test.ts'],
+    good: ['packages/seed-data/src/x.test.ts'],
+  },
 ];
 
 describe('dependency-cruiser rules (ADR-008, revision 1)', () => {
-  it('(AC-T18-21) (TC-38) (AC-T18-25) (TC-44) ADR-008: the config defines exactly the 15 named rules (TC-24: #18, #19 added by T-015; #20 added by T-023; adr001r1 added by T-018)', () => {
+  it('(AC-T18-21) (TC-38) (AC-T18-25) (TC-44) (AC-T24-14) (TC-22) ADR-008: the config defines exactly the 17 named rules (TC-24: #18, #19 added by T-015; #20 added by T-023; adr001r1 added by T-018; adr018-01 and adr018-01t added by T-024)', () => {
+    expect(ruleNames).toHaveLength(17);
     expect(ruleNames).toEqual(CASES.map((c) => c.rule));
     expect(ruleNames[10]).toBe('adr001r1-no-test-libs-in-web-production');
+    expect(ruleNames.slice(-2)).toEqual(['adr018-01-seed-data-imports', 'adr018-01t-seed-data-tests-imports']);
+  });
+
+  it('(AC-T24-14) (TC-23) seed-data fixtures: fs/node:fs/zod flagged in production code; contracts/domain legal; tests may use vitest and node:fs/path/url only', () => {
+    const src = 'packages/seed-data/src';
+    expect(hits('adr018-01-seed-data-imports', `${src}/bad-fs.ts`).map((v) => v.to)).toHaveLength(1);
+    expect(hits('adr018-01-seed-data-imports', `${src}/bad-fs-plain.ts`).map((v) => v.to)).toHaveLength(1);
+    expect(hits('adr018-01-seed-data-imports', `${src}/bad-zod.ts`).map((v) => v.to)).toEqual(['zod']);
+    expect(violations.filter((v) => v.from === `${src}/good.ts`)).toEqual([]);
+    expect(hits('adr018-01t-seed-data-tests-imports', `${src}/bad-zod.test.ts`).map((v) => v.to)).toEqual(['zod']);
+    expect(hits('adr018-01t-seed-data-tests-imports', `${src}/bad-child-process.test.ts`)).toHaveLength(1);
+    expect(violations.filter((v) => v.from === `${src}/x.test.ts`)).toEqual([]);
   });
 
   it('(AC-T18-22) (TC-39) (TC-40) (AC-T18-26) (TC-45) (TC-46) ADR-001 rev 1: test libs flagged in web production code only', () => {

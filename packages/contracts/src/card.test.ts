@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { CardSchema, CardScheduleSchema, ChunkTextSchema, IntervalStepSchema, ReviewRequestSchema } from './card.ts';
+import {
+  CardSchema,
+  CardScheduleSchema,
+  ChunkTextSchema,
+  IntervalStepSchema,
+  ReviewRequestSchema,
+  SEED_BATCH_SIZE,
+  SEED_TAGS,
+  SeedBatchSchema,
+  SeedChunkSchema,
+  SeedTagSchema,
+} from './card.ts';
+import type { SeedBatch, SeedChunk } from './card.ts';
 
 describe('ChunkTextSchema', () => {
   it('(AC-T13-1) (TC-1) accepts valid chunk formats', () => {
@@ -83,6 +95,26 @@ describe('CardSchema', () => {
     const mastered = { ...base, schedule: { state: 'mastered', correctCount: 2, intervalStep: 1, dueDate: '2026-11-28' } };
     expect(CardSchema.safeParse(mastered).success).toBe(false);
     expect(CardSchema.safeParse({ ...base, createdAt: '2026-11-27T00:00:00' }).success).toBe(false);
+  });
+});
+
+describe('seed library contracts (T-024)', () => {
+  it('(AC-T24-1) (TC-1) SEED_TAGS has the 8 approved values in order; SEED_BATCH_SIZE is 100', () => {
+    expect([...SEED_TAGS]).toEqual(['meeting', 'presentation', 'negotiation', 'interview', 'email', 'project', 'technical', 'small-talk']);
+    expect(SEED_BATCH_SIZE).toBe(100);
+  });
+
+  it('(AC-T24-1) (TC-2) SeedTagSchema accepts only the 8 values, case-sensitively', () => {
+    for (const tag of SEED_TAGS) expect(SeedTagSchema.safeParse(tag).success).toBe(true);
+    for (const bad of ['Meeting', 'sports', '']) expect(SeedTagSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('(AC-T24-1) (TC-2) SeedChunkSchema and SeedBatchSchema are exported and typed', () => {
+    const item: SeedChunk = { chunk: 'take over', meaning_zh: '接手', example_en: 'She will take over the project next week.', tags: ['project'] };
+    expect(SeedChunkSchema.safeParse(item).success).toBe(true);
+    const batch: SeedBatch = { batch: 1, items: [item] };
+    expect(SeedBatchSchema.safeParse(batch).success).toBe(false);
+    expect(SeedBatchSchema.safeParse({ batch: 1, items: Array.from({ length: SEED_BATCH_SIZE }, () => item) }).success).toBe(true);
   });
 });
 
