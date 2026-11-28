@@ -1,5 +1,5 @@
 # ARCHITECTURE：english-coach（英文學習 PWA）
-- 版本：**v1.12**（v1.12 為寫單契約補充：§4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018；v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-27｜擁有者：Architect｜派工：ARCH-001｜路線：完整
+- 版本：**v1.13**（v1.13 為寫單契約補充（二）：§4.2 錯誤種類、§4.14 輸出上限、§4.15.4～§4.15.5 月上限與付費用量、ADR-019；v1.12 為寫單契約補充：§4.10.1、§4.12.4、§4.12.5、§4.19、§4.20、ADR-018；v1.11 為產品契約第二批：§4.15～§4.18、§5.8、§5.9、§9.3、ADR-017；v1.0 於 2026-11-22 18:46 G2 通過；v1.1 為 ADR-008 修訂 1；v1.2 補 contracts 型別、ADR-009、ADR-008 修訂 2；v1.2.1 補 `news_unavailable` 的 HTTP 狀態；v1.3 為 T-003 的 Supabase 補充：ADR-010、§7.1（PR #11）；v1.4 補 domain 規則 §4.3～§4.7、ADR-011；v1.5 補 T-006 資料模型 §4.8（Q-28～Q-30）與寫入權限 §4.9、ADR-008 修訂 4、ADR-009 修訂 2、ADR-010 修訂 1；v1.6 補 T-022 新聞擷取規格 §11.1.1（Q-31～Q-33）、ADR-006 修訂 1；v1.7 補 T-015 Gemini adapter 契約 §5.4、ADR-012、ADR-008 修訂 5；v1.7.1 依 PoC A-003 實測修訂 §5.4、樣本放 `docs/poc/A-003/`；v1.8 補 T-023 新聞判定與改寫 §11.3、ADR-013、ADR-006 修訂 2、ADR-008 修訂 6；v1.9 補前端設計基礎 §9.1、ADR-014，§4.6 字數改用 `newsWords`；v1.9.1 登入只用 email＋密碼、測試列補 ADR-001 修訂 1；v1.10 補產品單契約缺口第一批：route 形狀 §5.1.1，語音 adapter §5.5～§5.7、ADR-015，種子庫、`POST /reviews`、Storage／排程、`DailyPlan`、並發、中午題目內容 §4.10～§4.14，錄音與更新 §9.2、ADR-016）｜日期：2026-11-28｜擁有者：Architect｜派工：ARCH-001｜路線：完整
 - 輸入：`docs/PRD.md` v1.0、`docs/OPEN_QUESTIONS.md` v1.0（commit `0276440`）
 - 技術棧與供應商已在 G2 依建議核准（ADR-001～008 皆「已接受」；ADR-009 於 v1.2 由 Architect 新增並接受；ADR-010 於 v1.3 隨 G2 PR 送審）；Q-14～Q-20 已決定（見 `docs/OPEN_QUESTIONS.md`）。本文件自 v1.0 起凍結，之後的修改依憲章 §0、§10。
 - 標記規則：「未驗證」＝有公開資料但沒有在本專案實測；「不確定」＝沒有可靠資料，不猜。
@@ -101,7 +101,7 @@
 | `shadow_attempt` | `plan_date`、`item_index`、`audio_path`、`audio_expires_at`、`recognized_text`、`accuracy`、`speed_ratio`、`pron_score`（可為 null）、`stt_provider`、`pron_provider`、`passed` | AC-06、AC-22 |
 | `evening_answer` | `question_id`、`kind`（first／no_script）、`status`（uploaded／transcribed／diagnosed／failed）、`failure jsonb`、`audio_path`、`audio_expires_at`、`transcript`、`word_timings jsonb`、`pause_count`、`filler_count`、`wpm`、`diagnosis jsonb`、`rewrite_text`、`upgrade_chunks jsonb`、`chunk_hits jsonb`、`speech_duration_ms`（第一個字開始到最後一個字結束；`transcribed`／`diagnosed` 時必填）、`chunk_target_count`、`chunk_full_hit_count`（無稿重答的講出率用）、`llm_model`、`stt_provider`、`created_at`（§4.8.2） | AC-14～18、AC-20、AC-22、AC-25、M3、M4 |
 | `slot_checkin` | 一列一個事件，只能新增：`plan_date`、`slot`（morning／noon／evening）、`step`（清單在 contracts 的 `SLOT_STEPS`；時段打開用保留值 `slot`）、`status`（opened／completed／skipped）、`recorded_at`；`(user_id, plan_date, slot, step, status)` 唯一（§4.8.3） | AC-04、AC-21、AC-26、M1、Q-21 |
-| `provider_call` | `capability`、`provider`、`model`、`tier`、`status`、`error_kind`、`latency_ms`、`created_at`（不存內容） | 可觀測性、AC-24、AC-25 |
+| `provider_call` | `capability`、`provider`、`model`、`tier`、`status`、`error_kind`、`latency_ms`、`created_at`（不存內容）；v1.13 加 `cost_ntd`、`input_tokens`、`output_tokens`（§4.15.5，T-020） | 可觀測性、AC-24、AC-25、本月付費用量 |
 | `weekly_metric`（view，`security_invoker = true`） | 每個使用者每個台北週（週一 00:00 起）一列：Mastered 當週新增與累積、首答停頓＋贅詞（每分鐘與次數平均）、`wpm` 加權平均、無稿重答講出率（§4.8.4） | AC-22、M2～M4 |
 
 ### 4.1 字卡狀態機（`packages/domain/card-state`，AC-09、AC-19、Q-13、Q-17、Q-18）
@@ -124,7 +124,7 @@ reviewing --晚上首答或無稿重答自然講出--> mastered（AC-20）
 | `step_days` | `[3, 7, 14]` | Reviewing 第 1～3 階的間隔 | 剛好 3 個整數；每個 1～365；嚴格遞增 |
 | `after_last_days` | `14` | 第 3 階之後每次的間隔 | 整數 1～365；≥ `step_days[2]` |
 | `forgot_days` | `1` | 評「忘記」後幾天再出現（AC-09 的「隔天」） | 整數 1～`step_days[0]` |
-- 「嚴格遞增」與「≥ 前一階」保證 AC-09「猶豫的間隔不長於秒答」在任何設定下都成立；不合格的值由 zod 擋下，回 400 `invalid_settings`，畫面標出哪一格錯。
+- 「嚴格遞增」與「≥ 前一階」保證 AC-09「猶豫的間隔不長於秒答」在任何設定下都成立；不合格的值由 zod 擋下，回 400 `validation`，`issues` 帶欄位路徑（例如 `srs.step_days.1`），畫面標出哪一格錯。contracts 的 `APP_ERROR_KINDS` 沒有 `invalid_settings`，不新增錯誤種類（v1.13；ADR-019 決定 1）。
 - 生效範圍：**只影響之後的排程**；已排定的 `due_date` 不回頭重算（避免一改設定整批卡片同天到期）。每次排程把實際天數寫進 `card_review.interval_days_applied`。
 - 設定頁「複習間隔」區塊：5 個數字欄位＋「還原預設（3／7／14／14／1）」按鈕。
 - PRD AC-09 寫的 3／7／14 與「隔天」是**預設值**；可調整是 G2 的決定（Q-18）。PRD 文字是否要補註由 PM 決定（我不改 PRD）。
@@ -900,7 +900,8 @@ export const NoonItemsSchema = z.array(NoonItemSchema).max(25);
 |---|---|---|
 | 基本素材（`plain_en` 約 20、`distractors` 約 15、`context_zh` 約 30、`blocks` 約 30、JSON 鍵與符號約 25～45） | 約 120～140 | 約 3.0K～3.5K |
 | **合計** | — | **約 3.0K～3.5K** |
-  - v1.11 拿掉暫時例句後，最壞情況也在 4,096 附近；上限**維持 8,192**、**不分批**，留餘裕。理由：分批會變 2 次呼叫、2 次失敗機會，RPD 也變 2 倍；提高上限只多用 token，免費層 TPM 250K 足夠（§10）。`gemini-3.5-flash-lite` 的輸出上限是否 ≥ 8,192：**不確定**（§5.4 沒有記錄），T-025b 寫單時查官方模型頁；不夠時改成 2 批各 ≤ 13 張。
+  - v1.11 拿掉暫時例句後，最壞情況也在 4,096 附近；上限**維持 8,192**、**不分批**，留餘裕。理由：分批會變 2 次呼叫、2 次失敗機會，RPD 也變 2 倍；提高上限只多用 token，免費層 TPM 250K 足夠（§10）。
+  - `gemini-3.5-flash-lite` 的**輸出上限是 65,536 tokens**（≥ 8,192，足夠一次 25 張）。來源：Google 官方模型頁，2026-11-28 查閱：[Gemini API：Gemini 3.5 Flash-Lite](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite)（Output token limit 65,536）；[Vertex AI／Agent Platform 同一模型頁](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash-lite)（Maximum output tokens 65,536）。沒有用金鑰測試。v1.12 的「不確定」作廢（ADR-019 決定 2）。
   - 輸入約 1.5K～2.5K tokens。輸出約 3.5K tokens、以約 300 tokens/s 計（§8.1 的公開數據）約 12 秒，在 30 秒逾時內：**未驗證**。
   - 每天 1 次（格式重試最多 2 次），佔 500 RPD 不到 1%，§10 的 Gemini 列已經算進去，數字不變。
 - **失敗**（任何 `err`：429、5xx、逾時、`invalid_response`、未設定）：**不讓備料失敗**。
@@ -980,7 +981,7 @@ export const SettingsSchema = ProviderSettingsSchema.extend({
   cards: z.object({ prefetch: z.boolean().default(true) }).prefault({}),          // ADR-005 的 600 ms 預取開關
   ui: z.object({ m2_seen: z.array(z.union([z.literal(15), z.literal(60)])).default([]) }).prefault({}),   // §4.16.4
   paid_consent_at: z.iso.datetime({ offset: true }).nullable().default(null),   // 只能由 set_paid_consent() 改（§4.9）
-  monthly_paid_cap_ntd: NtdSchema.nullable().default(null),                     // 同上
+  monthly_paid_cap_ntd: NtdSchema.nullable().default(null),                     // 同上；可為 null，範圍見 §4.15.4
 }).superRefine(/* tts.voice 的前綴要和 tts.provider 同一家（azure: ↔ azure-speech*；gemini: ↔ gemini*） */);
 export type Settings = z.infer<typeof SettingsSchema>;
 ```
@@ -997,7 +998,7 @@ export const SettingsPatchSchema = z.object({
   news: NewsSettingsSchema.optional(),        // 整組送（同上）
   ui: z.object({ m2_seen: z.array(z.union([z.literal(15), z.literal(60)])) }).strict().optional(),
   slot_start: SlotStartSchema.optional(),     // 寫進 profile.slot_start 欄，不在 settings jsonb（4.15.3）
-  paid: z.object({ consent: z.boolean(), monthly_cap_ntd: NtdSchema.nullable() }).strict().optional(),   // 走 set_paid_consent()（§4.9）
+  paid: z.object({ consent: z.boolean(), monthly_cap_ntd: NtdSchema.nullable() }).strict().optional(),   // 走 set_paid_consent()（§4.9）；範圍見 §4.15.4
 }).strict();
 ```
 - **合併規則**（伺服器做，`_shared/settings/merge.ts` 的純函式 `mergeSettings(current: Settings, patch: SettingsPatch): Settings`）：
@@ -1009,8 +1010,49 @@ export const SettingsPatchSchema = z.object({
   6. 合併後整份再跑一次 `SettingsSchema`（跨欄位規則，例如 `tts.voice` 和 `tts.provider` 要同一家）；不合格 → 400 `validation`，`issues` 帶欄位路徑，**什麼都不寫**。
   7. 寫回：`update profile set settings = <合併結果去掉兩個付費鍵>`。付費鍵由 trigger 保護（§4.9），所以寫回的 jsonb 要保留原本的付費鍵值不變（`settings || jsonb_build_object(...)` 的寫法由 T-020 決定，pgTAP 要測付費鍵沒被改）。
 - **「還原預設」**：前端送整組預設值（`SrsSettingsSchema.parse({})` 等，從 contracts 算出來），伺服器不另外提供 reset 鍵。
-- **回應**：`{ settings: Settings, slotStart: SlotStart }`（完整、已補預設值）。前端存檔後用回應取代本地狀態（Q-37「立即生效」）。
+- **回應**：`SettingsResponseSchema`＝`{ settings: Settings, slotStart: SlotStart, paidUsageThisMonthNtd: Ntd }`（完整、已補預設值；用量見 §4.15.5）。前端存檔後用回應取代本地狀態（Q-37「立即生效」）。
 - **兩台裝置同時改**：後送的覆蓋先送的（除了 `ui.m2_seen` 取聯集）。只有一位使用者，接受。
+
+
+#### 4.15.4 `monthly_paid_cap_ntd` 的值與範圍（v1.13；回覆 [D2] #103；ADR-019 決定 3）
+- **可以是 null。** `SettingsSchema.monthly_paid_cap_ntd` 是 `NtdSchema.nullable().default(null)`；未同意付費時的預設就是 null（`DEFAULT_SETTINGS`、T-014 已如此）。`set_paid_consent(..., false, …)` 會把 `paid_consent_at` 和 `monthly_paid_cap_ntd` 兩個鍵一起刪掉（T-006 migration），讀回來也是 null。
+- **合法數字**：`NtdSchema`（contracts `src/ids.ts`）是 **≥ 0 的整數**，單位是新台幣整數元。0 是合法的（NFR-03「預設每月 NT$0」；`ids.test.ts` 接受 0 和 300）。小數、負數、非整數都不通過。schema **目前沒有上限**（Postgres `integer` 參數能存到 2,147,483,647，但那不是產品上限）。
+- **和同意的關係**（既有行為，T-014 `grantPaidConsent`）：`monthly_paid_cap_ntd === null`（就算 `paid_consent_at` 有值）→ `no_consent`，付費供應商不會被呼叫。`cap === 0` 且用量 ≥ 0 → 一開始就是 `monthly_cap_reached`。所以「同意但上限是 null」等於還沒真正打開付費；「同意但上限是 0」等於同意了機制、這個月不許花。
+- **PRD 已定的部分**（v1.5，不改需求）：
+  - NFR-03：預設每月 NT$0；付費上限由 Hansheng 訂（Q-07）。
+  - Q-07（`OPEN_QUESTIONS.md`，已決定）：絕不自動改付費；每月上限由 Hansheng 訂（建議 NT$300）。Hansheng **還沒指定**一個寫進預設值的數字，建議值仍是 300。
+- **待 Hansheng／PM 決定**（建議見本節底下；未決定前，T-020 維持上面的既有契約，不自行收緊 schema）：
+  1. 打開同意時，上限能不能空著送出？建議：**不能**。`paid.consent === true` 時 `monthly_cap_ntd` 必填（非 null），400 `validation`、`path: 'paid.monthly_cap_ntd'`。理由：null 在 `grantPaidConsent` 會被當成 `no_consent`，使用者以為已同意、付費供應商卻不能用。這也和設定頁原型「沒填上限不能儲存」（[D2] #103）一致。撤回同意時上限仍可省略（鍵會被刪掉）。
+  2. 同意時要不要禁止 0？建議：**允許 0**（與 NFR-03、既有 `NtdSchema` 一致）。畫面可提示「上限為 0 時，付費供應商這個月都無法使用」。
+  3. 要不要設產品上限？建議：**1～10,000**（含 0 的話是 0～10,000）。Q-07 建議值是 300，10,000 已遠高於個人使用，可挡住多打零的筆誤。未決定前不改 `NtdSchema`。
+  4. 打開開關時欄位的預填值？建議：**NT$300**（Q-07 的建議），只是表單預填，要使用者按儲存才寫入。
+
+#### 4.15.5 本月付費用量（v1.13；回覆 [D2] #103；ADR-019 決定 4）
+設定頁的「本月付費用量」**現在沒有現成的金額資料**。`provider_call`（T-006）只記 `capability`、`provider`、`model`、`tier`、`status`、`error_kind`、`latency_ms`、`created_at`，沒有 token、也沒有金額。沒有 `api_usage` 表。`grantPaidConsent(settings, usedThisMonthNtd)` 的用量「由呼叫端決定」（`registry.ts`），但呼叫端怎麼算還沒定。以下是最小的新設計，由 **T-020** 實作（設定頁和 `/settings` 都在那張單；後面會呼叫 `registry.resolve` 的單共用同一個加總函式）。
+
+- **「本月」**：台北時區（`Asia/Taipei`，固定 UTC+8）的日曆月，從該月 1 日 00:00:00 起到下月 1 日 00:00:00（不含）。用 `deps.now()`（§5.1.1），起算點是「`toTaipeiPlanDate(now)` 那個年月的 1 日 00:00 對應的瞬間」。查詢條件：`tier = 'paid'` 且 `created_at >= 起算點`。
+- **金額是估算，不是實際帳單。** 單位是新台幣整數元（`Ntd`）。供應商報價是美元；寫入時用 contracts 裡的單價表（美元／百萬 token，引自官方定價頁，變更時只改常數）和匯率常數 `USD_TO_NTD`（建議先用 **35**，偏保守，**待 Hansheng 決定**）估算，無條件進位到整數元。畫面上要註明「估算，實際費用以供應商帳單為準」。
+- **怎麼記**（T-020 的 migration，加欄、改 `grant insert` 清單和 `PROVIDER_CALL_COLUMNS`）：
+  - `provider_call.cost_ntd integer not null default 0 check (cost_ntd >= 0)`
+  - `provider_call.input_tokens integer check (input_tokens is null or input_tokens >= 0)`
+  - `provider_call.output_tokens integer check (output_tokens is null or output_tokens >= 0)`（含思考 token，與 §5.4 的 `usage` 定義一致）
+  - 免費層（`tier = 'free'`）：`cost_ntd = 0`；有 usage 就順手記下 token，沒有就 null。
+  - 付費層、請求已送出且有 usage：依單價表估算。
+  - 付費層、請求已送出但沒有 usage：記 `cost_ntd = 1`（保守底，不捏造 token，兩欄維持 null）。
+  - 請求沒送出（例如 `not_configured`、`paid_not_allowed`）：不寫列，或寫了也是 `cost_ntd = 0`。
+  - 估算函式放 `_shared/billing/estimate.ts`（純函式，單價表從 contracts 來）。價格表放 `packages/contracts/src/billing.ts`。
+- **怎麼加總**：`_shared/db/paid-usage.ts` 的 `sumPaidUsageThisMonthNtd(client, userId, now) → Ntd`，對符合上面時間窗、`tier = 'paid'` 的列把 `cost_ntd` 加總（沒有列就是 0）。`registry.resolve(..., usedThisMonthNtd)` 一律傳這個值。設定頁和擋付費用同一筆數。
+- **契約**：不另開端點。T-020 新增 `GET /settings`，和 `POST /settings` 用同一個回應：
+```ts
+// packages/contracts/src/settings.ts
+export const SettingsResponseSchema = z.object({
+  settings: SettingsSchema,
+  slotStart: SlotStartSchema,
+  paidUsageThisMonthNtd: NtdSchema,   // 估算，見 §4.15.5
+});
+```
+  - 每次 GET／POST 都即時加總，不另做快取。新鮮度＝「上一次已經寫進 `provider_call` 的付費呼叫」。不是即時推播；使用者重進設定頁或存檔後就會看到新數字。單一使用者，兩個付費呼叫同時通過上限檢查的機會可接受。
+  - 這和 §13「設定頁顯示今天各供應商已用次數與最近錯誤」是不同件事（那是當天次數，不是金額）；那一行維持，不是本欄的資料來源。
 
 #### 4.15.3 `slot_start`（`SlotStartSchema` 放在 `settings.ts`；存 `profile.slot_start jsonb`；PRD v1.5 Q-36～Q-38）
 ```ts
@@ -1593,7 +1635,8 @@ export type PaidConsent = Brand<{ readonly grantedAt: string; readonly monthlyCa
 | `POST /resume` | `{storagePath, redactedText}` → `Question[15～20]`（§5.8.6） | ≤ 60 s | AC-11 |
 | `DELETE /resume` | — → `{deleted: true}`（刪 Storage 原檔、`redacted_text`；舊題標 retired） | ≤ 5 s | AC-12 |
 | `POST /tts` | `TtsRequest {text}` → `TtsResponse {audioUrl, path, durationMs, cached, meta}`（語音從設定讀、不帶在請求裡；上限 1,000 字元；有快取就直接回；§4.19） | ≤ 3 s | AC-04、AC-05、AC-10、AC-17 |
-| `POST /settings` | `SettingsPatch` → `{settings, slotStart}`（合併規則 §4.15.2；伺服器用 `SettingsSchema` 驗證：付費同意（ADR-003）、`srs` 間隔規則（§4.2）、`news` 輪替（§11.2））；付費同意與月上限經 `_shared/db/paid-consent.ts` 呼叫 `set_paid_consent()`（§4.9） | ≤ 1 s | AC-09、AC-24、AC-25 |
+| `GET /settings` | — → `SettingsResponse`（`{settings, slotStart, paidUsageThisMonthNtd}`，§4.15.5）；未登入 401 | ≤ 1 s | AC-09、AC-24、AC-25、NFR-03 |
+| `POST /settings` | `SettingsPatch` → `SettingsResponse`（合併規則 §4.15.2；伺服器用 `SettingsSchema` 驗證：付費同意（ADR-003）、`srs` 間隔規則（§4.2）、`news` 輪替（§11.2））；付費同意與月上限經 `_shared/db/paid-consent.ts` 呼叫 `set_paid_consent()`（§4.9）；`paidUsageThisMonthNtd` 即時加總（§4.15.5） | ≤ 1 s | AC-09、AC-24、AC-25 |
 | `POST /checkins` | `CheckinEvent`（`{planDate, slot, step, status}`）→ 204；冪等（重送同一事件視為成功）；`planDate` 只能是台北今天或昨天；`opened` 只在當下的時段內才寫（§4.15.3） | ≤ 1 s | AC-04、AC-21、AC-26、M1 |
 | `POST /retry/:answerId` | — → `{step, result}`（從 `failure.step` 重做；條件與回應見 §4.16.3） | 同原端點 | AC-25 |
 - 讀取類（儀表板、成長曲線、紀錄、字卡列表）直接用 supabase-js 讀表（受 RLS 保護），不另寫 API（AC-21～23）。
@@ -2754,4 +2797,5 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
+| v1.13 | 2026-11-28 | 寫單契約補充（二）（T-020 錯誤種類、T-025b 輸出上限、[D2] #103 月上限與本月用量）：新增 ADR-019。<br>• §4.2：不合格的設定改回 400 `validation`（帶 path），與 §4.15.2、contracts `APP_ERROR_KINDS` 一致；不新增 `invalid_settings`。<br>• §4.14：`gemini-3.5-flash-lite` 輸出上限 65,536 tokens（官方模型頁，2026-11-28 查閱），維持一次呼叫 `maxOutputTokens: 8192`、不分批；作廢 v1.12 的「不確定」。<br>• §4.15.4：`monthly_paid_cap_ntd` 可以是 null；合法數字是 ≥ 0 的整數元；null 在 `grantPaidConsent` 視為 `no_consent`。PRD 已定的（NFR-03、Q-07）只引用；同意時是否必填、0、產品上限、預填 300 待 Hansheng／PM 決定。<br>• §4.15.5：本月付費用量是估算（非帳單），依台北月初加總 `provider_call.cost_ntd`；T-020 加欄、建 `SettingsResponseSchema`、`GET /settings` 與加總函式。§4 表、§5.1 同步。 |
 | v1.12 | 2026-11-27 | 寫單契約補充（回覆 TechLead PR #97「待確認問題」第 1～5、8～10 題）：新增 ADR-018。依賴 v1.11（PR #96）。<br>• §4.10.1：種子庫與題庫的檢查器移到新的 workspace 套件 `@english-coach/seed-data`（`packages/seed-data/`），依賴規則、dependency-cruiser 2 條、lockfile 更新方式；根目錄 `package.json` 不變。<br>• §4.12.4：拿掉 `config.toml` 和 CI probe 的逐行比對（probe 自 T-003 起未被使用）；刪 probe 是 SRE 的 O 單，不擋產品單。<br>• §4.12.5：secret 金鑰查詢的 `user_id` 規則只有兩個例外（清錄音、列出使用者），用測試強制；CLAUDE.md §5 第 15 條同步。<br>• §11.2 第 4 步：沒有舊文章時改成 200＋`failed`＋`failure`（`news_unavailable`），和 §4.13.1、§5.9.2 一致。§4.6：T-025a 從前一晚的 `diagnosis.senior[].text` 讀改寫句。<br>• §4.13.1：`DailyPlan.seedRemaining`／`daily_plan.seed_remaining`（種子庫剩餘數，T-033）。<br>• §4.19：TTS 預設語音、快取鍵正規化、contracts `tts.ts`、文字上限 1,000 字元（Azure REST 字元上限不確定）、`audio/player` 介面。§4.20：面試題庫的格式、QB1～QB6、migration、每批抽 5 題（語言與技術題主題待 PM）。<br>• §5.7.4：Groq 每日額度訊息改成完整單字比對（縮寫要大寫），附正反例測試要求。§3.1、§5.1、§12 同步。<br>• （第 2 個 commit）§4.18：缺 `PronScore` 照 §5.6.2 是 `invalid_response`，走「Azure 失敗」分支，作廢 v1.11「pronScore=null 照樣解鎖」；§6 第 5 點同步。§5.1.1：測試依賴一律用工廠函式建（`makeTestRouteDeps` 等），新依賴維持必填，附 T-053 QA probe 的過渡安排。 |
