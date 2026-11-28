@@ -17,7 +17,7 @@ describe('test factories (defaults fail loudly)', () => {
     expect(res.error?.code).toBe('TEST');
     expect(res.error?.message).toContain('not stubbed: card.insert');
     expect(makeTestRouteDeps().now().toISOString()).toBe('2026-11-27T00:00:00.000Z');
-    expect(makeTestRouteDeps().reviewDb).toBeUndefined();
+    expect(typeof makeTestRouteDeps().reviewDb).toBe('function');
   });
 
   it('(AC-T32-12) (TC-20) overrides replace the defaults and the rest stays unstubbed', async () => {

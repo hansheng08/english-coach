@@ -28,7 +28,7 @@ insert into public.daily_plan (user_id, plan_date, planned_category, actual_cate
 select columns_are('public', 'news_source', array['id', 'name', 'feed_url', 'category', 'priority', 'fetch_mode', 'include_url_pattern', 'enabled', 'terms_checked_at', 'created_at'], '(AC-T5-1) news_source columns');
 select columns_are('public', 'resume', array['user_id', 'storage_path', 'redacted_text', 'uploaded_at'], '(AC-T5-1) resume columns');
 select columns_are('public', 'question', array['id', 'user_id', 'resume_id', 'source', 'category', 'text', 'cited_experience', 'retired', 'created_at'], '(AC-T5-1) question columns');
-select columns_are('public', 'daily_plan', array['user_id', 'plan_date', 'planned_category', 'actual_category', 'category_skipped', 'article_id', 'is_fallback_article', 'shadow_items', 'card_ids', 'tonight_question_id', 'status', 'error', 'created_at'], '(AC-T5-1) daily_plan columns');
+select columns_are('public', 'daily_plan', array['user_id', 'plan_date', 'planned_category', 'actual_category', 'category_skipped', 'article_id', 'is_fallback_article', 'shadow_items', 'card_ids', 'tonight_question_id', 'status', 'error', 'created_at', 'claimed_at', 'noon_items', 'failure', 'seed_remaining'], '(AC-T5-1) daily_plan columns');
 select col_is_pk('public', 'daily_plan', array['user_id', 'plan_date'], '(AC-T5-1) daily_plan primary key is (user_id, plan_date)');
 select col_type_is('public', 'daily_plan', 'card_ids', 'uuid[]', '(AC-T5-1) daily_plan.card_ids is uuid[]');
 select col_is_null('public', 'question', 'user_id', '(AC-T5-1) question.user_id is nullable (bank questions)');
