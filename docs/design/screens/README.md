@@ -4,9 +4,9 @@
 | 規格 | 原型 | 流程 |
 |---|---|---|
 | [login.md](login.md) | `login.html`；錯誤狀態 `login-empty.html`、`login-server.html`、`login-offline.html` | 登入 → 首頁；登入錯誤 |
-| [home.md](home.md) | `index.html` | 首頁今日任務（早／中／晚） |
+| [home.md](home.md) | `index.html`；中午 0 張完成態 `index-noon-zero.html` | 首頁今日任務（早／中／晚） |
 | [morning.md](morning.md) | `news.html` → `shadow.html` | 早上閱讀 → 跟讀闖關 |
-| [noon.md](noon.md) | `review.html` → `review-order.html`；`review-recall.html`／`-cloze`／`-meaning` → `review-recall-answer.html`／`review-recall-meaning-answer.html`（自行回想）；`review-short.html`（模式 B）；`review-zero.html`（0 張，待 Hansheng）；`add-card.html` → `add-card-stream.html` → `add-card-ready.html`（或 `add-card-partial.html`）→ `add-card-saved.html`；錯誤 `add-card-error.html` | 中午複習（一步）；今天只有 N 張；新增字卡（隨時可用） |
+| [noon.md](noon.md) | `review.html` → `review-order.html`；`review-recall.html`／`-cloze`／`-meaning` → `review-recall-answer.html`／`review-recall-meaning-answer.html`（自行回想）；`review-short.html`（模式 B）；`review-zero.html`（0 張，打開即完成）；`add-card.html` → `add-card-stream.html` → `add-card-ready.html`（或 `add-card-partial.html`）→ `add-card-saved.html`；錯誤 `add-card-error.html` | 中午複習（一步）；今天只有 N 張；新增字卡（隨時可用） |
 | [evening.md](evening.md) | `evening.html`（還沒有履歷：`evening-noresume.html`）→ `evening-record.html` → `diagnosis.html` → `retell.html` → `retell-cue.html` → `result.html`；`result-milestone.html`／`-seen`／`-60` | 晚上口說；M2 里程碑 |
 | [../pwa.md](../pwa.md) | `notice-offline.html`、`notice-offline-cold.html`、`notice-update.html`、`preview-banner.html`、`preview-banner-unknown.html`、`pwa-icons.html` | 斷線、新版、預覽假資料提示；manifest 與圖示 |
 | [prep.md](prep.md) | `home-prep-pending.html`、`home-prep-failed.html`、`news-fallback.html` | 素材準備中／沒備好／改用舊文章 |
@@ -17,5 +17,5 @@
 | [settings.md](settings.md) | `settings.html`；錯誤狀態 `settings-error.html` | 設定：外觀、時段、複習間隔、供應商、付費、履歷、帳號 |
 | [theme.md](theme.md) | 任一頁 `#account`、`system.html` | 主題三段切換 |
 
-- 元件展示：`../prototype/screens/system.html`。D2b 佔位：`later.html`（字卡清單與搜尋）。所有頁的底部分頁／頂部導覽：今天 `index.html`、字卡 `later.html?s=cards`、紀錄 `records.html`、設定 `settings.html`（D2b 第 2 批統一）。
+- 元件展示：`../prototype/screens/system.html`。D2b 佔位：`later.html`（字卡清單與搜尋）。所有頁的底部分頁／頂部導覽：今天 `index.html`；中午 0 張完成態 `index-noon-zero.html`、字卡 `later.html?s=cards`、紀錄 `records.html`、設定 `settings.html`（D2b 第 2 批統一）。
 - 共通：手機底部分頁（首頁）或頂部返回列（子頁）；電腦頂部導覽＋右側 rail。右上頭像開「帳號與外觀」。
