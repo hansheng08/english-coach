@@ -23,6 +23,9 @@ const TIMEOUT_MAX = 60;
 // rename lists only the new path (scope-check misses the old one; --diff-filter=AM drops R).
 export const NO_RENAMES_SCRIPTS = { '.github/scripts/taskcheck.sh': 3, '.github/scripts/run-task-post-check.sh': 1 };
 export const PR_BODY_STEP = 'PR description: Actions 分鐘數影響';
+// O-029 (AC-O29-9): frozen bundle scan step.
+export const BUNDLE_SCAN_STEP = 'Scan build output for key names';
+export const BUNDLE_SCAN_RUN = 'node tooling/bundle-name-scan.mjs apps/web/dist';
 // O-028 item 3: the push-superseded note (commit status; never a required check).
 export const SUPERSEDE_WF = 'ci-supersede.yml';
 export const SUPERSEDE_CONTEXT = 'ci-push-superseded';
@@ -122,7 +125,7 @@ export function parseWorkflow(text) {
         if (section === 'steps') {
           let body = null;
           if (ind === 6 && t.startsWith('- ')) {
-            step = { name: null, id: null, if: null, run: '', env: {} };
+            step = { name: null, id: null, if: null, run: '', env: {}, continueOnError: null, workingDirectory: null };
             job.steps.push(step);
             body = t.slice(2);
           } else if (ind === 8 && step) body = t;
@@ -133,6 +136,9 @@ export function parseWorkflow(text) {
               step[km[1]] = km[1] === 'run' ? s.text : unquote(s.text);
               i = s.next; continue;
             }
+            // O-029: the bundle scan step is frozen, so these two keys must be visible to the check.
+            if (km && km[1] === 'continue-on-error') { step.continueOnError = unquote(km[2].replace(/\s+#.*$/, '')); i += 1; continue; }
+            if (km && km[1] === 'working-directory') { step.workingDirectory = unquote(km[2].replace(/\s+#.*$/, '')); i += 1; continue; }
             if (km && km[1] === 'env') {
               i += 1;
               for (; i < lines.length && indentOf(lines[i]) >= 10; i += 1) {
@@ -250,6 +256,25 @@ export function checkRepo(root) {
     const run = e2e.steps.find((x) => x.name === 'Run e2e (fake providers)')?.run ?? '';
     const want = 'pnpm e2e --reporter=list --reporter=json';
     if (run !== want) add(`ci.yml: e2e step must run exactly ${want} (no -- between e2e and --reporter)`);
+  }
+  // O-029 (AC-O29-9): the bundle job scans the build output for key names right after Build,
+  // before the gitleaks value scan. Fail-closed: no `if`, no continue-on-error, exact command.
+  const bundle = ci.jobs.get('bundle');
+  if (bundle) {
+    const idx = (n) => bundle.steps.findIndex((x) => x.name === n);
+    const scans = bundle.steps.filter((x) => x.run.includes('bundle-name-scan'));
+    const scan = bundle.steps.find((x) => x.name === BUNDLE_SCAN_STEP);
+    if (!scan) add(`ci.yml: bundle step "${BUNDLE_SCAN_STEP}" missing (O-029)`);
+    else {
+      if (scan.run !== BUNDLE_SCAN_RUN) add(`ci.yml: bundle scan step must run exactly ${BUNDLE_SCAN_RUN} (O-029)`);
+      if (scan.continueOnError !== null) add('ci.yml: bundle scan step must not set continue-on-error (O-029)');
+      if (scan.if !== null) add('ci.yml: bundle scan step must not have an if (O-029)');
+      if (scan.workingDirectory !== null) add('ci.yml: bundle scan step must not set working-directory (O-029)');
+      if (idx('Build') < 0 || idx(BUNDLE_SCAN_STEP) < idx('Build')) add('ci.yml: bundle scan step must come after the Build step (O-029)');
+      if (idx('Scan build output') < 0 || idx(BUNDLE_SCAN_STEP) > idx('Scan build output')) add('ci.yml: bundle scan step must come before the gitleaks "Scan build output" step (O-029)');
+    }
+    if (scans.length !== 1) add(`ci.yml: bundle must have exactly one step running bundle-name-scan, found ${String(scans.length)} (O-029)`);
+    if (bundle.timeout !== '10') add('ci.yml: bundle timeout-minutes must stay 10 (O-029)');
   }
   const ok = ci.jobs.get('ci-ok');
   if (ok) {

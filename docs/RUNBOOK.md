@@ -354,9 +354,13 @@ gh version 2.103.0 (2026-10-21)
 - 實測紀錄（box，`task/O-018` 的 5028c6c；`GH_BIN` 指向只記錄 exit code 的 gh 包裝，用來看有沒有重試）：
   - O-018，2026-11-26 01:02:55～01:18:37 台北時間：週期起點 11/1（`node tooling/actions-usage.mjs --repo hansheng08/english-coach --date 2026-11-25 --included 3000`）exit 0、942 秒、413 次 gh 呼叫、1 次失敗（`net/http: TLS handshake timeout`，有觸發重試且成功）。stderr 空；stdout 一行 JSON，`status` 是 `stop`（`reasons` 為 `daily-stop`），當天 `day.billed_minutes` 889，週期 `cycle.billed_minutes` 2001。
 
-### 6.6 O-023：`bundle` 的 mock 資料模式守衛
+### 6.6 O-023、O-029：`bundle` 的 mock 資料模式守衛與建置後名稱掃描
 
 - `bundle` job（`full` 且 `has_web=true` 才跑）在 `pnpm build` 之前跑 `node tooling/data-mode-guard.mjs`，守衛與建置步驟都設 `VITE_DATA_MODE=mock`，不設任何 `VITE_SUPABASE_*`；`has_web=false` 時仍略過。`timeout-minutes` 仍為 10，不新增 job。
+- O-029：`Build` 之後、gitleaks 值掃描之前多一步 `Scan build output for key names`，執行 `node tooling/bundle-name-scan.mjs apps/web/dist`。建置後另掃變數名稱：`apps/web/dist` 底下每個檔（含 `.map`、`.html`、點開頭檔）出現後端 8 個名稱（`GEMINI_API_KEY`、`GEMINI_PAID_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`SUPABASE_SECRET_KEYS`、`SUPABASE_SECRET_KEY`、`SUPABASE_SERVICE_ROLE_KEY`、`SUPABASE_DB_URL`）之一，或任何不在白名單的 `VITE_` 名稱（白名單只有 `VITE_DATA_MODE`、`VITE_SUPABASE_URL`、`VITE_SUPABASE_PUBLISHABLE_KEY`），就讓 `bundle` job 失敗。要加新的 `VITE_` 名稱，先改 ARCH，不要為了變綠把名稱加進白名單或略過檔案。
+  - CLI exit code：0 乾淨（stdout 印掃過檔數）、1 有命中（每行只印相對路徑、名稱、種類 `backend`／`vite`，不印內容）、2 輸入錯誤（沒給或多給參數、路徑不存在、不是資料夾、0 個檔、符號連結、讀檔失敗；空的 `dist` 不算通過）。
+  - 不新增 job、`timeout-minutes` 仍為 10、`ci-budget.json` 不變；掃描只增加數秒。`ci-workflow-check.mjs` 凍結這一步（指令必須恰好是上述、在 `Build` 之後且在 gitleaks 之前、沒有 `if`／`continue-on-error`／`working-directory`、`bundle` 只有一步呼叫掃描、逾時仍為 10；BN-M1～BN-M10），`tooling/o029.test.mjs` 讓 ac-coverage 看到 TC-12。
+  - 範圍：CI 的 `bundle` 只建 mock 模式，supabase 模式的正式建置（Cloudflare Pages／G4）不經過這一步，掃不到；要不要在 G4 發佈清單再跑一次，由 G4 決定。原始碼端的 `VITE_` 精確白名單（`project-rules.test.ts`、`index.html`、`vite.pwa.ts`、`playwright.config.ts`）是另一張 Claude 小單，不在本節。
 
 ### 6.7 O-026：重跑必須接在既有任務分支上
 

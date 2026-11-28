@@ -280,6 +280,11 @@ jobs:
         env:
           VITE_DATA_MODE: mock
         run: pnpm build
+      # O-029: scan the built bundle for backend key names and VITE_ names outside
+      # the 3-name allowlist (ARCH 3.2 item 8, ADR-017). Fail-closed: no `|| true`,
+      # no continue-on-error. Do not add a name to the allowlist to pass; change ARCH first.
+      - name: Scan build output for key names
+        run: node tooling/bundle-name-scan.mjs apps/web/dist
       - name: Install gitleaks (pinned, checksum verified)
         run: |
           base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
