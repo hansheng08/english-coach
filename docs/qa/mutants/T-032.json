@@ -458,7 +458,7 @@
     },
     {
       "id": "M50",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "(reviewed_at at time zone 'Asia/Taipei')::date",
       "after": "(reviewed_at at time zone 'UTC')::date",
       "expectFail": [
@@ -467,7 +467,7 @@
     },
     {
       "id": "M51",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "alter column review_date set not null",
       "after": "alter column review_date drop not null",
       "expectFail": [
@@ -476,7 +476,7 @@
     },
     {
       "id": "M52",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "security invoker",
       "after": "security definer",
       "expectFail": [
@@ -485,7 +485,7 @@
     },
     {
       "id": "M53",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "alter table public.card_review add column review_date date;",
       "after": "alter table public.card_review add column review_date date default current_date;",
       "expectFail": [
@@ -495,7 +495,7 @@
     },
     {
       "id": "M54",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "set search_path = ''",
       "after": "set search_path = public",
       "expectFail": [
@@ -504,7 +504,7 @@
     },
     {
       "id": "M55",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "to authenticated;",
       "after": "to anon;",
       "expectFail": [
@@ -513,7 +513,7 @@
     },
     {
       "id": "M56",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "from public, anon;",
       "after": "from public;",
       "expectFail": [
@@ -522,7 +522,7 @@
     },
     {
       "id": "M57",
-      "file": "supabase/migrations/20261128100000_t032_card_review_date_record_review.sql",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
       "before": "constraint card_review_card_id_review_date_key unique",
       "after": "constraint card_review_card_id_review_date_key2 unique",
       "expectFail": [
