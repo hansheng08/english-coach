@@ -4,7 +4,7 @@ import type { AuthContext } from '../_shared/db/auth.ts';
 import type { ReviewDb } from '../_shared/db/reviews.ts';
 
 /** router.ts 的 `RouteDeps`／`Route` 的結構子集；不從 router 匯入，避免循環相依（adr008-10-no-circular）。 */
-type ReviewsDeps = { readonly now: () => Date; readonly reviewDb?: (ctx: AuthContext) => ReviewDb };
+type ReviewsDeps = { readonly now: () => Date; readonly reviewDb: (ctx: AuthContext) => ReviewDb };
 type ReviewsRoute = (req: Request, ctx: AuthContext, deps: ReviewsDeps) => Promise<Response>;
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
@@ -27,7 +27,6 @@ async function readJson(req: Request): Promise<{ readonly ok: true; readonly val
 
 /** POST /reviews：中午評分（SRS 在 TypeScript 算，一次交易寫入，一天一次；ARCHITECTURE §4.11）。 */
 export const postReviews: ReviewsRoute = async (req, ctx, deps) => {
-  if (deps.reviewDb === undefined) return failure({ kind: 'internal', message: 'reviewDb not wired' });
   const reviewDb = deps.reviewDb(ctx);
 
   const body = await readJson(req);

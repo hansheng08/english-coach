@@ -239,20 +239,4 @@ describe('POST /reviews', () => {
       expect(text).not.toContain('2026-11-27');
     }
   });
-
-  it('(AC-T32-11) (TC-18) without reviewDb wired the route is 500 internal "reviewDb not wired" and never calls userDb', async () => {
-    const userDb = vi.fn(() => makeTestUserDb());
-    const handle = createRouter(
-      makeTestRouterDeps({
-        auth: ok({ verifyToken: () => Promise.resolve(ok(GOOD)) }),
-        routeDeps: ok(makeTestRouteDeps({ userDb })),
-      }),
-    );
-    const res = await handle(post(valid));
-    expect(res.status).toBe(500);
-    const e = await errorOf(res);
-    expect(e.kind).toBe('internal');
-    expect(e.message).toBe('reviewDb not wired');
-    expect(userDb).not.toHaveBeenCalled();
-  });
 });
