@@ -73,7 +73,7 @@ case "$EVENT_NAME" in
     ;;
   *) die "unsupported event '${EVENT_NAME}'" ;;
 esac
-[[ "$BRANCH" =~ ^(task/[TQOAP]-[0-9]{3}|fix/Q-[0-9]{3})$ ]] || die "branch '${BRANCH}' is not task/<id> or fix/Q-<nnn>; job-level if should have skipped it"
+[[ "$BRANCH" =~ ^(task/[TQOAP]-[0-9]{3}[a-z]?|fix/Q-[0-9]{3}[a-z]?)$ ]] || die "branch '${BRANCH}' is not task/<id> or fix/Q-<nnn>; job-level if should have skipped it"
 [[ -n "$BASE" && -n "$HEAD" ]] || die "base ('${BASE}') or head ('${HEAD}') is empty"
 BRANCH_ID="${BRANCH#*/}"
 HEAD_SHA="$(git rev-parse --verify "${HEAD}^{commit}")" || die "cannot resolve head '${HEAD}'"

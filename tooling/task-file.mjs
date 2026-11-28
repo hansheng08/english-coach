@@ -22,7 +22,7 @@ export function acPrefix(id) {
 // "T-015-fix1"→"T-015"、"O-012"→"O-012"、不合格→null
 export function baseTaskId(id) {
   if (typeof id !== 'string') return null;
-  const m = /^([TQOAP]-\d{3})(?:-fix[1-9]\d*)?$/.exec(id);
+  const m = /^([TQOAP]-\d{3}[a-z]?)(?:-fix[1-9]\d*)?$/.exec(id);
   return m === null ? null : (m[1] ?? null);
 }
 
@@ -34,7 +34,7 @@ export function mutantsPathFor(id) {
 // "task/T-023"→"T-023"、"fix/Q-012"→"Q-012"、其他→null
 export function branchId(branch) {
   if (typeof branch !== 'string') return null;
-  const m = /^(?:task\/([TQOAP]-\d{3})|fix\/(Q-\d{3}))$/.exec(branch);
+  const m = /^(?:task\/([TQOAP]-\d{3}[a-z]?)|fix\/(Q-\d{3}[a-z]?))$/.exec(branch);
   if (m === null) return null;
   return m[1] ?? m[2] ?? null;
 }

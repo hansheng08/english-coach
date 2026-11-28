@@ -39,6 +39,15 @@
 //      them; claude-run-task.yml records the branch head before Claude and
 //      passes PRE_HEAD/BRANCH to the post-check, and run-task-post-check.sh
 //      runs scope-check --all-non-qa on that range.
+//  12. (O-032) task id / branch definitions are frozen: every regex under
+//      .github/ that names the task-id prefix class is one of the two
+//      definitions of docs/tasks/O-032.md (TASK_ID_RE_SRC, BRANCH_RE_SRC), and
+//      the validate / pre-head / post-check / usage-limit / taskcheck scripts
+//      use them; run-task-validate-id.sh sets LC_ALL=C, reads TASK from env
+//      only and never prints the raw value; claude-run-task.yml has checkout
+//      (no `if`, persist-credentials: false) as step 1 and Validate as step 2,
+//      no step before Validate uses the id, Notify and Upload run-task outcome
+//      stay if: always(), concurrency group and artifact names unchanged.
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -55,7 +64,7 @@
 // Exit 0 when every check passes, 1 otherwise (fail-closed: unreadable or
 // unparsable files are errors).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -375,6 +384,115 @@ export function qaOwnerWiringProblems(yml, postCheckSh) {
   return problems;
 }
 
+// O-032: frozen definitions (docs/tasks/O-032.md 「定義」). Plain strings, the
+// exact text the shell scripts carry.
+export const TASK_ID_RE_SRC = '^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$';
+export const BRANCH_RE_SRC = '^(task/[TQOAP]-[0-9]{3}[a-z]?|fix/Q-[0-9]{3}[a-z]?)$';
+const ID_PREFIX_CLASS = `[${'TQOAP'}]`;
+export const O032_SCRIPT_DEFS = {
+  'run-task-validate-id.sh': [TASK_ID_RE_SRC],
+  'run-task-pre-head.sh': [TASK_ID_RE_SRC, BRANCH_RE_SRC],
+  'run-task-post-check.sh': [TASK_ID_RE_SRC, BRANCH_RE_SRC],
+  'run-task-usage-limit.sh': [TASK_ID_RE_SRC],
+  'taskcheck.sh': [BRANCH_RE_SRC],
+};
+const VALIDATE_TASK_LINES = ['if [[ -n "${TASK-}" && "${TASK}" =~ $TASK_ID_RE ]]; then', 'safe="${TASK-}"'];
+
+function codeLines(text) {
+  return text.split(/\r?\n/).filter((l) => !/^\s*#/.test(l));
+}
+
+// files: { '<path under root>': text } for every file under .github/.
+export function taskIdRegexProblems(files) {
+  const problems = [];
+  for (const path of Object.keys(files).sort()) {
+    files[path].split(/\r?\n/).forEach((line, i) => {
+      if (!line.includes(ID_PREFIX_CLASS)) return;
+      const rest = line.split(TASK_ID_RE_SRC).join('').split(BRANCH_RE_SRC).join('');
+      if (rest.includes(ID_PREFIX_CLASS)) problems.push(`${path}:${i + 1}: task-id regex is not one of the O-032 definitions`);
+    });
+  }
+  for (const [name, defs] of Object.entries(O032_SCRIPT_DEFS)) {
+    const text = files[`.github/scripts/${name}`];
+    if (typeof text !== 'string') { problems.push(`.github/scripts/${name} not found (O-032)`); continue; }
+    const code = codeLines(text).join('\n');
+    for (const d of defs) {
+      if (!code.includes(d)) problems.push(`.github/scripts/${name} does not use the O-032 ${d === TASK_ID_RE_SRC ? 'task id' : 'branch'} definition`);
+    }
+  }
+  const v = files['.github/scripts/run-task-validate-id.sh'];
+  if (typeof v === 'string') {
+    const code = codeLines(v);
+    if (!code.some((l) => /^export LC_ALL=C\s*$/.test(l))) problems.push('run-task-validate-id.sh does not export LC_ALL=C');
+    if (code.some((l) => /\$(\{?[0-9@*#]|\{#)/.test(l))) problems.push('run-task-validate-id.sh reads arguments (the id must come from env TASK only)');
+    for (const l of code) {
+      if (/\bTASK\b/.test(l) && !VALIDATE_TASK_LINES.includes(l.trim())) problems.push(`run-task-validate-id.sh uses TASK outside the match / sanitize lines: ${l.trim()}`);
+    }
+  }
+  return problems;
+}
+
+function stepBlocks(yml) {
+  const start = yml.indexOf('\n    steps:\n');
+  if (start < 0) return null;
+  const blocks = [];
+  for (const line of yml.slice(start + '\n    steps:\n'.length).split('\n')) {
+    if (/^ {6}- /.test(line)) blocks.push([line]);
+    else if (blocks.length && !/^ {6}#/.test(line)) blocks[blocks.length - 1].push(line);
+  }
+  return blocks.map((b) => b.join('\n'));
+}
+
+// O-032: checkout first (no if), Validate second, nothing before Validate
+// uses the id; Notify / Upload run-task outcome always(); names unchanged.
+export function runTaskOrderProblems(yml) {
+  const problems = [];
+  const blocks = stepBlocks(yml);
+  if (!blocks || blocks.length < 2) return ['claude-run-task.yml: steps not found (O-032)'];
+  const named = (n) => blocks.findIndex((b) => b.startsWith(`      - name: ${n}\n`));
+  const first = blocks[0];
+  if (!/^ {6}- uses: actions\/checkout@/.test(first)) problems.push('claude-run-task.yml: step 1 is not actions/checkout (O-032)');
+  if (/^\s+if:/m.test(first)) problems.push('claude-run-task.yml: the first checkout has an `if` (O-032)');
+  if (!/^ {10}persist-credentials: false\s*$/m.test(first)) problems.push('claude-run-task.yml: step 1 checkout does not set persist-credentials: false (O-032)');
+  if (!/^ {10}fetch-depth: 0\s*$/m.test(first)) problems.push('claude-run-task.yml: step 1 checkout does not set fetch-depth: 0 (O-032)');
+  const vi = named('Validate task id');
+  if (vi !== 1) problems.push(`claude-run-task.yml: "Validate task id" must be step 2 (found at ${vi < 0 ? 'none' : vi + 1}) (O-032)`);
+  else {
+    const v = blocks[1];
+    if (!/^ {8}run: bash \.github\/scripts\/run-task-validate-id\.sh\s*$/m.test(v)) problems.push('claude-run-task.yml: Validate does not run .github/scripts/run-task-validate-id.sh (O-032)');
+    if (!/^ {10}TASK: \$\{\{ github\.event\.client_payload\.task \}\}\s*$/m.test(v)) problems.push('claude-run-task.yml: Validate does not get TASK from env (O-032)');
+    if (/^\s+(if|continue-on-error):/m.test(v)) problems.push('claude-run-task.yml: Validate has an `if` or continue-on-error (O-032)');
+    if ((v.match(/client_payload\.task/g) ?? []).length !== 1) problems.push('claude-run-task.yml: Validate puts the task id somewhere other than env TASK (O-032)');
+  }
+  const firstUse = blocks.findIndex((b) => /client_payload\.task|\bTASK\b/.test(b));
+  if (firstUse >= 0 && firstUse < 1) problems.push(`claude-run-task.yml: step ${firstUse + 1} uses the task id before Validate (O-032)`);
+  for (const n of ['Task lint', 'Record branch head before Claude', 'Check out existing task branch', 'Run Claude Code']) {
+    const i = named(n);
+    if (i < 0) problems.push(`claude-run-task.yml: "${n}" step not found (O-032)`);
+    else if (vi < 0 || i <= vi) problems.push(`claude-run-task.yml: "${n}" must come after Validate (O-032)`);
+  }
+  for (const n of ['Notify Grok chief of staff', 'Upload run-task outcome']) {
+    const i = named(n);
+    if (i < 0 || !/^ {8}if: always\(\)\s*$/m.test(blocks[i])) problems.push(`claude-run-task.yml: "${n}" is not if: always() (O-032)`);
+  }
+  if (!yml.includes('\nconcurrency:\n  group: claude-run-task-${{ github.event.client_payload.task }}\n  cancel-in-progress: false\n')) {
+    problems.push('claude-run-task.yml: concurrency group / cancel-in-progress changed (O-032)');
+  }
+  const up = named('Upload run-task outcome');
+  if (up < 0 || !blocks[up].includes('\n          name: run-task-outcome-${{ github.event.client_payload.task }}\n')) problems.push('claude-run-task.yml: run-task-outcome artifact name changed (O-032)');
+  if (!yml.includes('\n          name: claude-execution-output-${{ github.event.client_payload.task }}-${{ github.run_id }}\n')) problems.push('claude-run-task.yml: claude-execution-output artifact name changed (O-032)');
+  return problems;
+}
+
+function readTree(root, dir, out) {
+  for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${e.name}`;
+    if (e.isDirectory()) readTree(root, rel, out);
+    else if (e.isFile()) out[rel] = readFileSync(join(root, rel), 'utf8');
+  }
+  return out;
+}
+
 export function loadInputs(root) {
   const settings = JSON.parse(readFileSync(join(root, '.claude/settings.json'), 'utf8'));
   if (!settings.permissions) throw new Error('.claude/settings.json: permissions missing');
@@ -385,7 +503,8 @@ export function loadInputs(root) {
   const maxTurns = parseWorkflowMaxTurns(workflowYml);
   const verifySh = readFileSync(join(root, '.github/scripts/verify-push.sh'), 'utf8');
   const postCheckSh = readFileSync(join(root, '.github/scripts/run-task-post-check.sh'), 'utf8');
-  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns, workflowYml, verifySh, postCheckSh };
+  const githubFiles = readTree(root, '.github', {});
+  return { perms: settings.permissions, workflowTools, skillTools, skillMd, maxTurns, workflowYml, verifySh, postCheckSh, githubFiles };
 }
 
 export function checkPermissions(inputs) {
@@ -494,6 +613,17 @@ export function checkPermissions(inputs) {
       errors.push(...qa);
       if (!qa.length) report.push('claude-run-task.yml: pre-head before Claude, post-check scope-check --all-non-qa on PRE_HEAD..HEAD');
     }
+    // O-032. Missing input is an error (fail-closed), not a skip.
+    if (inputs.githubFiles === null || typeof inputs.githubFiles !== 'object') {
+      errors.push('O-032 input missing: the .github/ file map is required');
+    } else {
+      const ids = taskIdRegexProblems(inputs.githubFiles);
+      errors.push(...ids);
+      if (!ids.length) report.push('O-032: every task-id / branch regex under .github/ is a frozen definition; validate-id env-only, LC_ALL=C, no raw echo');
+    }
+    const order = runTaskOrderProblems(yml);
+    errors.push(...order);
+    if (!order.length) report.push('claude-run-task.yml: checkout (no if) step 1, Validate step 2, id used only after Validate, Notify/outcome upload always(), names unchanged');
   }
   return { errors, report };
 }
@@ -514,7 +644,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude, QA-owned files denied and --all-non-qa post-check wired)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude, QA-owned files denied and --all-non-qa post-check wired, O-032 task id definitions and checkout-then-Validate order frozen)\n');
   process.exitCode = 0;
 }
 

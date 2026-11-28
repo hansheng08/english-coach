@@ -120,6 +120,7 @@ jobs:
           bash .github/scripts/run-task-post-check-test.sh
           bash .github/scripts/run-task-pre-head-test.sh
           bash .github/scripts/run-task-usage-limit-test.sh
+          bash .github/scripts/run-task-validate-id-test.sh
           bash .github/scripts/ci-guard-mode-test.sh
           bash .github/scripts/pr-body-check-test.sh
           bash .github/scripts/ci-supersede-test.sh

@@ -188,6 +188,8 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 
 **權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `ci-guard` job（O-015 前是 `pushguard` job）每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
 
+**派工編號與驗證順序（O-032）**：派工編號須整串符合 `^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$`（可帶一個小寫字母尾碼，例如 `T-025a`、`T-025a-fix1`；分支為 `task/<基底編號>` 或 `fix/Q-<nnn>` 加可選小寫字母），`claude-run-task.yml` 第一步 checkout（無 `if`、`persist-credentials: false`）、第二步才由 `run-task-validate-id.sh`（編號只經 `env` 傳入、不回顯原始值）驗證，驗證失敗時其後非 `always()` 步驟全部略過、Notify 仍送 `claude-task-finished`（`outcome=failure`），Actions 上待合併後第一次派 `T-025a` 實測驗證。
+
 ### 3.2 box 上的 SRE（共享 Linux；2026-11-24 09:55 Asia/Taipei 重新實測）
 
 **沒有 Docker、沒有本機 Supabase CLI。** 本機實測原始輸出（`command -v` 逐一檢查）：
