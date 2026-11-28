@@ -1,0 +1,248 @@
+{
+  "task": "T-035",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[A-Za-z0-9._%+-]+@",
+      "after": "[A-Za-z0-9._%-]+@",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[A-Za-z]{2,}",
+      "after": "[A-Za-z]{1,}",
+      "expectFail": [
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "    email += 1;\n    return EMAIL_MARK;",
+      "after": "    return EMAIL_MARK;",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?:0|${TW_CC}${SEP}?)9",
+      "after": "09",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?:\\+886|\\(\\+886\\)|886)",
+      "after": "(?:\\+886|886)",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?:\\(0[2-8]\\d?\\)|0[2-8]\\d?)",
+      "after": "(?:\\(0[3-8]\\d?\\)|0[3-8]\\d?)",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "const SEP = '[ .-]';",
+      "after": "const SEP = '[-]';",
+      "expectFail": [
+        "(TC-2)",
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "    if (TEN_DIGITS.test(match)) return match;\n",
+      "after": "",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-8)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "    if (accepted === 1) return match;\n",
+      "after": "",
+      "expectFail": [
+        "(TC-10)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[\\p{Script=Han}\\d]+號(?:\\d+樓|之\\d+|-\\d+)*",
+      "after": "[\\p{Script=Han}\\d]+號?(?:\\d+樓|之\\d+|-\\d+)*",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?=[\\p{Script=Han}\\d]*(?:路|街|大道|巷|弄))",
+      "after": "(?=[\\p{Script=Han}\\d]*)",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'Street', 'St',",
+      "after": "'Street',",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?:${US_SEP}${US_UNIT})?",
+      "after": "",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  const name = file.name.toLowerCase();\n",
+      "after": "  const name = file.name;\n",
+      "expectFail": [
+        "(TC-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "name.endsWith('.docx') || type === DOCX_MIME",
+      "after": "name.endsWith('.docx')",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  if (read.value.trim() === '') return fail('no text found');\n",
+      "after": "",
+      "expectFail": [
+        "(TC-15)",
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  return ok(read.value);\n",
+      "after": "  return ok(read.value.trim());\n",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "item.hasEOL ? `${item.str}\\n` : item.str",
+      "after": "item.str",
+      "expectFail": [
+        "(TC-13)",
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "    .join('\\n');\n",
+      "after": "    .join('');\n",
+      "expectFail": [
+        "(TC-13)",
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  return 'unsupported';\n",
+      "after": "  return 'pdf';\n",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  const pdfjs = await import('pdfjs-dist');\n",
+      "after": "  const pdfjs = await load('pdfjs-dist');\n",
+      "expectFail": [
+        "(TC-17)",
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "  out = out.replace(TW_PHONE_RE, () => {\n    phone += 1;\n    return PHONE_MARK;\n  });\n",
+      "after": "",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-4)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "/[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\\.)+[A-Za-z]{2,}/gu",
+      "after": "/[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\\.)+[A-Za-z]{2,}\\.?/gu",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)",
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "  const type = file.type.toLowerCase();\n",
+      "after": "  const type = file.type;\n",
+      "expectFail": [
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "apps/web/src/features/resume/extract.ts",
+      "before": "name.endsWith('.pdf') || type === PDF_MIME",
+      "after": "name.endsWith('.pdf')",
+      "expectFail": [
+        "(QA-14)"
+      ]
+    }
+  ]
+}
