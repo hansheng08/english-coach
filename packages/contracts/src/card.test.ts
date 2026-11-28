@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CardScheduleSchema, ChunkTextSchema, IntervalStepSchema, ReviewRequestSchema } from './card.ts';
+import { CardSchema, CardScheduleSchema, ChunkTextSchema, IntervalStepSchema, ReviewRequestSchema } from './card.ts';
 
 describe('ChunkTextSchema', () => {
   it('(AC-T13-1) (TC-1) accepts valid chunk formats', () => {
@@ -57,6 +57,32 @@ describe('CardScheduleSchema', () => {
     for (const v of invalid) {
       expect(CardScheduleSchema.safeParse(v).success).toBe(false);
     }
+  });
+});
+
+describe('CardSchema', () => {
+  const base = {
+    id: CARD_ID,
+    chunk: 'move the needle',
+    meaningZh: null,
+    exampleEn: null,
+    synonyms: [],
+    sourceSentence: null,
+    sourceType: 'manual',
+    schedule: { state: 'learning', correctCount: 1, intervalStep: 0, dueDate: '2026-11-28' },
+    priorityNew: false,
+    ttsPath: null,
+    generatedBy: null,
+    createdAt: '2026-11-27T00:00:00+08:00',
+    masteredAt: null,
+  };
+
+  it('(AC-T32-7) (TC-11) accepts a valid card and rejects missing fields, bad schedules and a createdAt without a zone', () => {
+    expect(CardSchema.safeParse(base).success).toBe(true);
+    expect(CardSchema.safeParse({ ...base, chunk: undefined }).success).toBe(false);
+    const mastered = { ...base, schedule: { state: 'mastered', correctCount: 2, intervalStep: 1, dueDate: '2026-11-28' } };
+    expect(CardSchema.safeParse(mastered).success).toBe(false);
+    expect(CardSchema.safeParse({ ...base, createdAt: '2026-11-27T00:00:00' }).success).toBe(false);
   });
 });
 

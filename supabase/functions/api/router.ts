@@ -1,12 +1,19 @@
 import { httpStatusOf, toApiErrorBody, type AppError, type HealthResponse, type Result } from '@english-coach/contracts';
 import { formatAdr010EnvLine, type KeyPresence } from '../_shared/config/env.ts';
 import { requireUser, type AuthContext, type RequireUserDeps } from '../_shared/db/auth.ts';
+import type { ReviewDb } from '../_shared/db/reviews.ts';
 import type { UserDb } from '../_shared/db/user-db.ts';
 import { postCheckins } from './checkins.ts';
+import { postReviews } from './reviews.ts';
 
-export type RouteDeps = { readonly userDb: (ctx: AuthContext) => UserDb; readonly now: () => Date };
+export type RouteDeps = {
+  readonly userDb: (ctx: AuthContext) => UserDb;
+  readonly now: () => Date;
+  /** 暫時選填（ARCHITECTURE §5.1.1 過渡），待 T-025a 改回必填；沒接時 POST /reviews 回 500 internal。 */
+  readonly reviewDb?: (ctx: AuthContext) => ReviewDb;
+};
 export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise<Response>;
-export type RouteKey = 'GET /health' | 'POST /checkins';
+export type RouteKey = 'GET /health' | 'POST /checkins' | 'POST /reviews';
 
 export type RouterDeps = {
   readonly auth: Result<RequireUserDeps, AppError>;
@@ -27,6 +34,7 @@ const health = (): Promise<Response> => {
 export const ROUTES: Readonly<Record<RouteKey, Route>> = {
   'GET /health': health,
   'POST /checkins': postCheckins,
+  'POST /reviews': postReviews,
 };
 
 const PATH_PREFIX = /^(?:\/functions\/v1)?(?:\/api)?(\/.*)$/;

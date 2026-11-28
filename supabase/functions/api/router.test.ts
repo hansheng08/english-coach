@@ -1,18 +1,16 @@
 import { ApiErrorBodySchema, err, ok, HealthResponseSchema, type AppError, type Result } from '@english-coach/contracts';
 import { describe, expect, it } from 'vitest';
-import type { KeyPresence } from '../_shared/config/env.ts';
 import type { TokenClaims, VerifyToken } from '../_shared/db/auth.ts';
-import type { UserDb } from '../_shared/db/user-db.ts';
-import { createRouter, ROUTES, routePath, type RouteDeps, type RouterDeps } from './router.ts';
+import { makeTestUserDb } from '../_shared/db/test/fakes.ts';
+import { createRouter, ROUTES, routePath, type RouteDeps } from './router.ts';
+import { makeTestRouteDeps, makeTestRouterDeps } from './test/route-deps.ts';
 
-const NEVER_DB: UserDb = {
-  insertProviderCall: () => Promise.resolve(ok(null)),
-  insertCheckin: () => Promise.resolve(ok(null)),
-};
-const ROUTE_DEPS: RouteDeps = { userDb: () => NEVER_DB, now: () => new Date('2026-11-27T04:00:00Z') };
+const ROUTE_DEPS: RouteDeps = makeTestRouteDeps({
+  userDb: () => makeTestUserDb({ insertProviderCall: () => Promise.resolve(ok(null)), insertCheckin: () => Promise.resolve(ok(null)) }),
+  now: () => new Date('2026-11-27T04:00:00Z'),
+});
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c1a-0d2e6f7a8b9c';
-const PRESENCE: KeyPresence = { hasSupabaseUrl: true, hasPublishable: true, hasSecret: true, onlyLegacyKeys: false };
 const ENV_LINE = 'adr010-env has_supabase_url=true has_publishable=true has_secret=true only_legacy_keys=false';
 const GOOD: TokenClaims = { role: 'authenticated', sub: UUID, is_anonymous: false };
 
@@ -31,15 +29,14 @@ function harness(opts: {
     return inner(token);
   };
   const logs: string[] = [];
-  const deps: RouterDeps = {
+  const deps = makeTestRouterDeps({
     auth: opts.auth ?? ok({ verifyToken: counted }),
     routeDeps: opts.routeDeps ?? ok(ROUTE_DEPS),
     allowedOrigins: opts.origins ?? ['http://localhost:5173'],
-    keyPresence: PRESENCE,
     log: (line) => {
       logs.push(line);
     },
-  };
+  });
   return { handle: createRouter(deps), logs, verifyCalls: () => calls };
 }
 

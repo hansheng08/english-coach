@@ -10,16 +10,16 @@ import {
   type Result,
 } from '@english-coach/contracts';
 import { describe, expect, it } from 'vitest';
-import type { KeyPresence } from '../_shared/config/env.ts';
 import type { TokenClaims, VerifyToken } from '../_shared/db/auth.ts';
-import { userDbFrom, type UserDb } from '../_shared/db/user-db.ts';
-import type { DbClient, DbResponse } from '../_shared/db/client.ts';
+import { userDbFrom } from '../_shared/db/user-db.ts';
+import type { DbResponse } from '../_shared/db/client.ts';
+import { makeTestDbClient } from '../_shared/db/test/fakes.ts';
 import { createRouter, type RouteDeps } from './router.ts';
+import { makeTestRouteDeps, makeTestRouterDeps } from './test/route-deps.ts';
 
 const UUID = '3f2b8c1e-5a4d-4e7b-9c1a-0d2e6f7a8b9c';
 const OTHER = '9a8b7c6d-1111-4222-8333-444455556666';
 const ORIGIN = 'http://localhost:5173';
-const PRESENCE: KeyPresence = { hasSupabaseUrl: true, hasPublishable: true, hasSecret: true, onlyLegacyKeys: false };
 const GOOD: TokenClaims = { role: 'authenticated', sub: UUID, is_anonymous: false };
 const NOW = new Date('2026-11-27T04:00:00Z'); // 台北 2026-11-27 12:00
 const bearer = { Authorization: 'Bearer a.b.c', 'Content-Type': 'application/json' };
@@ -40,28 +40,28 @@ function setup(opts: {
 }): Setup {
   const rows: Rows[] = [];
   let userDbCalls = 0;
-  const client: DbClient = {
+  const client = makeTestDbClient({
     from: () => ({
       insert: (row) => {
         rows.push(row);
         return opts.respond?.() ?? Promise.resolve({ data: null, error: null });
       },
     }),
-  };
-  const routeDeps: RouteDeps = {
-    userDb: (ctx): UserDb => {
+  });
+  const routeDeps = makeTestRouteDeps({
+    userDb: (ctx) => {
       userDbCalls += 1;
       return userDbFrom(client, ctx.userId);
     },
     now: () => opts.now ?? NOW,
-  };
-  const handle = createRouter({
-    auth: ok({ verifyToken: opts.verify ?? (() => Promise.resolve(ok(GOOD))) }),
-    routeDeps: opts.routeDeps ?? ok(routeDeps),
-    allowedOrigins: [ORIGIN],
-    keyPresence: PRESENCE,
-    log: () => undefined,
   });
+  const handle = createRouter(
+    makeTestRouterDeps({
+      auth: ok({ verifyToken: opts.verify ?? (() => Promise.resolve(ok(GOOD))) }),
+      routeDeps: opts.routeDeps ?? ok(routeDeps),
+      allowedOrigins: [ORIGIN],
+    }),
+  );
   return { handle, rows, userDbCalls: () => userDbCalls, insertCalls: () => rows.length };
 }
 

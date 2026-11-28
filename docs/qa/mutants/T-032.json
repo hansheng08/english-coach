@@ -1,0 +1,533 @@
+{
+  "task": "T-032",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (deps.reviewDb === undefined) return failure({ kind: 'internal', message: 'reviewDb not wired' });",
+      "after": "if (deps.reviewDb === null) return failure({ kind: 'internal', message: 'reviewDb not wired' });",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "message: 'reviewDb not wired'",
+      "after": "message: 'reviewDb missing'",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "return invalid([{ path: 'body', message: 'body must be JSON' }]);",
+      "after": "return invalid([{ path: 'json', message: 'body must be JSON' }]);",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (card.value === null) return failure({ kind: 'not_found'",
+      "after": "if (card.value === undefined) return failure({ kind: 'not_found'",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "const today = toTaipeiPlanDate(deps.now());",
+      "after": "const today = toTaipeiPlanDate(new Date());",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "applyReview(card.value.schedule, rating, today.value, srs.value)",
+      "after": "applyReview(card.value.schedule, rating, today.value, { step_days: [3, 7, 14], after_last_days: 14, forgot_days: 1 })",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (!outcome.ok) return failure(outcome.error);",
+      "after": "if (!outcome.ok) return failure({ kind: 'internal', message: 'x' });",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "reviewDate: today.value,",
+      "after": "reviewDate: card.value.schedule.dueDate ?? today.value,",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-18)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "before: card.value.schedule,",
+      "after": "before: outcome.value.schedule,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "    mode,\n    rating,\n    before",
+      "after": "    mode: 'A',\n    rating,\n    before",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (!written.ok) return failure(written.error);",
+      "after": "if (!written.ok) return failure({ kind: 'db_failed', message: 'x' });",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "const updated: Card = { ...card.value, schedule: written.value.schedule };",
+      "after": "const updated: Card = { ...card.value, schedule: card.value.schedule };",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (!card.ok) return failure(card.error);",
+      "after": "if (!card.ok) return failure({ kind: 'not_found', entity: 'card', message: 'x' });",
+      "expectFail": [
+        "(QA-16)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "if (!srs.ok) return failure(srs.error);",
+      "after": "if (!srs.ok) return failure({ kind: 'internal', message: 'x' });",
+      "expectFail": [
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "{ status: 200, headers: JSON_HEADERS }",
+      "after": "{ status: 201, headers: JSON_HEADERS }",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "supabase/functions/api/reviews.ts",
+      "before": "const parsed = ReviewRequestSchema.safeParse(body.value);",
+      "after": "const parsed = ReviewRequestSchema.safeParse(body.value ?? valid0);",
+      "expectFail": [
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": ".eq('id', cardId)",
+      "after": ".eq('chunk', cardId)",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "client.from('card').select(CARD_COLUMNS)",
+      "after": "client.from('card_review').select(CARD_COLUMNS)",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": ".eq('user_id', userId)",
+      "after": ".eq('id', userId)",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "client.from('profile').select('settings')",
+      "after": "client.from('card').select('settings')",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "if (res.value === null) return ok(null);",
+      "after": "if (res.value === undefined) return ok(null);",
+      "expectFail": [
+        "(AC-T32-3)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "meaningZh: row['meaning_zh'],",
+      "after": "meaningZh: row['example_en'],",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "masteredAt: row['mastered_at'],",
+      "after": "masteredAt: null,",
+      "expectFail": [
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "dueDate: row['due_date'],",
+      "after": "dueDate: null,",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "intervalStep: row['interval_step'],",
+      "after": "intervalStep: row['correct_count'],",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "priorityNew: row['priority_new'],",
+      "after": "priorityNew: false,",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "ttsPath: row['tts_path'],",
+      "after": "ttsPath: null,",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "sourceSentence: row['source_sentence'],",
+      "after": "sourceSentence: row['example_en'],",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "synonyms: row['synonyms'],",
+      "after": "synonyms: [],",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "message: 'select card returned an unexpected shape'",
+      "after": "message: 'select card failed'",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "'srs' in settings ? settings.srs : {}",
+      "after": "'srs' in settings ? (settings.srs ?? {}) : {}",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "err({ kind: 'internal', message: 'profile.settings.srs is invalid' })",
+      "after": "err({ kind: 'db_failed', message: 'profile.settings.srs is invalid' })",
+      "expectFail": [
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "case '40001':",
+      "after": "case '40002':",
+      "expectFail": [
+        "(TC-12)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "case '23505':",
+      "after": "case '23506':",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "case 'P0002':",
+      "after": "case 'P0003':",
+      "expectFail": [
+        "(TC-13)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "return { kind: 'conflict', entity: 'card', message: 'record_card_review conflict' };",
+      "after": "return { kind: 'conflict', entity: 'profile', message: 'record_card_review conflict' };",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "message: code === undefined ? 'record_card_review failed' : `record_card_review failed (${code})` }",
+      "after": "message: 'record_card_review failed' }",
+      "expectFail": [
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "p_review_date: input.reviewDate,",
+      "after": "p_review_date: input.outcome.schedule.dueDate,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "p_expected_due_date: before.dueDate,",
+      "after": "p_expected_due_date: outcome.schedule.dueDate,",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "p_new_correct_count: outcome.schedule.correctCount,",
+      "after": "p_new_correct_count: before.correctCount,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "p_interval_days_applied: outcome.intervalDaysApplied,",
+      "after": "p_interval_days_applied: 1,",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "p_mode: input.mode,",
+      "after": "p_mode: 'A',",
+      "expectFail": [
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "return ok({ id: input.cardId, schedule: outcome.schedule });",
+      "after": "return ok({ id: input.cardId, schedule: before });",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "if (res.value.error !== null) return err(mapRecordError(res.value.error.code));",
+      "after": "if (res.value.error === undefined) return err(mapRecordError(res.value.error.code));",
+      "expectFail": [
+        "(TC-12)",
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "'record_card_review', {",
+      "after": "'record_card_reviews', {",
+      "expectFail": [
+        "(TC-9)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "supabase/functions/_shared/db/reviews.ts",
+      "before": "(): AppError => ({ kind: 'db_failed', message: 'record_card_review failed' }),",
+      "after": "(): AppError => ({ kind: 'internal', message: 'record_card_review failed' }),",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/contracts/src/card.ts",
+      "before": "createdAt: z.iso.datetime({ offset: true }),",
+      "after": "createdAt: z.string(),",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/contracts/src/card.ts",
+      "before": "export const ReviewRequestSchema = z.object({ cardId: CardIdSchema, mode: ReviewModeSchema,",
+      "after": "export const ReviewRequestSchema = z.object({ cardId: CardIdSchema, mode: z.string(),",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/contracts/src/card.ts",
+      "before": "export const REVIEW_MODES = ['A', 'B'] as const;",
+      "after": "export const REVIEW_MODES = ['A', 'B', 'C'] as const;",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "(reviewed_at at time zone 'Asia/Taipei')::date",
+      "after": "(reviewed_at at time zone 'UTC')::date",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "alter column review_date set not null",
+      "after": "alter column review_date drop not null",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "security invoker",
+      "after": "security definer",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "alter table public.card_review add column review_date date;",
+      "after": "alter table public.card_review add column review_date date default current_date;",
+      "expectFail": [
+        "(TC-26)",
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "set search_path = ''",
+      "after": "set search_path = public",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "to authenticated;",
+      "after": "to anon;",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "from public, anon;",
+      "after": "from public;",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "supabase/migrations/20261128100001_t032_card_review_date_record_review.sql",
+      "before": "constraint card_review_card_id_review_date_key unique",
+      "after": "constraint card_review_card_id_review_date_key2 unique",
+      "expectFail": [
+        "(TC-14)"
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CardIdSchema, PlanDateSchema } from './ids.ts';
+import { CardIdSchema, PlanDateSchema, StoragePathSchema } from './ids.ts';
 
 export const CARD_STATES = ['collected', 'learning', 'reviewing', 'mastered'] as const;
 export const CardStateSchema = z.enum(CARD_STATES);
@@ -58,6 +58,24 @@ const HAS_LETTER = /[A-Za-z]/;
 export const ChunkTextSchema: z.ZodType<string> = z
   .string()
   .refine((s) => s.split(' ').every((w) => CHUNK_WORD.test(w) && HAS_LETTER.test(w)), { message: 'chunk text format' });
+
+/** API 回傳的卡片（camelCase；對應 card 表，不含 user_id、seed_chunk_id；T-032 定義，ARCHITECTURE §4.11）。 */
+export const CardSchema = z.object({
+  id: CardIdSchema,
+  chunk: z.string(),
+  meaningZh: z.string().nullable(),
+  exampleEn: z.string().nullable(),
+  synonyms: z.array(z.string()),
+  sourceSentence: z.string().nullable(),
+  sourceType: CardSourceTypeSchema,
+  schedule: CardScheduleSchema,
+  priorityNew: z.boolean(),
+  ttsPath: StoragePathSchema.nullable(),
+  generatedBy: z.string().nullable(),
+  createdAt: z.iso.datetime({ offset: true }),
+  masteredAt: z.iso.datetime({ offset: true }).nullable(),
+});
+export type Card = z.infer<typeof CardSchema>;
 
 /** POST /reviews 的請求（T-032 使用）。 */
 export const ReviewRequestSchema = z.object({ cardId: CardIdSchema, mode: ReviewModeSchema, rating: ReviewRatingSchema });
