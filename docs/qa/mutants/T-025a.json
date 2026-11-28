@@ -1,0 +1,1572 @@
+{
+  "task": "T-025a",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "export const ShadowItemsSchema = z.array(ShadowItemSchema).max(5);",
+      "after": "export const ShadowItemsSchema = z.array(ShadowItemSchema).max(6);",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "export const NoonItemsSchema = z.array(NoonItemSchema).max(25);",
+      "after": "export const NoonItemsSchema = z.array(NoonItemSchema).max(26);",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "distractors: z.array(z.string()).length(3).nullable(),",
+      "after": "distractors: z.array(z.string()).min(2).max(3).nullable(),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "blocks: z.array(z.string()).min(3).max(6).nullable(),",
+      "after": "blocks: z.array(z.string()).min(2).max(6).nullable(),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "blocks: z.array(z.string()).min(3).max(6).nullable(),",
+      "after": "blocks: z.array(z.string()).min(3).max(7).nullable(),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "shuffled_order: z.array(z.number().int().min(0)).nullable(),",
+      "after": "shuffled_order: z.array(z.number()).nullable(),",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "text: z.string().min(1),\n  tts_path",
+      "after": "text: z.string(),\n  tts_path",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "['news', 'rewrite', 'cards', 'noon', 'tts', 'save', 'internal'] as const",
+      "after": "['news', 'rewrite', 'cards', 'noon', 'tts', 'save', 'internal', 'rss'] as const",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "['news', 'rewrite', 'cards', 'noon', 'tts', 'save', 'internal'] as const",
+      "after": "['news', 'rewrite', 'cards', 'noon', 'tts', 'save'] as const",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "timeout_sec: z.number().int().positive().nullable(),",
+      "after": "timeout_sec: z.number().int().min(0).nullable(),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "  failed_at: z.iso.datetime({ offset: true }),\n});\nexport type PlanFailure",
+      "after": "  failed_at: z.string(),\n});\nexport type PlanFailure",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "z.object({ status: z.literal('failed'), planDate: PlanDateSchema, failure: PlanFailureSchema }),",
+      "after": "z.object({ status: z.literal('failed'), planDate: PlanDateSchema, failure: PlanFailureSchema.optional() }),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "seedRemaining: z.number().int().min(0).nullable(),",
+      "after": "seedRemaining: z.number().int().nullable(),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "cardIds: z.array(CardIdSchema).max(25),",
+      "after": "cardIds: z.array(CardIdSchema).max(26),",
+      "expectFail": [
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/contracts/src/plan.ts",
+      "before": "attempt: z.number().int().min(1),",
+      "after": "attempt: z.number().int().min(0),",
+      "expectFail": [
+        "(AC-T25-1) (TC-1)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/contracts/src/evening.ts",
+      "before": ".refine((s) => s.end > s.start);",
+      "after": ".refine((s) => s.end >= s.start);",
+      "expectFail": [
+        "(AC-T25-17) WordSpanSchema"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/contracts/src/evening.ts",
+      "before": "text: z.string().min(1),\n  source: WordSpanSchema.nullable(),",
+      "after": "text: z.string(),\n  source: WordSpanSchema.nullable(),",
+      "expectFail": [
+        "(AC-T25-17) SeniorSentenceSchema"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/contracts/src/evening.ts",
+      "before": "chunk: ChunkTextSchema,",
+      "after": "chunk: z.string(),",
+      "expectFail": [
+        "(AC-T25-17) UpgradeChunkSchema"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/contracts/src/evening.ts",
+      "before": "upgrade_chunks: z.array(UpgradeChunkSchema).min(3).max(5),",
+      "after": "upgrade_chunks: z.array(UpgradeChunkSchema).min(2).max(5),",
+      "expectFail": [
+        "(AC-T25-17) DiagnosisSchema"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (card.state === 'mastered') return 'postpone';",
+      "after": "if (card.state === 'mastered' && card.exampleEn === null) return 'postpone';",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (!hasText(card.exampleEn) && !hasText(card.meaningZh)) return 'postpone';",
+      "after": "if (!hasText(card.exampleEn) || !hasText(card.meaningZh)) return 'postpone';",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/noon.ts",
+      "before": "    card.state === 'reviewing' &&\n",
+      "after": "    card.state !== 'collected' &&\n",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/noon.ts",
+      "before": "    item.context_zh !== null &&\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/noon.ts",
+      "before": "    item.blocks !== null &&\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/noon.ts",
+      "before": "    item.shuffled_order !== null\n",
+      "after": "    true\n",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/noon.ts",
+      "before": "item.plain_en !== null && item.cloze_en !== null && item.distractors !== null) return 'A_choice';",
+      "after": "item.plain_en !== null && item.cloze_en !== null) return 'A_choice';",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/noon.ts",
+      "before": "item.plain_en !== null && item.cloze_en !== null && item.distractors !== null) return 'A_choice';",
+      "after": "item.plain_en !== null && item.distractors !== null) return 'A_choice';",
+      "expectFail": [
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (hasText(item?.plain_en)) return { kind: 'plain', text: item.plain_en };",
+      "after": "if (hasText(item?.plain_en)) return { kind: 'cloze', text: item.plain_en };",
+      "expectFail": [
+        "(AC-T25-2) (TC-3)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (hasText(item?.cloze_en)) return { kind: 'cloze', text: item.cloze_en };",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-2) (TC-3)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (hasText(card.meaningZh)) return { kind: 'meaning', text: card.meaningZh };",
+      "after": "if (card.meaningZh !== null) return { kind: 'meaning', text: card.meaningZh };",
+      "expectFail": [
+        "(AC-T25-2) (TC-3)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/noon.ts",
+      "before": "s !== null && s !== undefined && s.trim().length > 0;",
+      "after": "s !== null && s !== undefined && s.length > 0;",
+      "expectFail": [
+        "(AC-T25-2) (TC-3)",
+        "(AC-T25-2) (TC-2)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/noon.ts",
+      "before": "if (hit === undefined || hit.level !== 'full' || hit.matchedText === null) return null;",
+      "after": "if (hit === undefined || hit.level === 'none' || hit.matchedText === null) return null;",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/noon.ts",
+      "before": "const BLANK = '____';",
+      "after": "const BLANK = '___';",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/noon.ts",
+      "before": "`${head}${BLANK}${tail}`",
+      "after": "`${BLANK}${tail}`",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/noon.ts",
+      "before": "`${head}${BLANK}${tail}`",
+      "after": "`${head}${BLANK}`",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/noon.ts",
+      "before": "...rawWords.slice(last + 1)].join(' ');",
+      "after": "...rawWords.slice(last)].join(' ');",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/noon.ts",
+      "before": "start + wanted.length <= tokens.length; start += 1)",
+      "after": "start + wanted.length <= tokens.length; start += 2)",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/noon.ts",
+      "before": "normalizeWords(raw.replace(/[‘’]/g, \"'\").replace(/-/g, ' '))",
+      "after": "normalizeWords(raw.replace(/[‘’]/g, \"'\"))",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/noon.ts",
+      "before": "cloze_en: hasText(card.exampleEn) ? clozeOf(card.exampleEn, card.chunk) : null,",
+      "after": "cloze_en: hasText(card.exampleEn) ? clozeOf(card.exampleEn, card.chunk) : '',",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/noon.ts",
+      "before": "  plain_en: null,\n  cloze_en",
+      "after": "  plain_en: card.exampleEn,\n  cloze_en",
+      "expectFail": [
+        "(AC-T25-2) (TC-4)",
+        "(AC-T25-9) (TC-17)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "export const CLAIM_LEASE_SECONDS = 180;",
+      "after": "export const CLAIM_LEASE_SECONDS = 200;",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "new Date(nowMs - CLAIM_LEASE_SECONDS * 1000)",
+      "after": "new Date(nowMs + CLAIM_LEASE_SECONDS * 1000)",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (inserted.value) return ok({ kind: 'claimed', claimedAt });",
+      "after": "if (!inserted.value) return ok({ kind: 'claimed', claimedAt });",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (plan.status === 'ready') return ok({ kind: 'existing', plan });",
+      "after": "if (plan.status === 'pending') return ok({ kind: 'existing', plan });",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (plan.status === 'failed' || expired) {",
+      "after": "if (plan.status === 'failed' && expired) {",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "const expired = plan.status === 'pending' && Date.parse(heldAt) < Date.parse(staleBefore);",
+      "after": "const expired = plan.status === 'pending';",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (taken.value) return ok({ kind: 'claimed', claimedAt });",
+      "after": "if (!taken.value) return ok({ kind: 'claimed', claimedAt });",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "return ok({ kind: 'existing', plan: { status: 'pending', planDate } });",
+      "after": "return ok({ kind: 'existing', plan });",
+      "expectFail": [
+        "(AC-T25-3) (TC-5)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "        skipped.push(category);\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-5) (TC-8)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "        skipped.push(category);\n        continue;",
+      "after": "        skipped.push(category);\n        break;",
+      "expectFail": [
+        "(AC-T25-5) (TC-8)",
+        "(AC-T25-6) (TC-11)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!isProviderError(found.error)) return err(failing('news', found.error));",
+      "after": "if (!isProviderError(found.error)) return err(failing('rewrite', found.error));",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "llmFailure = failing('rewrite', found.error, JUDGE_TIMEOUT_MS);",
+      "after": "llmFailure = failing('rewrite', found.error, REWRITE_TIMEOUT_MS);",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "llmFailure = failing('rewrite', found.error, JUDGE_TIMEOUT_MS);",
+      "after": "llmFailure = failing('news', found.error, JUDGE_TIMEOUT_MS);",
+      "expectFail": [
+        "(AC-T25-6) (TC-10)",
+        "(AC-T25-6) (TC-12)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "llmFailure = failing('rewrite', found.error, JUDGE_TIMEOUT_MS);\n      break;",
+      "after": "llmFailure = failing('rewrite', found.error, JUDGE_TIMEOUT_MS);\n      continue;",
+      "expectFail": [
+        "(AC-T25-6) (TC-10)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "llmFailure = failing('rewrite', content.error, REWRITE_TIMEOUT_MS);",
+      "after": "llmFailure = failing('rewrite', content.error, JUDGE_TIMEOUT_MS);",
+      "expectFail": [
+        "(AC-T25-6) (TC-12)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "llmFailure = failing('rewrite', content.error, REWRITE_TIMEOUT_MS);\n      break;",
+      "after": "llmFailure = failing('rewrite', content.error, REWRITE_TIMEOUT_MS);\n      continue;",
+      "expectFail": [
+        "(AC-T25-6) (TC-10)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "      sha256: c.sha256,\n",
+      "after": "      sha256: c.url,\n",
+      "expectFail": [
+        "(AC-T25-7) (TC-13)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "      title: c.title,\n",
+      "after": "      title: c.url,\n",
+      "expectFail": [
+        "(AC-T25-7) (TC-13)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "      publishedAt: c.publishedAt.toISOString(),",
+      "after": "      publishedAt: deps.now().toISOString(),",
+      "expectFail": [
+        "(AC-T25-7) (TC-13)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "      sourceId: c.sourceId,\n",
+      "after": "      sourceId: 'x',\n",
+      "expectFail": [
+        "(AC-T25-7) (TC-13)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!inserted.ok) return err(failing('news', inserted.error));",
+      "after": "if (!inserted.ok) return err(failing('save', inserted.error));",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M64",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    isFallback: true,\n",
+      "after": "    isFallback: false,\n",
+      "expectFail": [
+        "(AC-T25-6) (TC-11)"
+      ]
+    },
+    {
+      "id": "M65",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    category: older.value.category,\n",
+      "after": "    category: planned,\n",
+      "expectFail": [
+        "(AC-T25-6) (TC-11)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M66",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "      llmFailure ??\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-6) (TC-12)"
+      ]
+    },
+    {
+      "id": "M67",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!older.ok) return err(failing('news', older.error));",
+      "after": "if (!older.ok) return err(failing('internal', older.error));",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M68",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!senior.success || !upgrade.success) return null;",
+      "after": "if (!senior.success) return null;",
+      "expectFail": [
+        "(AC-T25-17) (TC-26)"
+      ]
+    },
+    {
+      "id": "M69",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!source.ok || source.value === null) return null;",
+      "after": "if (source.ok && source.value === null) return null;",
+      "expectFail": [
+        "(AC-T25-17) (TC-26)"
+      ]
+    },
+    {
+      "id": "M70",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "containsTargetChunk: upgrade.data.some((u) => chunkAppearsIn(u.chunk, s.text)),",
+      "after": "containsTargetChunk: false,",
+      "expectFail": [
+        "(AC-T25-8) (AC-T25-17) (TC-26)"
+      ]
+    },
+    {
+      "id": "M71",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "containsTargetChunk: choice.chunks.some((c) => chunkAppearsIn(c.chunk, text)),",
+      "after": "containsTargetChunk: false,",
+      "expectFail": [
+        "(AC-T25-8) (TC-14)"
+      ]
+    },
+    {
+      "id": "M72",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "return picked.map((s): ShadowItem => ({ source: s.source, text: s.text, tts_path: null }));",
+      "after": "return picked.map((s): ShadowItem => ({ source: 'news', text: s.text, tts_path: null }));",
+      "expectFail": [
+        "(AC-T25-8) (AC-T25-17) (TC-26)"
+      ]
+    },
+    {
+      "id": "M73",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "[...sel.oldCardIds, ...sel.newCardIds, ...sel.extraOldCardIds]",
+      "after": "[...sel.newCardIds, ...sel.oldCardIds, ...sel.extraOldCardIds]",
+      "expectFail": [
+        "(AC-T25-9) (TC-15)",
+        "(AC-T25-9) (TC-16)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M74",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "return !postponed.has(id) && (first.includes(id) || hasText(c.exampleEn) || hasText(c.meaningZh));",
+      "after": "return first.includes(id) || hasText(c.exampleEn) || hasText(c.meaningZh);",
+      "expectFail": [
+        "(AC-T25-9) (TC-15)",
+        "(AC-T25-9) (TC-16)",
+        "(AC-T25-9) (TC-17)"
+      ]
+    },
+    {
+      "id": "M75",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "return !postponed.has(id) && (first.includes(id) || hasText(c.exampleEn) || hasText(c.meaningZh));",
+      "after": "return !postponed.has(id);",
+      "expectFail": [
+        "(AC-T25-9) (TC-15)",
+        "(AC-T25-9) (TC-16)",
+        "(AC-T25-9) (TC-17)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M76",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    postponed.size === 0\n      ? first\n",
+      "after": "    true\n      ? first\n",
+      "expectFail": [
+        "(AC-T25-9) (TC-15)",
+        "(AC-T25-9) (TC-16)",
+        "(AC-T25-9) (TC-17)"
+      ]
+    },
+    {
+      "id": "M77",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "const hasText = (s: string | null): boolean => s !== null && s.trim().length > 0;",
+      "after": "const hasText = (s: string | null): boolean => s !== null;",
+      "expectFail": [
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M78",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!cards.ok) return err(failing('cards', cards.error));",
+      "after": "if (!cards.ok) return err(failing('internal', cards.error));",
+      "expectFail": [
+        "(AC-T25-4) (TC-7)"
+      ]
+    },
+    {
+      "id": "M79",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!questions.ok) return err(failing('internal', questions.error));",
+      "after": "if (!questions.ok) return err(failing('cards', questions.error));",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M80",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    seedRemaining: null,\n",
+      "after": "    seedRemaining: 0,\n",
+      "expectFail": [
+        "(AC-T25-9) (TC-17)"
+      ]
+    },
+    {
+      "id": "M81",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "tonightQuestionId: selectTonightQuestion(questions.value),",
+      "after": "tonightQuestionId: null,",
+      "expectFail": [
+        "(AC-T25-10) (TC-18)"
+      ]
+    },
+    {
+      "id": "M82",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    failed_at: deps.now().toISOString(),",
+      "after": "    failed_at: new Date(0).toISOString(),",
+      "expectFail": [
+        "(AC-T25-4) (TC-7)"
+      ]
+    },
+    {
+      "id": "M83",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "error: toApiErrorBody(f.error).error,",
+      "after": "error: toApiErrorBody({ kind: 'internal', message: 'x' }).error,",
+      "expectFail": [
+        "(AC-T25-4) (TC-7)",
+        "(AC-T25-6) (TC-12)"
+      ]
+    },
+    {
+      "id": "M84",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (!written.value) return currentPlan(deps, planDate);",
+      "after": "if (written.value === null) return currentPlan(deps, planDate);",
+      "expectFail": [
+        "(AC-T25-4) (TC-6)"
+      ]
+    },
+    {
+      "id": "M85",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "return plan.ok ? ok({ plan: plan.value, existing: !done.value }) : err(plan.error);",
+      "after": "return plan.ok ? ok({ plan: plan.value, existing: false }) : err(plan.error);",
+      "expectFail": [
+        "(AC-T25-14) (TC-5)",
+        "(AC-T25-4) (TC-6)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M86",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "failing('save', done.error)",
+      "after": "failing('internal', done.error)",
+      "expectFail": [
+        "(AC-T25-4) (TC-7)"
+      ]
+    },
+    {
+      "id": "M87",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "timeoutSec: error.kind === 'timeout' && timeoutMs !== null ? timeoutMs / 1000 : null,",
+      "after": "timeoutSec: timeoutMs !== null ? timeoutMs / 1000 : null,",
+      "expectFail": [
+        "(AC-T25-4) (TC-7)",
+        "(AC-T25-6) (TC-12)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M88",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "timeoutSec: error.kind === 'timeout' && timeoutMs !== null ? timeoutMs / 1000 : null,",
+      "after": "timeoutSec: error.kind === 'timeout' && timeoutMs !== null ? timeoutMs / 100 : null,",
+      "expectFail": [
+        "(AC-T25-6) (TC-12)"
+      ]
+    },
+    {
+      "id": "M89",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    lookbackHours: settings.lookback_hours,\n",
+      "after": "    lookbackHours: 24,\n",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M90",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "    case 'db_failed':\n",
+      "after": "",
+      "expectFail": [
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M92",
+      "file": "supabase/functions/_shared/plan/prepare.ts",
+      "before": "if (claim.value.kind === 'existing') return ok({ plan: claim.value.plan, existing: true });",
+      "after": "if (claim.value.kind === 'existing') return ok({ plan: claim.value.plan, existing: false });",
+      "expectFail": [
+        "(AC-T25-14) (TC-5)"
+      ]
+    },
+    {
+      "id": "M93",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('daily_plan').select(PLAN_COLUMNS).eq('user_id', userId).eq('plan_date', planDate).maybeSingle(),",
+      "after": "mine('daily_plan').select(PLAN_COLUMNS).eq('plan_date', planDate).maybeSingle(),",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M94",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('news_article').select(ARTICLE_COLUMNS).eq('id', articleId).eq('user_id', userId).maybeSingle(),",
+      "after": "mine('news_article').select(ARTICLE_COLUMNS).eq('id', articleId).maybeSingle(),",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M95",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('question').select('id, text, category').eq('id', questionId).or(orOwnOrShared).maybeSingle(),",
+      "after": "mine('question').select('id, text, category').eq('id', questionId).maybeSingle(),",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M96",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "const orOwnOrShared = `user_id.eq.${userId},user_id.is.null`;",
+      "after": "const orOwnOrShared = `user_id.eq.${userId}`;",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M97",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "sourceName: source.value?.['name'] ?? '',",
+      "after": "sourceName: '',",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M98",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "seedRemaining: row['seed_remaining'] ?? null,",
+      "after": "seedRemaining: null,",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M99",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "{ onConflict: 'user_id,plan_date', ignoreDuplicates: true },",
+      "after": "{ onConflict: 'user_id,plan_date', ignoreDuplicates: false },",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M100",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "{ user_id: userId, plan_date: planDate, planned_category: plannedCategory, status: 'pending', claimed_at: claimedAt },",
+      "after": "{ plan_date: planDate, planned_category: plannedCategory, status: 'pending', claimed_at: claimedAt },",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M101",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": ".or(`status.eq.failed,and(status.eq.pending,claimed_at.lt.${staleBefore})`)",
+      "after": ".or(`status.eq.failed,and(status.eq.pending,claimed_at.lte.${staleBefore})`)",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M102",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": ".or(`status.eq.failed,and(status.eq.pending,claimed_at.lt.${staleBefore})`)",
+      "after": ".or(`status.eq.pending,and(status.eq.pending,claimed_at.lt.${staleBefore})`)",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M103",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": ".update({ status: 'pending', error: null, failure: null, claimed_at: claimedAt })",
+      "after": ".update({ status: 'pending', error: null, claimed_at: claimedAt })",
+      "expectFail": [
+        "(QA-5)",
+        "(AC-T25-6) (TC-23)"
+      ]
+    },
+    {
+      "id": "M104",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('user_id', userId)\n          .eq('plan_date', planDate)\n          .or(",
+      "after": "          .eq('plan_date', planDate)\n          .or(",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M105",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('plan_date', input.planDate)\n          .eq('status', 'pending')\n          .eq('claimed_at', input.claimedAt)",
+      "after": "          .eq('plan_date', input.planDate)\n          .eq('status', 'pending')",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M106",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('plan_date', input.planDate)\n          .eq('status', 'pending')\n",
+      "after": "          .eq('plan_date', input.planDate)\n",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M107",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('plan_date', planDate)\n          .eq('status', 'pending')\n          .eq('claimed_at', claimedAt)",
+      "after": "          .eq('plan_date', planDate)\n          .eq('status', 'pending')",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M108",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": ".update({ status: 'failed', error: failure.error.kind, failure })",
+      "after": ".update({ status: 'failed', error: failure.step, failure })",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M109",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "            seed_remaining: input.seedRemaining,\n",
+      "after": "",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M110",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "            noon_items: [...input.noonItems],\n",
+      "after": "",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M111",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "            failure: null,\n          })",
+      "after": "          })",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M112",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "const parsed = NewsSettingsSchema.safeParse(news ?? {});",
+      "after": "const parsed = NewsSettingsSchema.safeParse(news);",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M113",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "err({ kind: 'internal', message: 'profile.settings.news is invalid' })",
+      "after": "err({ kind: 'db_failed', message: 'profile.settings.news is invalid' })",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M114",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('news_article').select('id').eq('user_id', userId).eq('original_url', url).limit(1),",
+      "after": "mine('news_article').select('id').eq('original_url', url).limit(1),",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M115",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "            user_id: userId,\n            source_id",
+      "after": "            source_id",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M116",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('user_id', userId)\n          .is('read_at', null)\n          .eq('category', planned)",
+      "after": "          .eq('user_id', userId)\n          .eq('category', planned)",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)"
+      ]
+    },
+    {
+      "id": "M117",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('category', planned)\n          .order('published_at', { ascending: false })",
+      "after": "          .eq('category', planned)\n          .order('published_at', { ascending: true })",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)"
+      ]
+    },
+    {
+      "id": "M118",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "        preferred.value.length > 0\n",
+      "after": "        true\n",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)"
+      ]
+    },
+    {
+      "id": "M119",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('news_article').select(columns).eq('user_id', userId).is('read_at', null).order('published_at', { ascending: false }).limit(1),",
+      "after": "mine('news_article').select(columns).eq('user_id', userId).order('published_at', { ascending: false }).limit(1),",
+      "expectFail": [
+        "(AC-T25-6) (TC-23)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M120",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": ".or('state.eq.collected,state.eq.learning,state.eq.reviewing'),",
+      "after": ".or('state.eq.collected,state.eq.learning,state.eq.reviewing,state.eq.mastered'),",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M121",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('question').select('id, source, category, retired').or(orOwnOrShared).eq('retired', false),",
+      "after": "mine('question').select('id, source, category, retired').or(orOwnOrShared),",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M122",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "mine('evening_answer').select('question_id, created_at').eq('user_id', userId).eq('kind', 'first'),",
+      "after": "mine('evening_answer').select('question_id, created_at').eq('user_id', userId),",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M123",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "date.value > prev.last ? date.value : prev.last;",
+      "after": "date.value < prev.last ? date.value : prev.last;",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M124",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "count: (prev?.count ?? 0) + 1,",
+      "after": "count: (prev?.count ?? 0) + 0,",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M125",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "addDays(day.data, -1)",
+      "after": "addDays(day.data, -2)",
+      "expectFail": [
+        "(AC-T25-17) (TC-27)"
+      ]
+    },
+    {
+      "id": "M126",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .not('diagnosis', 'is', null)\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-17) (TC-27)"
+      ]
+    },
+    {
+      "id": "M127",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .lt('created_at', `${planDate}${TAIPEI_MIDNIGHT}`)\n          .order('created_at', { ascending: false })",
+      "after": "          .lt('created_at', `${planDate}${TAIPEI_MIDNIGHT}`)\n          .order('created_at', { ascending: true })",
+      "expectFail": [
+        "(AC-T25-17) (TC-27)"
+      ]
+    },
+    {
+      "id": "M128",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "const TAIPEI_MIDNIGHT = 'T00:00:00+08:00';",
+      "after": "const TAIPEI_MIDNIGHT = 'T00:00:00+00:00';",
+      "expectFail": [
+        "(AC-T25-17) (TC-27)"
+      ]
+    },
+    {
+      "id": "M129",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "          .eq('kind', 'first')\n          .not(",
+      "after": "          .not(",
+      "expectFail": [
+        "(AC-T25-17) (TC-27)"
+      ]
+    },
+    {
+      "id": "M130",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "if (status === 'pending') return ok({ plan: { status: 'pending', planDate }, claimedAt });",
+      "after": "if (status === 'pending') return ok({ plan: { status: 'pending', planDate }, claimedAt: '' });",
+      "expectFail": [
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M131",
+      "file": "supabase/functions/_shared/db/plan-store.ts",
+      "before": "select('id, chunk, example_en, meaning_zh, state, correct_count, interval_step, due_date, priority_new, created_at')\n          .eq('user_id', userId)",
+      "after": "select('id, chunk, example_en, meaning_zh, state, correct_count, interval_step, due_date, priority_new, created_at')",
+      "expectFail": [
+        "(AC-T25-18) (TC-27)"
+      ]
+    },
+    {
+      "id": "M132",
+      "file": "supabase/functions/_shared/db/service-db.ts",
+      "before": "client.from('profile').select('user_id')",
+      "after": "client.from('profile').select('*')",
+      "expectFail": [
+        "(AC-T25-18) (TC-27) listProfileUserIds"
+      ]
+    },
+    {
+      "id": "M133",
+      "file": "supabase/functions/_shared/db/service-db.ts",
+      "before": "if (id === null || !id.success) return err({ kind: 'db_failed', message: 'select profile returned an unexpected shape' });",
+      "after": "if (id === null || !id.success) continue;",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M134",
+      "file": "supabase/functions/_shared/db/client.ts",
+      "before": "return isPlanQuery(q) ? q : brokenQuery;",
+      "after": "return brokenQuery;",
+      "expectFail": [
+        "(AC-T25-18) planDbClientFrom"
+      ]
+    },
+    {
+      "id": "M135",
+      "file": "supabase/functions/api/plan.ts",
+      "before": "return new Response(JSON.stringify(body.data), { status: 200, headers: JSON_HEADERS });",
+      "after": "return new Response(JSON.stringify(body.data), { status: 201, headers: JSON_HEADERS });",
+      "expectFail": [
+        "(AC-T25-12) (TC-20)"
+      ]
+    },
+    {
+      "id": "M136",
+      "file": "supabase/functions/api/plan.ts",
+      "before": "    model: DEFAULT_SETTINGS.llm.model,\n",
+      "after": "    model: 'qa-model',\n",
+      "expectFail": [
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M137",
+      "file": "supabase/functions/api/plan.ts",
+      "before": "{ store: deps.planStore(ctx), llm, fetch: deps.fetch, now: deps.now, log: () => undefined }",
+      "after": "{ store: deps.planStore(ctx), llm, fetch: () => Promise.reject(new Error('x')), now: deps.now, log: () => undefined }",
+      "expectFail": [
+        "(AC-T25-12) (TC-20)"
+      ]
+    },
+    {
+      "id": "M138",
+      "file": "supabase/functions/api/plan.ts",
+      "before": "const today = toTaipeiPlanDate(deps.now());",
+      "after": "const today = toTaipeiPlanDate(new Date(deps.now().getTime() - 86_400_000));",
+      "expectFail": [
+        "(AC-T25-12) (TC-20)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M139",
+      "file": "supabase/functions/api/router.ts",
+      "before": "  'POST /plan/today': postPlanToday,\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-12) (TC-20)"
+      ]
+    },
+    {
+      "id": "M140",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "if (!deps.env.ok) return json(httpStatusOf(deps.env.error), toApiErrorBody(deps.env.error));",
+      "after": "if (!deps.env.ok) return json(200, toApiErrorBody(deps.env.error));",
+      "expectFail": [
+        "(AC-T25-14) (TC-22)"
+      ]
+    },
+    {
+      "id": "M141",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "if (!auth.ok) return json(httpStatusOf(auth.error), toApiErrorBody(auth.error));",
+      "after": "if (!auth.ok && false) return json(httpStatusOf(auth.error), toApiErrorBody(auth.error));",
+      "expectFail": [
+        "(AC-T25-14) (TC-22)"
+      ]
+    },
+    {
+      "id": "M142",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "      } else if (outcome.value.existing) {\n        existing += 1;",
+      "after": "      } else if (outcome.value.existing) {\n        ready += 1;",
+      "expectFail": [
+        "(AC-T25-14) existing plans"
+      ]
+    },
+    {
+      "id": "M143",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "      } else if (outcome.value.plan.status === 'ready') {",
+      "after": "      } else if (outcome.value.plan.status !== 'failed') {",
+      "expectFail": [
+        "(AC-T25-14)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M144",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "        failed += 1;\n        kinds.push(outcome.error.kind);",
+      "after": "        kinds.push(outcome.error.kind);",
+      "expectFail": [
+        "(AC-T25-14) existing plans"
+      ]
+    },
+    {
+      "id": "M145",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "if (outcome.value.plan.status === 'failed') kinds.push(outcome.value.plan.failure.error.kind);",
+      "after": "",
+      "expectFail": [
+        "(AC-T25-14)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M146",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "const planDate = toTaipeiPlanDate(deps.now());",
+      "after": "const planDate = toTaipeiPlanDate(new Date(0));",
+      "expectFail": [
+        "(AC-T25-14)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M147",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "return kinds.length === 0 ? base : `${base} errors=${[...new Set(kinds)].join(',')}`;",
+      "after": "return base;",
+      "expectFail": [
+        "(AC-T25-14) existing plans"
+      ]
+    },
+    {
+      "id": "M148",
+      "file": "supabase/functions/daily-prep/handler.ts",
+      "before": "      return json(httpStatusOf(ids.error), toApiErrorBody(ids.error));",
+      "after": "      return json(200, { ready: 0, existing: 0, failed: 0 });",
+      "expectFail": [
+        "(AC-T25-14) a failing user list"
+      ]
+    },
+    {
+      "id": "M149",
+      "file": "supabase/functions/_shared/providers/wiring.ts",
+      "before": "key.ok ? [createGeminiProvider({ id: 'gemini', apiKey: key.value, fetch: deps.fetch })] : []",
+      "after": "[]",
+      "expectFail": [
+        "(AC-T25-13) (TC-21)"
+      ]
+    },
+    {
+      "id": "M150",
+      "file": "supabase/functions/_shared/providers/wiring.ts",
+      "before": "createGeminiProvider({ id: 'gemini', apiKey: key.value, fetch: deps.fetch })",
+      "after": "createGeminiProvider({ id: 'gemini', apiKey: 'k-qa-secret-qa-secret-qa-secret', fetch: deps.fetch })",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M151",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "export const JUDGE_TIMEOUT_MS = 8_000;",
+      "after": "export const JUDGE_TIMEOUT_MS = 9_000;",
+      "expectFail": [
+        "(AC-T25-11) (TC-19)"
+      ]
+    },
+    {
+      "id": "M152",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "export const REWRITE_TIMEOUT_MS = 30_000;",
+      "after": "export const REWRITE_TIMEOUT_MS = 31_000;",
+      "expectFail": [
+        "(AC-T25-11) (TC-19)"
+      ]
+    },
+    {
+      "id": "M153",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "  while (hasMarker(text)) {",
+      "after": "  if (hasMarker(text)) {",
+      "expectFail": [
+        "(AC-T25-11) (TC-19)"
+      ]
+    },
+    {
+      "id": "M154",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "  let text = normalize(body);",
+      "after": "  let text = body;",
+      "expectFail": [
+        "(AC-T25-11) (TC-19)"
+      ]
+    },
+    {
+      "id": "M155",
+      "file": "supabase/functions/_shared/news/rewrite.ts",
+      "before": "text.includes(ARTICLE_START) || text.includes(ARTICLE_END);",
+      "after": "text.includes(ARTICLE_START);",
+      "expectFail": [
+        "(AC-T25-11) (TC-19)"
+      ]
+    },
+    {
+      "id": "M156",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "select cron.schedule('daily-prep-daily', '0 21 * * *', $$",
+      "after": "select cron.schedule('daily-prep-daily', '0 5 * * *', $$",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M157",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "select cron.schedule('daily-prep-daily',",
+      "after": "select cron.schedule('daily-prep',",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M158",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "    timeout_milliseconds := 150000);",
+      "after": "    timeout_milliseconds := 15000);",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M159",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "|| '/functions/v1/daily-prep',",
+      "after": "|| '/functions/v1/daily_prep',",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M160",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "    check (seed_remaining >= 0),",
+      "after": "    check (seed_remaining > 0),",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M161",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "    check ((status = 'failed') = (failure is not null)),",
+      "after": "    check (status <> 'failed' or failure is not null),",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M162",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "'news_unavailable', 'plan_not_ready', 'internal'\n",
+      "after": "'news_unavailable', 'plan_not_ready'\n",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M163",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "  add column failure jsonb,",
+      "after": "  add column failure json,",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M164",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "  add column seed_remaining int;",
+      "after": "  add column seed_remaining bigint;",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M165",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "jsonb_array_length(noon_items) <= 25",
+      "after": "jsonb_array_length(noon_items) <= 26",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M166",
+      "file": "supabase/migrations/20261129000101_t025a_daily_plan_claim_noon.sql",
+      "before": "  add column claimed_at timestamptz not null default now(),",
+      "after": "  add column claimed_at timestamptz,",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M167",
+      "file": "supabase/config.toml",
+      "before": "[functions.daily-prep]\nverify_jwt = false",
+      "after": "[functions.daily-prep]\nverify_jwt = true",
+      "expectFail": [
+        "(AC-T25-15) (TC-24)"
+      ]
+    },
+    {
+      "id": "M168",
+      "file": "supabase/tests/t005_rls_test.sql",
+      "before": "'status', 'error', 'created_at', 'claimed_at', 'noon_items', 'failure', 'seed_remaining']",
+      "after": "'status', 'error', 'created_at', 'claimed_at', 'noon_items', 'failure']",
+      "expectFail": [
+        "(AC-T25-31) (TC-45)"
+      ]
+    },
+    {
+      "id": "M169",
+      "file": "supabase/functions/api/test/route-deps.ts",
+      "before": "    fetch: () => Promise.reject(new Error('not stubbed: fetch')),",
+      "after": "    fetch: () => Promise.reject(new Error('fetch')),",
+      "expectFail": [
+        "(AC-T25-19) (TC-28)"
+      ]
+    },
+    {
+      "id": "M170",
+      "file": "supabase/functions/api/test/route-deps.ts",
+      "before": "readCardForReview: () => notStubbed('readCardForReview'),",
+      "after": "readCardForReview: () => Promise.resolve(err({ kind: 'internal', message: 'x' })),",
+      "expectFail": [
+        "(AC-T25-19) (TC-28)"
+      ]
+    },
+    {
+      "id": "M171",
+      "file": "supabase/functions/_shared/db/test/fakes.ts",
+      "before": "    readPlan: () => notStubbed('readPlan'),",
+      "after": "    readPlan: () => Promise.resolve(ok(null)),",
+      "expectFail": [
+        "(AC-T25-19) (TC-28)"
+      ]
+    },
+    {
+      "id": "M172",
+      "file": "supabase/functions/_shared/plan/test/plan-deps.ts",
+      "before": "    fetch: () => Promise.reject(new Error('not stubbed: fetch')),",
+      "after": "    fetch: () => Promise.resolve(new Response('')),",
+      "expectFail": [
+        "(QA-11)",
+        "(AC-T25-19) (TC-28)"
+      ]
+    }
+  ]
+}
