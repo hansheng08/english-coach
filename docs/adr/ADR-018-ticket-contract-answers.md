@@ -42,3 +42,10 @@
 
 ## 參考（2026-11-27 讀取）
 - Azure Speech quotas and limits（TTS：每次最多 10 分鐘音檔、F0 每 60 秒 20 次）：https://learn.microsoft.com/en-us/azure/ai-services/speech-service/speech-services-quotas-and-limits
+
+## 修訂
+- **2026-11-28（ARCHITECTURE v1.16 同日補；T-024 寫單裁定）**：
+  1. `checkSeedBatch` 的簽名比照 B-004 的 `checkQuestionBatch`，改為 `input: { fileName, data }`；R8 的檔名檢查在檢查器執行，不只放在 drift 測試（「錯的程式寫不出來」）。
+  2. 第二條 dependency-cruiser 規則定名 `adr018-01t-seed-data-tests-imports`，對齊既有的 `adr008-01t`／`adr008-02t` 命名。
+  3. §4.10.1 檔案表補上 `packages/seed-data/test/node-builtins.d.ts`：因 `types: []` 且不安裝 `@types/node`，只宣告測試實際用到的 Node 內建函式。
+  4. `SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`、`renderSeedSample` 歸 T-050，加進 T-024 已建的 `seed-chunks.ts`（依賴 `prng.ts`，由 T-050、T-025b、B-004 中先派工的那張建）。
