@@ -3,6 +3,7 @@ import { expectErr, expectOk } from '@english-coach/contracts/testing';
 import { describe, expect, it } from 'vitest';
 import type { DbClient, DbResponse } from './client.ts';
 import { PROVIDER_CALL_COLUMNS, type ProviderCallRecord } from './provider-call.ts';
+import { makeTestDbClient } from './test/fakes.ts';
 import { userDbFrom } from './user-db.ts';
 
 const USER = UserIdSchema.parse('3f2b8c1e-5a4d-4e7b-9c1a-0d2e6f7a8b9c');
@@ -13,14 +14,14 @@ function fakeClient(respond: () => PromiseLike<DbResponse<unknown>>): {
   calls: { table: string; row: Readonly<Record<string, unknown>> }[];
 } {
   const calls: { table: string; row: Readonly<Record<string, unknown>> }[] = [];
-  const client: DbClient = {
+  const client = makeTestDbClient({
     from: (table) => ({
       insert: (row) => {
         calls.push({ table, row });
         return respond();
       },
     }),
-  };
+  });
   return { client, calls };
 }
 
