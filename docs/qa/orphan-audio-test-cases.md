@@ -1,22 +1,21 @@
 # QA 測試案例設計：孤兒錄音清理（`purge-audio` 的孤兒批次）
 
-- 擁有者：QA｜日期：2026-11-28（台北時間）｜依據：ARCHITECTURE v1.14 §4.12.2.1、§4.12.2、§4.12.5、§4.18.1（失敗表）、ADR-020 決定 2、`docs/tasks/T-046.md` v1.2、`docs/tasks/T-030.md` v1.2。
+- 擁有者：QA｜日期：2026-11-28（台北時間）｜版本：v2（依 ARCHITECTURE v1.15 與 ADR-021 決定 3、修訂 1.5～1.6 更新；v1 是 PR #116 的初稿）。
+- 依據：ARCHITECTURE v1.15 §4.12.2.1、§4.12.2、§4.12.5、§4.18.1（失敗表）、§5.0.4（`storage_failed.op` 新增 `'list'`）、ADR-020 決定 2、**ADR-021**、`docs/tasks/T-046.md` v1.2、`docs/tasks/T-030.md` v1.2。**ADR-021／v1.15 在 PR #118（尚未合併），本文件以 #118 head `0b83ccd` 為準。**
 - 性質：**派工前的測試案例設計**，不是驗收結論。目前沒有可執行的程式（`audio-purge.ts` 還不存在，T-046 待派工），所以沒有探針；探針與 `mutants.json` 等實作完成後由 QA 補。
 
-## 這件事在哪一張單？——目前**沒有任何一張單涵蓋**（需要決定）
+## 這件事在哪一張單？——規格已定，**任務單還沒更新**
+- ADR-021 決定 3 與 ARCHITECTURE v1.15 §4.12.2.1 已把孤兒清理的列出、時間、競態、統計都定案，並寫明「T-046 尚未派工 → 寫進同一張單（建議出 v1.3）」；ADR-021 後果：T-046 出 v1.3（或同一函式的補單）、migration 建 security definer 函式、contracts 為 `storage_failed.op` 加 `'list'`、AC-T46-7 的 log 改三組數字。
+- 查證結果（origin/main `2984ff3`；#118 head 只改 `docs/ARCHITECTURE.md` 與新增 ADR-021）：`docs/tasks/T-046.md` 仍是 v1.2，**全文沒有「孤兒」**；TASKS v1.98 的 T-046 列也沒有；T-030 的「不在本單」仍寫「待 Architect」。所以**目前沒有任何一張任務單把孤兒清理列為 AC**。
+- 結論：T-046 派工前，TechLead 必須出 v1.3（含孤兒的 AC、TC、檔案範圍：migration 的 `list_audio_objects_for_purge`、`audio-purge.ts`、contracts 的 `storage_failed.op`、`supabase/tests/` 的 pgTAP）。以下案例編號暫定 `O-n`，等 AC／TC 編號後再對應。
 
-- ADR-020 決定 2 與 ARCHITECTURE §4.12.2.1 都寫：沿用 `purge-audio`，**「T-046 尚未合併時，把本節寫進同一張單；若 T-046 已派工或已合併，再開一張補在同一個函式上」**。
-- 查證結果（origin/main `bb8c7b7`）：
-  - `docs/tasks/T-046.md`（v1.2）全文沒有「孤兒」、「orphan」、「24 小時」；AC-T46-1～12、TC-1～25 都只處理「有列且已到期」的錄音；`PurgeStats` 只有 `shadow`、`evening`；AC-T46-7 的 log 規定「只有兩張表的三個數字」。
-  - `docs/TASKS.md`（v1.98）的 T-046 列沒有提到孤兒；T-046 的狀態是「待派工」（列上寫任務單 v1.1，實際檔案是 v1.2，兩者不同步）。
-  - `docs/tasks/T-030.md`（v1.2）「不在本單」還寫「寫列失敗時留在 Storage 的錄音怎麼清：待 Architect」，沒有跟上 ADR-020。
-  - 沒有「T-046b」之類的補單。
-- 結論：依 ADR-020，T-046 還沒派工，**應由 TechLead 把孤兒清理寫進 T-046（v1.3），否則 T-046 合併後孤兒錄音沒有人清**，T-030 寫列失敗留下的檔案會永遠留在 `audio` bucket（個資）。以下案例是 QA 依 §4.12.2.1 擬的，**編號暫定 `O-n`**，等 TechLead 決定放哪張單、AC／TC 編號後再對應。
-
-## 規格摘要（§4.12.2.1）
-- 孤兒：`audio` bucket 內，`<user_id>/shadow/`、`<user_id>/evening/` 底下，沒有任何 `shadow_attempt.audio_path` 或 `evening_answer.audio_path` 等於該路徑的物件。
-- 只在建立時間**早於 `now − 24 小時`**時才刪；其餘不動。有列的物件超過 24 小時也不是孤兒（由 90 天規則清）。
-- 不碰 `tts`、`resume`，也不刪這兩個前綴以外的物件；每批上限 200；在有列的過期錄音之後跑；`remove` 失敗算 `failed`、隔天重試；刪成功沒有列要更新；`PurgeStats` 加 `orphan`；secret 金鑰只做表上寫的事（§4.12.5）。
+## 規格摘要（ARCHITECTURE v1.15 §4.12.2.1、ADR-021 決定 3、修訂 1.5～1.6）
+- 孤兒：`audio` bucket 內，沒有任何 `shadow_attempt.audio_path` 或 `evening_answer.audio_path` 與其**完全相同**的物件；只掃跟讀 `<user_id>/shadow/<plan_date>/<檔>`（三段）與晚上 `<user_id>/evening/<檔>`（兩段）。
+- 列出：secret 金鑰呼叫 SQL 函式 `public.list_audio_objects_for_purge(p_cutoff timestamptz, p_limit integer) returns table(object_name text, created_at timestamptz)`（`security definer`、`set search_path = ''`、`revoke all … from public, anon, authenticated`、只 `grant execute` 給 `service_role`）；用 `bucket_id = 'audio'` 加 `storage.foldername(name)` 逐段精確比對，不用 `like '%…%'`；排序 `created_at` 升序再 `name` 升序；`p_limit` 預設 200，指 200 個**物件**。
+- 時間：只看 `storage.objects.created_at`；`created_at < p_cutoff`（`p_cutoff = deps.now() - 24 h`，**不含等於**）；缺值或無法解析 → 不刪。
+- 判定：對候選路徑查兩張表（只 `select audio_path`、不帶 `user_id`，列入 §4.12.5 例外表）；**刪前再查一次**，已有列的路徑拿掉。
+- 統計：在兩張表的到期清理之後跑；即使某一張表的 `listExpired` 回錯，孤兒仍跑，最後回第一個錯誤；`PurgeStats.orphan = { selected, purged, failed }`；log 三組數字；單批 `remove` 失敗 → `failed`、函式仍 `ok`、HTTP 200；**列出候選失敗 → 整段 `err`（`storage_failed`、`op: 'list'`），handler 回非 200**。
+- 不碰 `tts`、`resume` bucket；刪除只針對 `audio` bucket。
 
 ## 測試案例（全部用假 Storage、假 DB；`now` 固定；不連網）
 
@@ -33,29 +32,46 @@
 | O-9 | 批次 | 250 個孤兒 | 第一次只選／刪 200 個；`selected: 200`；再跑一次剩下 50 個（每批上限 200，與有列的批次各自獨立） |
 | O-10 | 順序 | 同時有過期的有列錄音與孤兒 | 先處理有列的過期錄音，再處理孤兒（呼叫順序可由假 deps 的記錄驗證） |
 | O-11 | 錯誤 | 孤兒的 `removeObjects` 回 `err` | `orphan.failed` 等於該批數量、`purged` 0；其餘（有列的兩張表）統計不受影響；不丟例外；隔天重跑會再選到同一批（冪等） |
-| O-12 | 錯誤 | 孤兒物件的「列出」回 `err`（Storage list 失敗） | 有列的兩張表照做；整體結果的處理方式【待釐清 B6】 |
+| O-12 | 錯誤 | 孤兒候選的列出（`list_audio_objects_for_purge`）回 `err` | 兩張表的到期清理照做；整體結果是 `err`（`storage_failed`、`op: 'list'`），handler 回非 200（502）；`orphan` 沒有部分統計；不丟例外 |
 | O-13 | 冪等 | 物件已不存在（兩個 purge 重疊執行、或 `remove` 重送） | `remove` 回 `ok` 就算成功（同 AC-T46-3 的規則），不報錯 |
 | O-14 | 競態 | 剛上傳、尚未寫列的物件（建立時間 2 分鐘前，T-030 上傳後到 `insertAttempt` 之間，或晚上流程先上傳再呼叫 `/evening/answers`） | 不刪（24 小時保護，§4.18.1、§4.12.2.1 定義段） |
-| O-15 | 競態 | 列出孤兒候選之後、`remove` 之前，那個物件的列剛好被寫入 | 【待釐清 B7：是否在刪除前再查一次】；至少要有「列出時間早於 24 小時」這層保護 |
+| O-15 | 競態 | 列出候選之後、`remove` 之前，其中一個物件的列剛好被寫入（假 `pathsInUse` 第二次呼叫回含該路徑） | 該路徑從本批拿掉、不刪；`removeObjects` 只收到其餘路徑；`selected` 與 `purged` 的算法照 ARCH（`selected` 是否含被拿掉的【待釐清 M4】） |
 | O-16 | 回歸 | 沒有任何孤兒、也沒有過期錄音 | `removeObjects` 0 次；`PurgeStats` 全 0；HTTP 仍是 200 |
 | O-17 | 回歸 | 既有的 T-046 TC-6～TC-15（有列的過期錄音） | 加入孤兒批次後行為不變：`shadow`、`evening` 統計與呼叫次數與原本相同 |
 | O-18 | 回應 | `PurgeStats` 含 `orphan`；handler 回 200 且 body 與 `PurgeStats` 相同；`orphan.failed > 0` 也是 200 | 同 AC-T46-7 的規則 |
 | O-19 | log | handler 的 log | 一行、以 `purge-audio` 開頭；只有數字或錯誤 kind；不含任何物件路徑、`user_id`、檔名（孤兒路徑含 `user_id` 與日期） |
-| O-20 | 錯誤訊息 | 列出或刪除失敗的 `AppError.message` | 不含路徑；刪除失敗是 `storage_failed`（`op: 'delete'`）；列出失敗是 `storage_failed`（`op` 為 `download` 還是別的【待釐清 B8】） |
-| O-21 | 查詢形狀 | 「某路徑是否有列」的查詢 | 只 select `audio_path`（最少欄位）、用 `in(...)` 或等值比對；不 select 逐字稿、分數、`user_id` 以外的個資欄位（§4.12.5 第 3 點的精神；目前例外表沒列這個查詢，見 B3） |
+| O-20 | 錯誤訊息 | 列出或刪除失敗的 `AppError.message` | 不含路徑；刪除失敗是 `storage_failed`（`op: 'delete'`）；列出失敗是 `storage_failed`（`op: 'list'`） |
+| O-21 | 查詢形狀 | 「某路徑是否有列」的查詢 | 兩張表各只 select `audio_path`；不帶 `user_id` 條件（ARCH v1.15 已列入 §4.12.5 例外表）；`audio-purge.ts` 的測試要同時固定「`listExpired` 只讀三個欄位」與「孤兒查詢只讀 `audio_path`」；呼叫兩次（列出後一次、刪前一次） |
 | O-22 | 端到端（T-030 ↔ purge） | T-030 的寫列失敗情境（TC-12：`uploadAudio` 成功、`insertAttempt` 回 `db_failed`）留下的物件路徑格式 | 路徑格式 `<u>/shadow/<planDate>/<itemIndex>-<uuid>.wav` 屬於上述前綴，會被 O-1 的邏輯認成孤兒；用同一個路徑字串樣本在兩邊的測試裡互相對照，避免格式不一致 |
 | O-23 | 靜態 | `tooling/secret-client-scope.test.ts`（T-046 TC-24、TC-25） | 孤兒清理新增的檔案沒有讓 `createServiceClient` 出現在清單外的檔案 |
 | O-24 | pgTAP／CI | bucket 對 `authenticated` 沒有 `delete` policy | 使用者身分刪不掉自己的孤兒；刪除只能由 secret 金鑰（§4.12.1 Storage RLS），T-046 的 AC-T46-9／10 已涵蓋，孤兒清理不得新增 `delete` policy |
+| O-25 | 路徑形狀 | 候選函式的路徑判定（假列出需模擬 `storage.foldername`；真實判定由 pgTAP 驗證，見 O-26） | `<u>/shadow/<date>/<file>` 與 `<u>/evening/<file>` 才是候選；`<u>/shadow/<file>`（缺日期）、`<u>/shadow/<date>/<x>/<file>`（多一層）、`<u>/evening/<x>/<file>`、`<u>/shadowx/…`、`<u>/foo/shadow/<date>/<file>` 都不是 |
+| O-26 | pgTAP（`db` job） | `list_audio_objects_for_purge` 的權限與行為 | 函式存在；`security definer`、`search_path` 為空；`anon`、`authenticated` 沒有 execute，`service_role` 有；在 `storage.objects` 塞入各種路徑與 `created_at`（含剛好等於 `p_cutoff`、`null`）後，只回符合路徑形狀且 `created_at < p_cutoff` 者，排序 `created_at` 再 `name`，`p_limit` 生效；函式內物件都有 schema 名 |
+| O-27 | 邊界 | 候選的 `created_at` 為 `null`／無法解析 | 不刪、不計入 `selected`（fail-safe） |
+| O-28 | 順序與批次 | 候選 250 個（時間相同者以 `name` 排序） | 先刪較舊者；第一批剛好 200 個物件；順序可重現 |
+| O-29 | `p_cutoff` | handler／`purgeExpiredAudio` 傳給列出函式的 cutoff | 等於 `deps.now() - 24 小時`（固定 `now` 驗證），不是 `new Date()` |
+| O-30 | 獨立性 | 兩張表的 `listExpired` 其中一張回 `err`，且孤兒有可刪的 | 孤兒仍然被刪；最後回第一個錯誤（`err`）；三個階段彼此不短路 |
+| O-31 | **飢餓（starvation）** | 24 小時以前、**有列**的物件很多（例如 250 個，建立時間比孤兒更早），另有 3 個**較新**的孤兒（建立 25 小時前） | 3 個孤兒仍要在同一次執行被刪。若列出函式沒有先排除「有列」的物件，`p_limit = 200` 會被最舊的有列物件佔滿，較新的孤兒要等前面的物件被 90 天規則清完才輪得到【待釐清 M1：規格文字目前如此】 |
 
-## 待釐清（QA 不猜；請 TechLead／Architect 決定）
+## 上一版待釐清的處理（ADR-021 決定 3、ARCHITECTURE v1.15）
 
-| # | 問題 | 來源 | 影響 |
-|---|---|---|---|
-| B1 | **孤兒清理沒有任何一張單涵蓋**（見上）：T-046 v1.2 沒寫；TASKS v1.98 的 T-046 列也沒寫；ADR-020 規定尚未派工時要寫進 T-046 | ADR-020、T-046、TASKS | T-046 派工前要出 v1.3（或開補單）；QA 才能把 O-n 對上 AC／TC |
-| B2 | 「列出孤兒」要怎麼列：Storage list API 是**逐層資料夾**、不遞迴、分頁；路徑是 `<user_id>/shadow/<planDate>/<file>`（多一層日期）。要列出所有使用者的 `<user_id>/`（需要 `listProfileUserIds`，§4.12.5 另一個例外在 T-025a）還是改查 `storage.objects`（secret 金鑰經 PostgREST 預設看不到 `storage` schema）？「每批 200」是 200 個物件還是 200 個資料夾 | §4.12.2.1「未驗證」 | 決定 `PurgeDeps` 的方法簽章與 O-9 的預期；T-046 的假 Storage 長什麼樣子 |
-| B3 | §4.12.5 的例外表寫「`listExpired` 只讀 `id`、`audio_path`、`audio_expires_at`」，但判定孤兒必須查「這些路徑有沒有列」（對兩張表各查 `audio_path`）；這個查詢沒有 `user_id` 條件，也不在例外表 | §4.12.5 vs §4.12.2.1 | 要補進例外表與測試（O-21），否則違反 CLAUDE.md §5 第 15 條 |
-| B4 | 建立時間用哪個欄位：`created_at`、`updated_at` 還是 `last_accessed_at`（§4.12.2.1 寫「或等效」）；時區與格式（ISO 字串、無時區）；缺欄位時當作多舊 | §4.12.2.1「未驗證」 | O-2 的輸入格式；缺欄位的物件必須**不刪**（fail-safe），QA 會要求這一條 |
-| B5 | `PurgeStats.orphan` 的形狀：沿用 `{ selected, purged, failed }`？以及 `PurgeStats` 擴充後，AC-T46-7 的 log「只有兩張表的三個數字」要改成三組數字 | §4.12.2.1「`PurgeStats` 加 `orphan` 統計」 | O-18、O-19 |
-| B6 | 有列的兩張表之一 `listExpired` 失敗時（T-046 規則：另一張照做、最後回第一個錯誤），孤兒批次還跑不跑；孤兒列出失敗時，整體回 `err`（HTTP 非 200）還是 200＋`failed` | T-046 AC-T46-5 | O-12 |
-| B7 | 列出與刪除之間的競態（O-15）要不要在刪除前複查有無列；24 小時保護在現實上已蓋住絕大多數情況，是否接受這個殘餘風險 | §4.12.2.1 | O-15 |
-| B8 | 列出物件失敗時錯誤的 `op`：`AppError.storage_failed` 只有 `upload｜download｜delete｜sign`，沒有 `list` | §5.0.4 | O-20；建議用 `delete` 以外的哪一個要由 Architect 決定，QA 不猜 |
+| 上一版 | 狀態 | 依據 |
+|---|---|---|
+| B1 孤兒沒有任務單涵蓋 | **規格已定、任務單未更新**：T-046 仍是 v1.2，沒有孤兒；待 TechLead 出 v1.3 | ADR-021 後果 |
+| B2 怎麼列出 | 已裁定：SQL 函式 `public.list_audio_objects_for_purge`，不用 Storage JS `list`；每批 200 個物件 | §4.12.2.1 |
+| B3 例外表 | 已裁定：孤兒查詢列入 §4.12.5 例外表；只 `select audio_path` | §4.12.2.1 |
+| B4 建立時間欄位 | 已裁定：只看 `storage.objects.created_at`；缺值不刪；不含等於 | §4.12.2.1 |
+| B5 `PurgeStats.orphan` | 已裁定：`{ selected, purged, failed }`；log 三組數字 | §4.12.2.1 |
+| B6 階段獨立與失敗 | 已裁定：孤兒不因 `listExpired` 失敗而跳過；列出失敗整段回 `err`、非 200；`remove` 失敗只算 `failed`、HTTP 200 | §4.12.2.1 |
+| B7 競態 | 已裁定：刪前再查一次 `audio_path` | §4.12.2.1 |
+| B8 `op` | 已裁定：`storage_failed.op` 新增 `'list'`（T-046 改 contracts） | ADR-021 決定 3、§5.0.4 |
+
+## 待釐清（仍未定或新出現；QA 不猜，請 TechLead／Architect 決定）
+
+| # | 問題 | 影響 |
+|---|---|---|
+| M1 | **列出函式沒有先排除「有列」的物件，可能讓孤兒餓死。** SQL 先對 `storage.objects` 依 `created_at` 升序取前 `p_limit`（200）個，之後才在應用層查「有沒有列」並拿掉。一般情況下 24 小時以前的物件幾乎都有列（約每天 17 個、保留 90 天，約 1,500 個），所以前 200 個候選永遠是最舊的有列錄音，全被拿掉；較新的孤兒要等前面的有列物件被 90 天規則清掉、輪到自己變成最舊才會被刪（接近 90 天，而不是 24 小時）。建議：函式內直接用 `not exists`／`left join` 排除兩張表已有的 `audio_path`，再 `limit`；或分頁走完所有候選 | O-31；直接影響「孤兒 24 小時後清」是否成立；個資檔會多留近 90 天 |
+| M2 | 函式 `security definer` 直接讀 `storage.objects`，T-046 的 pgTAP 要驗證權限（O-26）；`p_cutoff` 的時區（`timestamptz`）沒問題，但呼叫端要傳 ISO 字串／`Date`，PostgREST `rpc` 的參數型別轉換要有測試 | O-26、O-29 |
+| M3 | `audio_path in (…)` 一次帶 200 個路徑（路徑含 `user_id` 與日期，約 80～100 字元）→ GET 查詢字串約 20 KB，可能超過 PostgREST／網關的 URL 長度限制（**不確定**，沒有實測）；是否改用 POST（`rpc`）或分批 | O-21 的查詢形狀；G4 前需實測 |
+| M4 | 刪前複查拿掉的路徑，要不要計入 `orphan.selected`（`selected` 是「選出」還是「準備刪」）；AC 要把 `selected = purged + failed + 被拿掉` 或 `selected = purged + failed` 寫清楚 | O-15 的統計預期 |
+| M5 | 剛好 24 小時（`created_at = p_cutoff`）的物件這輪不刪，下一輪（隔天 03:30）才刪；與 T-030「寫列失敗」留下的物件實際保留約 24～48 小時一致，是否接受 | O-2 的預期已依字面寫（不刪） |
