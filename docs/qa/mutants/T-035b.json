@@ -1,0 +1,282 @@
+{
+  "task": "T-035b",
+  "mutants": [
+    {
+      "id": "M101",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "c >= 0xff01 && c <= 0xff5e",
+      "after": "c > 0xff01 && c <= 0xff5e",
+      "expectFail": [
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M102",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "c >= 0xff01 && c <= 0xff5e",
+      "after": "c >= 0xff00 && c <= 0xff5e",
+      "expectFail": [
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M103",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "c >= 0xff01 && c <= 0xff5e",
+      "after": "c >= 0xff01 && c < 0xff5e",
+      "expectFail": [
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M104",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "c >= 0xff01 && c <= 0xff5e",
+      "after": "c >= 0xff01 && c <= 0xff5f",
+      "expectFail": [
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M105",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "String.fromCharCode(c - 0xfee0)",
+      "after": "String.fromCharCode(c - 0xfee1)",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M106",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "else if (c === 0x3000) out += ' ';",
+      "after": "else if (c === 0x3000) out += '';",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M107",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "else if (c === 0x3000) out += ' ';",
+      "after": "else if (c === 0x3001) out += ' ';",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M108",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "else out += text[i] ?? '';",
+      "after": "else out += '';",
+      "expectFail": [
+        "(TC-19)",
+        "(QA-21)"
+      ]
+    },
+    {
+      "id": "M109",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "folded: foldWidth(text) };",
+      "after": "folded: text };",
+      "expectFail": [
+        "(TC-20)",
+        "(TC-21)",
+        "(QA-22)"
+      ]
+    },
+    {
+      "id": "M110",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "raw += pair.raw.slice(last, start) + r.mark + pair.raw.slice(keepFrom, end);",
+      "after": "raw += pair.folded.slice(last, start) + r.mark + pair.raw.slice(keepFrom, end);",
+      "expectFail": [
+        "(TC-22)",
+        "(QA-23)"
+      ]
+    },
+    {
+      "id": "M111",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "+ r.mark + pair.raw.slice(keepFrom, end);",
+      "after": "+ r.mark + pair.folded.slice(keepFrom, end);",
+      "expectFail": [
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M112",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "folded += pair.folded.slice(last, start) + r.mark + pair.folded.slice(keepFrom, end);",
+      "after": "folded += pair.raw.slice(last, start) + r.mark + pair.folded.slice(keepFrom, end);",
+      "expectFail": [
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M113",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "return { raw: raw + pair.raw.slice(last), folded: folded + pair.folded.slice(last) };",
+      "after": "return { raw: raw + pair.folded.slice(last), folded: folded + pair.folded.slice(last) };",
+      "expectFail": [
+        "(TC-22)",
+        "(QA-23)"
+      ]
+    },
+    {
+      "id": "M114",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "return { raw: raw + pair.raw.slice(last), folded: folded + pair.folded.slice(last) };",
+      "after": "return { raw: raw + pair.raw.slice(last), folded: folded + pair.raw.slice(last) };",
+      "expectFail": [
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M115",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "const keepFrom = end - r.keepTail;",
+      "after": "const keepFrom = end;",
+      "expectFail": [
+        "(QA-25)",
+        "(QA-22)"
+      ]
+    },
+    {
+      "id": "M116",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "if (r === null) continue;",
+      "after": "if (r === null) break;",
+      "expectFail": [
+        "(QA-29)"
+      ]
+    },
+    {
+      "id": "M117",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'桃市', ",
+      "after": "",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M118",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'東縣', '澎縣',",
+      "after": "'東縣',",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M119",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'竹市', ",
+      "after": "",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M120",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'新北', ",
+      "after": "",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M121",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "'竹縣', '苗縣',",
+      "after": "'竹縣',",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M122",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "(?:\\p{Script=Han}{2}[市縣]|${ZH_CITY_ABBREVIATIONS.join('|')})",
+      "after": "(?:\\p{Script=Han}{2}[市縣])",
+      "expectFail": [
+        "(TC-23)",
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M123",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "${ZH_CITY_ABBREVIATIONS.join('|')}",
+      "after": "${ZH_CITY_ABBREVIATIONS.slice(0, 10).join('|')}",
+      "expectFail": [
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M124",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "if (YEAR_RANGE_RE.test(m[0])) return null;",
+      "after": "if (YEAR_RANGE_RE.test(m[0]) && false) return null;",
+      "expectFail": [
+        "(TC-25)",
+        "(QA-28)"
+      ]
+    },
+    {
+      "id": "M125",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "if (YEAR_RANGE_RE.test(m[0])) return null;",
+      "after": "if (YEAR_RANGE_RE.test(m[0])) { phone += 1; return null; }",
+      "expectFail": [
+        "(TC-25)",
+        "(QA-28)"
+      ]
+    },
+    {
+      "id": "M126",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[ .-](?:19|20)\\d{2}$/u;",
+      "after": "[ .-]\\d{4}$/u;",
+      "expectFail": [
+        "(TC-26)",
+        "(QA-28)"
+      ]
+    },
+    {
+      "id": "M127",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[ .-]?(?:19|20)\\d{2}[ .-](?:19|20)\\d{2}$/u;",
+      "after": "[ .-]?\\d{4}[ .-](?:19|20)\\d{2}$/u;",
+      "expectFail": [
+        "(TC-26)",
+        "(QA-28)"
+      ]
+    },
+    {
+      "id": "M128",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "/^(?:\\(0[2-8]\\d?\\)|0[2-8]\\d?)[ .-]?(?:19|20)",
+      "after": "/^(?:0[2-8]\\d?)[ .-]?(?:19|20)",
+      "expectFail": [
+        "(TC-25)",
+        "(QA-28)"
+      ]
+    },
+    {
+      "id": "M129",
+      "file": "apps/web/src/features/resume/redact.ts",
+      "before": "[ .-]?(?:19|20)\\d{2}[ .-](?:19|20)\\d{2}$/u;",
+      "after": "[ .-]?(?:19|20)\\d{2}[ .-]?(?:19|20)\\d{2}$/u;",
+      "expectFail": [
+        "(QA-28)",
+        "(QA-29)"
+      ]
+    }
+  ]
+}
