@@ -1,20 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import product from '../supabase/config.toml?raw';
-import probe from '../.github/ci/supabase-probe/supabase/config.toml?raw';
 import envExample from '../supabase/functions/.env.example?raw';
 import denoJsonRaw from '../supabase/functions/deno.json?raw';
 
-const lines = (t: string): string[] => t.split('\n').filter((l) => !l.startsWith('#') && !l.startsWith('project_id ='));
+declare global {
+  interface ImportMeta {
+    glob(pattern: string): Record<string, unknown>;
+  }
+}
+
+const lines =(t: string): string[] => t.split('\n').filter((l) => !l.startsWith('#') && !l.startsWith('project_id ='));
 
 describe('supabase config (T-003)', () => {
-  it('(AC-T3-1) product config equals the CI probe except project_id and comments', () => {
-    const a = lines(product);
-    const b = lines(probe);
-    expect({
-      onlyInProduct: a.filter((l) => !b.includes(l)),
-      onlyInProbe: b.filter((l) => !a.includes(l)),
-      sameOrder: a.join('\n') === b.join('\n'),
-    }).toEqual({ onlyInProduct: [], onlyInProbe: [], sameOrder: true });
+  // v1.12 不再比對 CI probe（ARCHITECTURE §4.12.4、O-030）：直接檢查產品設定本身。
+  it('(AC-T3-1) (AC-O30-4) (TC-6) every [functions.<slug>] block has verify_jwt = false and the import map, and slug is a functions/ folder', () => {
+    const blocks = lines(product).join('\n').split(/^(?=\[)/m).filter((b) => b.startsWith('[functions.'));
+    const folders = Object.keys(import.meta.glob('../supabase/functions/*/index.ts')).map(
+      (p) => p.split('/').at(-2) ?? '',
+    );
+    const slugs = blocks.map((b) => /^\[functions\.([^\]]+)\]/.exec(b)?.[1] ?? '');
+    expect(slugs.length).toBeGreaterThan(0);
+    for (const [i, b] of blocks.entries()) {
+      expect(b, slugs[i]).toMatch(/^verify_jwt = false$/m);
+      expect(b, slugs[i]).toMatch(/^import_map = "\.\/functions\/deno\.json"$/m);
+      expect(folders, slugs[i]).toContain(slugs[i]);
+    }
     expect(product.split('\n')).toContain('project_id = "english-coach"');
   });
 
