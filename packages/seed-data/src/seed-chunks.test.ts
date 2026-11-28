@@ -7,6 +7,9 @@ import type { SeedBatch, SeedChunk } from '@english-coach/contracts';
 import { makeSeedBatch, makeSeedChunk } from '../test/factories.ts';
 import { checkSeedBatch, renderSeedMigration } from './seed-chunks.ts';
 import * as seedData from './index.ts';
+import { SEED_TAGS } from '@english-coach/contracts';
+import { normalizeWords, sampleWithSeed } from '@english-coach/domain';
+import { renderSeedSample } from './seed-chunks.ts';
 
 // ---------- helpers ----------
 
@@ -323,6 +326,168 @@ describe('seed file drift', () => {
     expect(empty.jsons.size + empty.migrations.size).toBe(0);
     const missing = readSeedFiles(join(FIXTURES, 'nope'), join(FIXTURES, 'nope'));
     expect(missing.jsons.size + missing.migrations.size).toBe(0);
+  });
+});
+
+// ---------- T-050：抽查樣本、實際資料 ----------
+
+/** 「檔名 → 內容」三張表之一：樣本檔對 JSON 的比對；回傳失敗訊息（空陣列表示通過）。 */
+function compareSeedSamples(jsons: ReadonlyMap<string, string>, samples: ReadonlyMap<string, string>): string[] {
+  const failures: string[] = [];
+  const batches = new Map<number, SeedBatch>();
+  for (const [fileName, text] of jsons) {
+    const m = /^batch-([1-6])\.json$/.exec(fileName);
+    if (m === null) continue;
+    const r = SeedBatchSchema.safeParse(JSON.parse(text));
+    if (r.success) batches.set(Number(m[1]), r.data);
+  }
+  if (batches.has(1) && !samples.has('batch-1.sample.md')) failures.push('batch 1: no batch-1.sample.md');
+  for (const [fileName, text] of samples) {
+    const m = /^batch-([1-6])\.sample\.md$/.exec(fileName);
+    const batch = m === null ? undefined : batches.get(Number(m[1]));
+    if (batch === undefined) failures.push(`${fileName}: has no matching batch JSON`);
+    else if (text !== renderSeedSample(batch)) failures.push(`${fileName}: differs from renderSeedSample`);
+  }
+  return failures;
+}
+
+/** 完整性：批次號 1 到 m 連續；只有第 6 批在時，才要求 6 批齊全與 600 條不重複。 */
+function checkCompleteness(batches: readonly SeedBatch[]): string[] {
+  const failures: string[] = [];
+  const numbers = batches.map((b) => b.batch).sort((a, b) => a - b);
+  numbers.forEach((n, i) => {
+    if (n !== i + 1) failures.push(`batch numbers must be 1 to ${String(numbers.length)} without gaps, got ${numbers.join(',')}`);
+  });
+  if (numbers.includes(6)) {
+    if (numbers.length !== 6) failures.push('batch 6 exists but not all 6 batches do');
+    const keys = new Set(batches.flatMap((b) => b.items.map((i) => normalizeWords(i.chunk.replace(/-/g, ' ')).join(' '))));
+    if (keys.size !== 600) failures.push(`expected 600 distinct chunks, got ${String(keys.size)}`);
+  }
+  return [...new Set(failures)];
+}
+
+const SEED_DIR = join(ROOT, 'supabase', 'seed-chunks');
+const MIGRATION_DIR = join(ROOT, 'supabase', 'migrations');
+
+function realBatches(): { jsons: Map<string, string>; migrations: Map<string, string>; batches: SeedBatch[] } {
+  const { jsons, migrations } = readSeedFiles(SEED_DIR, MIGRATION_DIR);
+  const batches: SeedBatch[] = [];
+  for (const text of jsons.values()) batches.push(SeedBatchSchema.parse(JSON.parse(text)));
+  batches.sort((a, b) => a.batch - b.batch);
+  return { jsons, migrations, batches };
+}
+
+function realSamples(): Map<string, string> {
+  const out = new Map<string, string>();
+  if (!existsSync(SEED_DIR)) return out;
+  for (const name of readdirSync(SEED_DIR).sort()) if (/^batch-.*\.sample\.md$/.test(name)) out.set(name, readFileSync(join(SEED_DIR, name), 'utf8'));
+  return out;
+}
+
+function frozenBatch(batch: SeedBatch): SeedBatch {
+  const items: SeedChunk[] = batch.items.map((i) => ({ ...i, tags: [...i.tags] }));
+  for (const item of items) {
+    Object.freeze(item.tags);
+    Object.freeze(item);
+  }
+  Object.freeze(items);
+  return Object.freeze({ batch: batch.batch, items });
+}
+
+describe('T-050 seed sample', () => {
+  it('(AC-T50-4) (TC-7) the two constants and the new functions are exported from both package indexes', async () => {
+    expect(seedData.SEED_SAMPLE_SEED).toBe(20261127);
+    expect(seedData.SEED_SAMPLE_SIZE).toBe(20);
+    expect(typeof seedData.renderSeedSample).toBe('function');
+    const domain = await import('@english-coach/domain');
+    for (const name of ['mulberry32', 'sampleWithSeed', 'seedFromString'] as const) expect(typeof domain[name]).toBe('function');
+  });
+
+  it('(AC-T50-4) (TC-8) renders the title, blank line, header, separator, 20 rows and one final newline', () => {
+    const b = makeSeedBatch({ batch: 3 });
+    const lines = renderSeedSample(b).split('\n');
+    expect(lines[0]).toBe('# T-050 seed_chunk batch 3 sample (SEED_SAMPLE_SEED 20261127, 20 of 100; source supabase/seed-chunks/batch-3.json)');
+    expect(lines[1]).toBe('');
+    expect(lines[2]).toBe('| # | chunk | meaning_zh | example_en | tags |');
+    expect(lines[3]).toBe('|---|---|---|---|---|');
+    expect(lines).toHaveLength(4 + 20 + 1);
+    expect(lines[24]).toBe('');
+    expect(renderSeedSample(b).endsWith('|\n')).toBe(true);
+    expect(lines[4]?.startsWith('| 1 | ')).toBe(true);
+    expect(lines[23]?.startsWith('| 20 | ')).toBe(true);
+  });
+
+  it('(AC-T50-4) (TC-9) rows follow sampleWithSeed; pipes are escaped, empty tags are "-", input is untouched', () => {
+    const b = makeSeedBatch();
+    const items = b.items.map((item, i) => (i === 0 ? { ...item, example_en: 'We go a|b here today friend.', tags: [] } : i === 1 ? { ...item, tags: ['email' as const, 'project' as const] } : item));
+    const input = frozenBatch({ ...b, items });
+    const first = renderSeedSample(input);
+    expect(renderSeedSample(input)).toBe(first);
+    const rows = first.split('\n').slice(4, 24);
+    const expected = sampleWithSeed(input.items, 20, 20261127);
+    rows.forEach((row, i) => {
+      expect(row.startsWith(`| ${String(i + 1)} | ${expected[i]?.chunk ?? ''} | `), row).toBe(true);
+    });
+    // the sample covers 20 of 100 rows, so check escaping and tags on a batch where every item is the same shape
+    const pipes = renderSeedSample({ ...b, items: b.items.map((item) => ({ ...item, example_en: 'We go a|b here today friend.', tags: [] })) });
+    expect(pipes).toContain('We go a\\|b here today friend.');
+    expect(pipes).toContain(' | - |');
+    const multi = renderSeedSample({ ...b, items: b.items.map((item) => ({ ...item, tags: ['email' as const, 'project' as const] })) });
+    expect(multi).toContain(' | email, project |');
+    expect(input.items).toHaveLength(100);
+  });
+
+  it('(AC-T50-5) (TC-10) sample drift: consistent, missing, edited, orphan and optional batch 2', () => {
+    const one = makeSeedBatch({ batch: 1 });
+    const two = makeSeedBatch({ batch: 2 });
+    const jsons = new Map([['batch-1.json', JSON.stringify(one)]]);
+    const good = new Map([['batch-1.sample.md', renderSeedSample(one)]]);
+    expect(compareSeedSamples(jsons, good)).toEqual([]);
+    expect(compareSeedSamples(jsons, new Map()).join()).toMatch(/batch 1.*no batch-1\.sample\.md/);
+    expect(compareSeedSamples(jsons, new Map([['batch-1.sample.md', `${renderSeedSample(one)}x`]])).join()).toMatch(/differs/);
+    expect(compareSeedSamples(new Map(), good).join()).toMatch(/no matching batch JSON/);
+    const withTwo = new Map([...jsons, ['batch-2.json', JSON.stringify(two)]]);
+    expect(compareSeedSamples(withTwo, good)).toEqual([]);
+    expect(compareSeedSamples(withTwo, new Map([...good, ['batch-2.sample.md', renderSeedSample(two)]]))).toEqual([]);
+    expect(compareSeedSamples(withTwo, new Map([...good, ['batch-2.sample.md', 'x']])).join()).toMatch(/batch-2\.sample\.md.*differs/);
+  });
+});
+
+describe('T-050 real seed data', () => {
+  it('(AC-T50-6) (TC-11) real batches pass checkSeedBatch; migrations and the sample match byte for byte; example_en is unique across batches', () => {
+    const { jsons, migrations, batches } = realBatches();
+    for (const [fileName, text] of jsons) {
+      const others = batches.filter((b) => `batch-${String(b.batch)}.json` !== fileName);
+      const checked = checkSeedBatch({ fileName, data: JSON.parse(text) as unknown }, others);
+      expect(checked.ok ? [] : checked.error.issues.map((i) => `${i.path} ${i.message}`), fileName).toEqual([]);
+    }
+    expect(compareSeedFiles(jsons, migrations)).toEqual([]);
+    expect(compareSeedSamples(jsons, realSamples())).toEqual([]);
+    const examples = batches.flatMap((b) => b.items.map((i) => i.example_en.trim().toLowerCase()));
+    expect(new Set(examples).size).toBe(examples.length);
+  });
+
+  it('(AC-T50-7) (TC-12) each existing batch uses every SEED_TAGS tag at least 5 times and has Han meanings', () => {
+    for (const b of realBatches().batches) {
+      for (const tag of SEED_TAGS) expect(b.items.filter((i) => i.tags.includes(tag)).length, `batch ${String(b.batch)} ${tag}`).toBeGreaterThanOrEqual(5);
+      expect(b.items.every((i) => /\p{Script=Han}/u.test(i.meaning_zh))).toBe(true);
+    }
+  });
+
+  it('(AC-T50-8) (TC-13) batch numbers are 1 to m; a complete set has 600 distinct chunks; gaps fail', () => {
+    expect(checkCompleteness(realBatches().batches)).toEqual([]);
+    const sets = [1, 2, 3, 4, 5, 6].map((n) => makeSeedBatch({ batch: n }));
+    expect(checkCompleteness(sets)).toEqual([]);
+    expect(checkCompleteness(sets.slice(0, 3))).toEqual([]);
+    expect(checkCompleteness([...sets.slice(0, 1), ...sets.slice(2, 3)])).not.toEqual([]);
+    expect(checkCompleteness([...sets.slice(0, 4), ...sets.slice(5)])).not.toEqual([]);
+    expect(checkCompleteness([...sets.slice(0, 2), ...sets.slice(3)])).not.toEqual([]);
+  });
+
+  it('(AC-T50-9) (TC-14) every existing batch has its fixed migration file name', () => {
+    const { migrations, batches } = realBatches();
+    const names = [...migrations.keys()].sort();
+    expect(names).toEqual(batches.map((b) => `2026112900020${String(b.batch)}_t050_seed_chunk_batch_${String(b.batch)}.sql`));
   });
 });
 

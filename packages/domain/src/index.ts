@@ -9,6 +9,7 @@ export type { ReviewOutcome } from './card-state.ts';
 export { categoryTryOrder, decideNewsCategory, plannedCategory } from './news-rotation.ts';
 export type { NewsCategoryDecision, RotationOrder } from './news-rotation.ts';
 export { normalizeWords } from './words.ts';
+export { mulberry32, sampleWithSeed, seedFromString } from './prng.ts';
 export { detectChunkHits, scoreChunkHits } from './chunk-hit.ts';
 export type { ChunkHit, ChunkHitLevel } from './chunk-hit.ts';
 export { SHADOW_MIN_ACCURACY, SHADOW_MIN_SPEED_RATIO, canUnlock, maskWords, scoreShadowAttempt } from './shadowing.ts';

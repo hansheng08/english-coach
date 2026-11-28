@@ -11,8 +11,8 @@ insert into public.profile (user_id) values
   ('a0000000-0000-4000-8000-000000000001'),
   ('b0000000-0000-4000-8000-000000000002');
 insert into public.seed_chunk (id, chunk, meaning_zh, example_en, tags, batch) values
-  ('e0000000-0000-4000-8000-000000000051', 'circle back', '回頭再討論', 'Let me circle back on this tomorrow.', '{meeting}', 1),
-  ('e0000000-0000-4000-8000-000000000052', 'touch base', '簡短聯繫', 'We should touch base before the demo.', '{meeting}', 1);
+  ('e0000000-0000-4000-8000-000000000051', 't004 fixture one', '測試資料一', 'This is t004 fixture one.', '{meeting}', 1),
+  ('e0000000-0000-4000-8000-000000000052', 't004 fixture two', '測試資料二', 'This is t004 fixture two.', '{meeting}', 1);
 insert into public.card (id, user_id, chunk, source_type) values
   ('a0000000-0000-4000-8000-0000000000c1', 'a0000000-0000-4000-8000-000000000001', 'move the needle', 'manual'),
   ('b0000000-0000-4000-8000-0000000000c2', 'b0000000-0000-4000-8000-000000000002', 'get buy-in from sb', 'manual');
@@ -71,11 +71,11 @@ select throws_ok($$insert into public.card (user_id, chunk, source_type, correct
 select throws_ok($$update public.card set correct_count = 3 where id = 'a0000000-0000-4000-8000-0000000000c3'$$, '23514', null, '(AC-T4-4) correct_count cannot decrease');
 
 -- AC-T4-5: seed_chunk is read-only for users; one card per seed
-select results_eq('select count(*)::int from public.seed_chunk', array[2], '(AC-T4-5) authenticated can read seed_chunk');
+select results_eq($$select count(*)::int from public.seed_chunk where id in ('e0000000-0000-4000-8000-000000000051', 'e0000000-0000-4000-8000-000000000052')$$, array[2], '(AC-T4-5) authenticated can read seed_chunk');
 select throws_ok($$insert into public.seed_chunk (chunk, meaning_zh, example_en, batch) values ('x', 'x', 'x', 1)$$, '42501', null, '(AC-T4-5) authenticated cannot insert seed_chunk');
 select throws_ok($$update public.seed_chunk set batch = 2$$, '42501', null, '(AC-T4-5) authenticated cannot update seed_chunk');
-select lives_ok($$insert into public.card (user_id, chunk, source_type, seed_chunk_id) values ('a0000000-0000-4000-8000-000000000001', 'circle back', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '(AC-T4-5) a seed card can point to an unused seed');
-select throws_ok($$insert into public.card (user_id, chunk, source_type, seed_chunk_id) values ('a0000000-0000-4000-8000-000000000001', 'circle back', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '23505', null, '(AC-T4-5) the same seed_chunk_id cannot back two cards');
+select lives_ok($$insert into public.card (user_id, chunk, source_type, seed_chunk_id) values ('a0000000-0000-4000-8000-000000000001', 't004 fixture one', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '(AC-T4-5) a seed card can point to an unused seed');
+select throws_ok($$insert into public.card (user_id, chunk, source_type, seed_chunk_id) values ('a0000000-0000-4000-8000-000000000001', 't004 fixture one', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '23505', null, '(AC-T4-5) the same seed_chunk_id cannot back two cards');
 select throws_ok($$insert into public.card (user_id, chunk, source_type) values ('a0000000-0000-4000-8000-000000000001', 'no seed', 'seed')$$, '23514', null, '(AC-T4-5) a seed card must have seed_chunk_id');
 
 -- AC-T4-6: card_review is append-only for users and tied to the owner's card

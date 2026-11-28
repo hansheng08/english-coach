@@ -1,6 +1,6 @@
 import { SeedBatchSchema, SeedChunkSchema, err, ok } from '@english-coach/contracts';
 import type { Result, SeedBatch, ValidationError, ValidationIssue } from '@english-coach/contracts';
-import { detectChunkHits, normalizeWords } from '@english-coach/domain';
+import { detectChunkHits, normalizeWords, sampleWithSeed } from '@english-coach/domain';
 
 /** ARCHITECTURE §4.10 資料規則的編號；`shape` 表示輸入的形狀根本不合。 */
 type Rule = 'R1' | 'R2' | 'R3' | 'R4' | 'R5' | 'R6' | 'R7' | 'R8' | 'shape';
@@ -129,6 +129,25 @@ export function checkSeedBatch(
     return err({ kind: 'validation', issues: [{ path: '', message }], message });
   }
   return ok(parsed.data);
+}
+
+export const SEED_SAMPLE_SEED = 20261127;
+export const SEED_SAMPLE_SIZE = 20;
+
+function cell(s: string): string {
+  return s.replace(/\|/g, '\\|');
+}
+
+/** ARCHITECTURE §4.10 的抽查樣本（Markdown）；決定性輸出，結尾一個換行。只做格式化，不驗證。 */
+export function renderSeedSample(batch: SeedBatch): string {
+  const n = String(batch.batch);
+  const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED);
+  const title = `# T-050 seed_chunk batch ${n} sample (SEED_SAMPLE_SEED ${String(SEED_SAMPLE_SEED)}, ${String(picked.length)} of ${String(batch.items.length)}; source supabase/seed-chunks/batch-${n}.json)`;
+  const rows = picked.map((item, i) => {
+    const tags = item.tags.length === 0 ? '-' : item.tags.join(', ');
+    return `| ${String(i + 1)} | ${cell(item.chunk)} | ${cell(item.meaning_zh)} | ${cell(item.example_en)} | ${cell(tags)} |`;
+  });
+  return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows].join('\n')}\n`;
 }
 
 function sqlText(s: string): string {
