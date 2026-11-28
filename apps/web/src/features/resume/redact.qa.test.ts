@@ -11,11 +11,11 @@ describe('T-035 QA redactPii', () => {
     expect(r.removed.email).toBe(2);
   });
 
-  it('(QA-2) a full-width at-sign is outside the interface and is left unchanged', () => {
+  it('(QA-2) a full-width at-sign is folded and the email is replaced; a full-width colon stays', () => {
     const input = 'write me：user＠example.com please';
     const r = run(input);
-    expect(r.text).toBe(input);
-    expect(r.removed.email).toBe(0);
+    expect(r.text).toBe('write me：[email] please');
+    expect(r.removed.email).toBe(1);
   });
 
   it('(QA-3) an email inside a URL is still replaced with [email]', () => {
@@ -50,11 +50,11 @@ describe('T-035 QA redactPii', () => {
     expect(run('02-2000-1234分機12').text).toBe('[phone]分機12');
   });
 
-  it('(QA-7) full-width digits are outside the interface and are left unchanged', () => {
+  it('(QA-7) full-width digits are folded and the mobile number is replaced', () => {
     const input = '撥打 ０９１２-０００-１２３';
     const r = run(input);
-    expect(r.text).toBe(input);
-    expect(r.removed.phone).toBe(0);
+    expect(r.text).toBe('撥打 [phone]');
+    expect(r.removed.phone).toBe(1);
   });
 
   it('(QA-8) a compact 10-digit US number without +1 is kept; 7-digit local US is kept; +1 compact is replaced', () => {
