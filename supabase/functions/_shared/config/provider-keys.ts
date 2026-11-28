@@ -20,7 +20,26 @@ export function loadGeminiKey(get: EnvGetter): Result<string, ProviderError> {
   return ok(value);
 }
 
-export type AzureSpeechConfig = { readonly key: string; readonly region: string };
+const GROQ_KEY_NAME = 'GROQ_API_KEY';
+
+/**
+ * Groq 金鑰的唯一讀取入口（ARCHITECTURE §5.5）。回傳 trim 後的值（前後的空白或換行不是金鑰的一部分）。
+ * 錯誤訊息只含變數名稱，不含任何值。
+ */
+export function loadGroqKey(get: EnvGetter): Result<string, ProviderError> {
+  const value = get(GROQ_KEY_NAME)?.trim();
+  if (value === undefined || value.length === 0) {
+    return err({
+      kind: 'not_configured',
+      provider: 'groq',
+      capability: 'stt',
+      message: `missing env ${GROQ_KEY_NAME}`,
+    });
+  }
+  return ok(value);
+}
+
+export type AzureSpeechConfig ={ readonly key: string; readonly region: string };
 
 const AZURE_KEY_NAME = 'AZURE_SPEECH_KEY';
 const AZURE_REGION_NAME = 'AZURE_SPEECH_REGION';
