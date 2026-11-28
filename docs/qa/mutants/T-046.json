@@ -1,0 +1,271 @@
+{
+  "task": "T-046",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    cursor = { createdAt: last.createdAt, name: last.path };",
+      "after": "    cursor = { createdAt: new Date(last.createdAt).toISOString(), name: last.path };",
+      "expectFail": [
+        "(TC-35)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "export const PURGE_ORPHAN_MAX_CALLS = 5;",
+      "after": "export const PURGE_ORPHAN_MAX_CALLS = 6;",
+      "expectFail": [
+        "(TC-35)",
+        "(TC-41)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    if (last === undefined) break;",
+      "after": "    if (last === undefined) continue;",
+      "expectFail": [
+        "(TC-41)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    if (rows.length < limit) break;",
+      "after": "    if (remaining.length < limit) break;",
+      "expectFail": [
+        "(TC-36)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    if (rows.length < limit) break;",
+      "after": "    if (rows.length <= limit) break;",
+      "expectFail": [
+        "(TC-35)",
+        "(TC-41)",
+        "(TC-33)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    if (!inUse.ok) return { stats: current(), error: inUse.error };",
+      "after": "    if (!inUse.ok) continue;",
+      "expectFail": [
+        "(TC-37)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    if (!inUse.ok) return { stats: current(), error: inUse.error };\n    const used = new Set<string>(inUse.value);",
+      "after": "    const used = new Set<string>(inUse.ok ? inUse.value : []);",
+      "expectFail": [
+        "(TC-37)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    const remaining = rows.map((r) => r.path).filter((p) => !used.has(p));",
+      "after": "    const remaining = rows.map((r) => r.path);",
+      "expectFail": [
+        "(TC-29)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "      else failed += remaining.length;",
+      "after": "      else return { stats: { selected, purged, failed: failed + remaining.length }, error: removed.error };",
+      "expectFail": [
+        "(TC-31)",
+        "(TC-36)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "  let cursor: OrphanCursor | null = null;",
+      "after": "  let cursor: OrphanCursor | null = { createdAt: '', name: '' };",
+      "expectFail": [
+        "(TC-26)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "const ORPHAN_AGE_MS = 24 * 60 * 60 * 1000;",
+      "after": "const ORPHAN_AGE_MS = 23 * 60 * 60 * 1000;",
+      "expectFail": [
+        "(TC-26)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "const listFailed = (): AppError => ({ kind: 'storage_failed', op: 'list', message: 'list orphan audio failed' });",
+      "after": "const listFailed = (): AppError => ({ kind: 'db_failed', message: 'list orphan audio failed' });",
+      "expectFail": [
+        "(TC-27)",
+        "(TC-33)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "        if (!isRecord(row) || typeof row['created_at'] !== 'string') return err(listFailed());",
+      "after": "        if (!isRecord(row) || typeof row['created_at'] !== 'string') continue;",
+      "expectFail": [
+        "(TC-27)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "      if (!Array.isArray(res.value)) return err(bad());",
+      "after": "      if (!Array.isArray(res.value)) return ok([]);",
+      "expectFail": [
+        "(TC-30)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "    const res = await runDb('audio paths in use', () => client.rpc('audio_paths_in_use', { p_paths: [...paths] }));",
+      "after": "    const res = await runDb('audio paths in use', () => client.rpc('audio_paths_in_use', { p_paths: paths.join(',') }));",
+      "expectFail": [
+        "(TC-30)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "          .select('id,audio_path,audio_expires_at')",
+      "after": "          .select('*')",
+      "expectFail": [
+        "(TC-13)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "  const shadow = await purgeTable(deps, 'shadow_attempt', now, limit);\n  const evening = await purgeTable(deps, 'evening_answer', now, limit);\n  const orphan = await purgeOrphans(deps, now, limit);",
+      "after": "  const orphan = await purgeOrphans(deps, now, limit);\n  const shadow = await purgeTable(deps, 'shadow_attempt', now, limit);\n  const evening = await purgeTable(deps, 'evening_answer', now, limit);",
+      "expectFail": [
+        "(TC-26)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "supabase/functions/_shared/db/audio-purge.ts",
+      "before": "  const evening = await purgeTable(deps, 'evening_answer', now, limit);",
+      "after": "  if (shadow.error !== null) return { stats: { shadow: shadow.stats, evening: EMPTY, orphan: EMPTY }, error: shadow.error, phase: 'shadow' };\n  const evening = await purgeTable(deps, 'evening_answer', now, limit);",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "supabase/functions/purge-audio/handler.ts",
+      "before": "    return json(httpStatusOf(run.error), toApiErrorBody(run.error));",
+      "after": "    return json(500, toApiErrorBody(run.error));",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "supabase/functions/purge-audio/handler.ts",
+      "before": "  return error === null ? base : `${base} error=${error.kind} phase=${phase}`;",
+      "after": "  return error === null ? base : `${base} error=${error.kind} phase=${phase} msg=${error.message}`;",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "supabase/functions/purge-audio/handler.ts",
+      "before": "    deps.log(logLine(run.stats, run.error, run.phase ?? 'orphan'));",
+      "after": "    deps.log(logLine(run.stats, run.error, 'orphan'));",
+      "expectFail": [
+        "(TC-18)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "supabase/functions/purge-audio/handler.ts",
+      "before": "    if (!auth.ok) return json(httpStatusOf(auth.error), toApiErrorBody(auth.error));",
+      "after": "    if (!auth.ok) {\n      deps.log('purge-audio unauthenticated');\n      return json(httpStatusOf(auth.error), toApiErrorBody(auth.error));\n    }",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "supabase/functions/purge-audio/handler.ts",
+      "before": "import { requireServiceKey } from '../_shared/db/auth.ts';",
+      "after": "import { requireServiceKey } from '../_shared/db/auth.ts';\nimport { createServiceClient as _unused } from '../_shared/db/service-db.ts';",
+      "expectFail": [
+        "(TC-24)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "supabase/functions/_shared/db/auth.ts",
+      "before": "  const header = req.headers.get('apikey');",
+      "after": "  const header = req.headers.get('apikey') ?? req.headers.get('authorization')?.replace('Bearer ', '') ?? null;",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "supabase/functions/_shared/config/env.ts",
+      "before": "  const single = get('SUPABASE_SECRET_KEY');",
+      "after": "  const single: string | undefined = undefined;",
+      "expectFail": [
+        "(TC-2)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "supabase/migrations/20261128100000_t046_audio_bucket_purge_cron.sql",
+      "before": "grant execute on function public.audio_paths_in_use(text[]) to service_role;",
+      "after": "grant execute on function public.audio_paths_in_use(text[]) to service_role, authenticated;",
+      "expectFail": [
+        "(TC-38)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "supabase/migrations/20261128100000_t046_audio_bucket_purge_cron.sql",
+      "before": "      using errcode = '22023';",
+      "after": "      using errcode = 'P0001';",
+      "expectFail": [
+        "(TC-38)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "supabase/migrations/20261128100000_t046_audio_bucket_purge_cron.sql",
+      "before": "returns table(object_name text, created_at timestamptz)\nlanguage plpgsql\nstable\nsecurity definer",
+      "after": "returns table(object_name text, created_at timestamptz)\nlanguage plpgsql\nstable\nsecurity invoker",
+      "expectFail": [
+        "(TC-38)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "supabase/migrations/20261128100000_t046_audio_bucket_purge_cron.sql",
+      "before": "language sql\nstable\nsecurity definer\nset search_path = ''",
+      "after": "language sql\nstable\nsecurity definer\nset search_path = public",
+      "expectFail": [
+        "(TC-38)"
+      ]
+    }
+  ]
+}
