@@ -1,8 +1,11 @@
-import { err, ok } from '@english-coach/contracts';
+import { DEFAULT_TTS_VOICE, err, ok, StoragePathSchema } from '@english-coach/contracts';
 import type { ApiClient, ApiRuntime } from '../client';
-import { demoSession } from './fixtures/demo-session';
+import { DEMO_USER_ID, demoSession } from './fixtures/demo-session';
 
 export const MOCK_MARKER = '__EC_MOCK__';
+/** public/mock/tts.wav（約 0.1 秒的靜音）。 */
+export const MOCK_TTS_URL = '/mock/tts.wav';
+const MOCK_TTS_DURATION_MS = 100;
 export const MOCK_SCENARIOS = ['default', 'empty', 'error', 'fallback-article', 'prep-pending', 'offline'] as const;
 export type MockScenario = (typeof MOCK_SCENARIOS)[number];
 
@@ -26,6 +29,18 @@ export function createMockApi(search: string): ApiRuntime {
         scenario === 'error' ? err({ kind: 'unauthenticated', message: 'mock scenario "error": invalid credentials' }) : demoSession(),
       ),
     signOut: () => Promise.resolve(ok(undefined)),
+    // 不發網路請求：一律回同一個極短的靜音檔（apps/web/public/mock/tts.wav）。
+    tts: () =>
+      Promise.resolve(
+        ok({
+          audioUrl: MOCK_TTS_URL,
+          path: StoragePathSchema.parse(`${DEMO_USER_ID}/${'0'.repeat(64)}.mp3`),
+          durationMs: MOCK_TTS_DURATION_MS,
+          cached: true,
+          meta: { ttsProvider: 'azure-speech' as const, voice: DEFAULT_TTS_VOICE },
+        }),
+      ),
+    ttsSignedUrl: () => Promise.resolve(ok(MOCK_TTS_URL)),
   };
   return { client, preview: { marker: MOCK_MARKER, unknownScenario: unknown } };
 }

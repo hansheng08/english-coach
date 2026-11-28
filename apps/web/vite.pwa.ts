@@ -89,7 +89,12 @@ export function iconsPlugin(sourceDir: string = DEFAULT_ICON_SOURCE): Plugin {
   };
 }
 
-/** §9、ADR-007：prompt、generateSW、只 precache 外殼，不設 runtime caching。 */
+/** `tts` bucket 的 signed URL（§4.12.1）；`/functions/v1/` 與其他 bucket 都不符合。 */
+export const TTS_SIGNED_URL_PATTERN = /\/storage\/v1\/object\/sign\/tts\//;
+const TTS_CACHE_MAX_ENTRIES = 50;
+const TTS_CACHE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+
+/** §9、ADR-007、ADR-021 決定 6：prompt、generateSW、precache 外殼；runtime caching 只有 TTS 音檔一條（cache-first、忽略查詢字串）。 */
 export function createPwaOptions(tokens: unknown): Partial<VitePWAOptions> {
   return {
     registerType: 'prompt',
@@ -100,6 +105,18 @@ export function createPwaOptions(tokens: unknown): Partial<VitePWAOptions> {
     workbox: {
       globPatterns: ['**/*.{html,js,css,webmanifest}', 'icons/*.png'],
       cleanupOutdatedCaches: true,
+      runtimeCaching: [
+        {
+          urlPattern: TTS_SIGNED_URL_PATTERN,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'ec-tts',
+            // signed URL 每次的 token 都不同；物件路徑是內容雜湊，忽略查詢字串是安全的（§4.12.1）。
+            matchOptions: { ignoreSearch: true },
+            expiration: { maxEntries: TTS_CACHE_MAX_ENTRIES, maxAgeSeconds: TTS_CACHE_MAX_AGE_SECONDS },
+          },
+        },
+      ],
     },
   };
 }

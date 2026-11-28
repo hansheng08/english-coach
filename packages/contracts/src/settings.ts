@@ -1,6 +1,7 @@
 // Schemas for the `settings.*` JSON columns: SrsSettingsSchema (T-008) and NewsSettingsSchema (T-049).
 import { z } from 'zod';
-import { NEWS_CATEGORIES, NewsCategorySchema, PlanDateSchema, type NewsCategory } from './ids.ts';
+import { NEWS_CATEGORIES, NewsCategorySchema, PlanDateSchema, ProviderIdSchema, VoiceIdSchema, type NewsCategory } from './ids.ts';
+import { DEFAULT_TTS_VOICE } from './tts.ts';
 
 const DaysSchema = z.number().int().min(1).max(365);
 
@@ -56,3 +57,14 @@ export const NewsSettingsSchema = z
   });
 
 export type NewsSettings = z.infer<typeof NewsSettingsSchema>;
+
+/**
+ * TTS 設定（ARCHITECTURE §4.15.1、§4.19）：只有 `provider`、`voice`。T-020 的 SettingsSchema 會把它組進去，形狀不變。
+ * 預設值只寫在這裡；`voice` 的預設是 `DEFAULT_TTS_VOICE`。
+ */
+export const TtsSettingsSchema = z.object({
+  provider: ProviderIdSchema.default('azure-speech'),
+  voice: VoiceIdSchema.default(DEFAULT_TTS_VOICE),
+});
+
+export type TtsSettings = z.infer<typeof TtsSettingsSchema>;

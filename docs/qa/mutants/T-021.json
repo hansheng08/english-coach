@@ -1,0 +1,563 @@
+{
+  "task": "T-021",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/contracts/src/tts.ts",
+      "before": "stripBreaks(text).normalize('NFC')",
+      "after": "text.normalize('NFC')",
+      "expectFail": [
+        "(AC-T21-1)",
+        "(AC-T21-2)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/contracts/src/tts.ts",
+      "before": ".normalize('NFC').replace",
+      "after": ".replace",
+      "expectFail": [
+        "(AC-T21-1)",
+        "(AC-T21-2)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/contracts/src/tts.ts",
+      "before": "z.string().min(1).max(TTS_TEXT_MAX_CHARS)",
+      "after": "z.string().min(0).max(TTS_TEXT_MAX_CHARS)",
+      "expectFail": [
+        "(AC-T21-1)",
+        "(AC-T21-3)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/contracts/src/tts.ts",
+      "before": "z.string().min(1).max(TTS_TEXT_MAX_CHARS)",
+      "after": "z.string().min(1).max(TTS_TEXT_MAX_CHARS + 1)",
+      "expectFail": [
+        "(AC-T21-1)",
+        "(AC-T21-3)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/contracts/src/tts.ts",
+      "before": "  })\n  .strict();",
+      "after": "  });",
+      "expectFail": [
+        "(AC-T21-1)",
+        "(AC-T21-3)",
+        "(AC-T21-4)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/contracts/src/tts.ts",
+      "before": "durationMs: z.number().int().positive(),",
+      "after": "durationMs: z.number().int().nonnegative(),",
+      "expectFail": [
+        "(QA-46)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "supabase/functions/_shared/tts/cache.ts",
+      "before": "`${voice}\\n${ttsText}`",
+      "after": "`${voice}${ttsText}`",
+      "expectFail": [
+        "(AC-T21-2)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "supabase/functions/_shared/tts/cache.ts",
+      "before": ".padStart(2, '0')",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-2)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "supabase/functions/_shared/tts/cache.ts",
+      "before": "Math.round((bytes * 8) / 48)",
+      "after": "Math.floor((bytes * 8) / 48)",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "supabase/functions/_shared/tts/cache.ts",
+      "before": "Math.round((bytes * 8) / 48)",
+      "after": "Math.round((bytes * 8) / 64)",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "if (found.value !== null) {",
+      "after": "if (found.value === null) {",
+      "expectFail": [
+        "(AC-T21-5)",
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "{ timeoutMs: TTS_TIMEOUT_MS }",
+      "after": "{ timeoutMs: 8001 }",
+      "expectFail": [
+        "(AC-T21-7)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "errorKind: audio.ok ? null : audio.error.kind,",
+      "after": "errorKind: null,",
+      "expectFail": [
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "const latencyMs = deps.now().getTime() - startedAt;",
+      "after": "const latencyMs = 0;",
+      "expectFail": [
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "deps.log(`tts recordCall kind=${recorded.error.kind}`);",
+      "after": "deps.log('tts recordCall');",
+      "expectFail": [
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "const recorded = await store.recordCall(record);",
+      "after": "const recorded = audio.ok ? await store.recordCall(record) : { ok: true as const, value: null };",
+      "expectFail": [
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "    if (!uploaded.ok) return failure(uploaded.error);\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-6)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "durationMs = audio.value.durationMs;",
+      "after": "durationMs = mp3DurationMs(audio.value.audio.length);",
+      "expectFail": [
+        "(AC-T21-5)",
+        "(AC-T21-7)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "    cached = false;",
+      "after": "    cached = true;",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "issues: [{ path: 'body', message: 'body must be JSON' }]",
+      "after": "issues: [{ path: 'text', message: 'body must be JSON' }]",
+      "expectFail": [
+        "(AC-T21-3)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "  if (!signed.ok) return failure(signed.error);\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-6)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "supabase/functions/api/tts.ts",
+      "before": "tier: provider.value.tier,",
+      "after": "tier: 'paid',",
+      "expectFail": [
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "const TTS_BUCKET = 'tts';",
+      "after": "const TTS_BUCKET = 'audio';",
+      "expectFail": [
+        "(AC-T21-4)",
+        "(AC-T21-5)",
+        "(AC-T21-6)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "export const TTS_SIGNED_URL_SECONDS = 3600;",
+      "after": "export const TTS_SIGNED_URL_SECONDS = 60;",
+      "expectFail": [
+        "(AC-T21-6)",
+        "(AC-T21-7)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "{ search: name, limit: 1 }",
+      "after": "{ search: name, limit: 100 }",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": ".find((f) => f.name === name)",
+      "after": ".find((f) => f.name.startsWith(name))",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "typeof size === 'number' ? ok({ bytes: size })",
+      "after": "size !== undefined ? ok({ bytes: Number(size) })",
+      "expectFail": [
+        "(AC-T21-6)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "{ contentType: mime, upsert: false }",
+      "after": "{ contentType: mime, upsert: true }",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "e.statusCode === '409' || ",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "/already exists|duplicate/i",
+      "after": "/already exists/i",
+      "expectFail": [
+        "(AC-T21-5)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "if (res.value.error !== null || url === undefined) return err(storageFailed('sign'));",
+      "after": "if (res.value.error !== null || url === undefined) return err(storageFailed('upload'));",
+      "expectFail": [
+        "(AC-T21-6)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "'tts' in settings ? settings.tts : {}",
+      "after": "'tts' in settings ? settings.tts : undefined",
+      "expectFail": [
+        "(AC-T21-4)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "supabase/functions/_shared/db/tts-store.ts",
+      "before": "return err({ kind: 'internal', message: 'profile.settings.tts is invalid' });",
+      "after": "return ok(parsed.success ? parsed.data.voice : 'azure:en-US-AvaNeural');",
+      "expectFail": [
+        "(AC-T21-4)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "supabase/functions/_shared/providers/wiring.ts",
+      "before": "providers: [...gemini, ...speech]",
+      "after": "providers: [...gemini]",
+      "expectFail": [
+        "(AC-T21-9)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "supabase/functions/api/router.ts",
+      "before": "  'POST /tts': postTts,\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-3)",
+        "(AC-T21-4)",
+        "(AC-T21-5)",
+        "(AC-T21-6)",
+        "(AC-T21-7)",
+        "(AC-T21-15)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "    if (token.value === null) return err(unauthenticated());\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "deps.fetch(`${functionsUrl}/tts`, {",
+      "after": "deps.fetch(`${functionsUrl}/api/tts`, {",
+      "expectFail": [
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "Authorization: `Bearer ${accessToken}`,",
+      "after": "Authorization: `${accessToken}`,",
+      "expectFail": [
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "body: JSON.stringify({ text }),",
+      "after": "body: JSON.stringify({ text, voice: 'x' }),",
+      "expectFail": [
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "return parsed.success ? ok(parsed.data) : err(internal('tts response has an unexpected shape'));",
+      "after": "return parsed.success ? ok(parsed.data) : ok(json.value as never);",
+      "expectFail": [
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "const TTS_SIGNED_URL_SECONDS = 3600;",
+      "after": "const TTS_SIGNED_URL_SECONDS = 60;",
+      "expectFail": [
+        "(AC-T21-12)",
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": ": err({ kind: 'storage_failed', op: 'sign', message: 'createSignedUrl failed' });",
+      "after": ": err({ kind: 'storage_failed', op: 'download', message: 'createSignedUrl failed' });",
+      "expectFail": [
+        "(AC-T21-12)",
+        "(AC-T21-14)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "apps/web/src/api/mock/index.ts",
+      "before": "export const MOCK_TTS_URL = '/mock/tts.wav';",
+      "after": "export const MOCK_TTS_URL = '/mock/tts.mp3';",
+      "expectFail": [
+        "(AC-T21-12)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "apps/web/src/api/mock/index.ts",
+      "before": "ttsSignedUrl: () => Promise.resolve(ok(MOCK_TTS_URL)),",
+      "after": "ttsSignedUrl: () => fetch(MOCK_TTS_URL).then(() => ok(MOCK_TTS_URL)),",
+      "expectFail": [
+        "(AC-T21-12)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "apps/web/src/api/tts-resolve.ts",
+      "before": "ok({ url: r.value, durationMs: null })",
+      "after": "ok({ url: r.value, durationMs: 0 })",
+      "expectFail": [
+        "(AC-T21-12)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "apps/web/src/api/tts-resolve.ts",
+      "before": "ok({ url: r.value.audioUrl, durationMs: r.value.durationMs })",
+      "after": "ok({ url: r.value.audioUrl, durationMs: null })",
+      "expectFail": [
+        "(AC-T21-12)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "const total = Math.max(1, Math.floor(opts?.repeat ?? 1));",
+      "after": "const total = 1;",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "      if (active !== null) cancel(active);\n      const run",
+      "after": "      const run",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "if (state.kind !== 'idle') setState({ kind: 'idle' });",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "element ??= deps.createAudio();",
+      "after": "element = deps.createAudio();",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "      if (run.cancelled) return ok('stopped');\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "listeners.delete(listener);",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "el.play().catch(() => {\n        finish('error');",
+      "after": "el.play().catch(() => {\n        finish('ended');",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "    element?.pause();\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "apps/web/src/audio/player.ts",
+      "before": "    emit(run, { kind: 'idle' });\n    active",
+      "after": "    active",
+      "expectFail": [
+        "(AC-T21-11)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "matchOptions: { ignoreSearch: true }",
+      "after": "matchOptions: { ignoreSearch: false }",
+      "expectFail": [
+        "(AC-T21-13)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "handler: 'CacheFirst',",
+      "after": "handler: 'NetworkFirst',",
+      "expectFail": [
+        "(AC-T21-13)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "/\\/storage\\/v1\\/object\\/sign\\/tts\\//",
+      "after": "/\\/storage\\/v1\\/object\\/sign\\//",
+      "expectFail": [
+        "(AC-T21-13)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "const TTS_CACHE_MAX_ENTRIES = 50;",
+      "after": "const TTS_CACHE_MAX_ENTRIES = 60;",
+      "expectFail": [
+        "(AC-T21-13)"
+      ]
+    },
+    {
+      "id": "M63",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "const TTS_CACHE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;",
+      "after": "const TTS_CACHE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;",
+      "expectFail": [
+        "(AC-T21-13)"
+      ]
+    }
+  ]
+}

@@ -3,12 +3,14 @@ import { formatAdr010EnvLine, type KeyPresence } from '../_shared/config/env.ts'
 import { requireUser, type AuthContext, type RequireUserDeps } from '../_shared/db/auth.ts';
 import type { PlanStore } from '../_shared/db/plan-store.ts';
 import type { ReviewDb } from '../_shared/db/reviews.ts';
+import type { TtsStore } from '../_shared/db/tts-store.ts';
 import type { UserDb } from '../_shared/db/user-db.ts';
 import type { FetchLike } from '../_shared/news/http.ts';
 import type { Registry } from '../_shared/providers/registry.ts';
 import { postCheckins } from './checkins.ts';
 import { postPlanToday } from './plan.ts';
 import { postReviews } from './reviews.ts';
+import { postTts } from './tts.ts';
 
 export type RouteDeps = {
   readonly userDb: (ctx: AuthContext) => UserDb;
@@ -18,9 +20,13 @@ export type RouteDeps = {
   readonly planStore: (ctx: AuthContext) => PlanStore;
   readonly providers: Registry;
   readonly fetch: FetchLike;
+  /** POST /tts 用的資料入口（使用者 client，受 RLS 限制；ARCHITECTURE §4.19）。 */
+  readonly ttsStore: (ctx: AuthContext) => TtsStore;
+  /** 單行 log（不含使用者文字、路徑；§4.19）。 */
+  readonly log: (line: string) => void;
 };
 export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise<Response>;
-export type RouteKey = 'GET /health' | 'POST /checkins' | 'POST /reviews' | 'POST /plan/today';
+export type RouteKey = 'GET /health' | 'POST /checkins' | 'POST /reviews' | 'POST /plan/today' | 'POST /tts';
 
 export type RouterDeps = {
   readonly auth: Result<RequireUserDeps, AppError>;
@@ -43,6 +49,7 @@ export const ROUTES: Readonly<Record<RouteKey, Route>> = {
   'POST /checkins': postCheckins,
   'POST /reviews': postReviews,
   'POST /plan/today': postPlanToday,
+  'POST /tts': postTts,
 };
 
 const PATH_PREFIX = /^(?:\/functions\/v1)?(?:\/api)?(\/.*)$/;

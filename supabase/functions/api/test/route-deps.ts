@@ -1,5 +1,5 @@
 import { err, ok, type AppError, type Result } from '@english-coach/contracts';
-import { makeTestPlanStore, makeTestUserDb } from '../../_shared/db/test/fakes.ts';
+import { makeTestPlanStore, makeTestTtsStore, makeTestUserDb } from '../../_shared/db/test/fakes.ts';
 import type { ReviewDb } from '../../_shared/db/reviews.ts';
 import { createRegistry } from '../../_shared/providers/registry.ts';
 import type { RouteDeps, RouterDeps } from '../router.ts';
@@ -31,6 +31,8 @@ export function makeTestRouteDeps(overrides?: Partial<RouteDeps>): RouteDeps {
     planStore: () => makeTestPlanStore(),
     providers: createRegistry({ providers: [], env: () => undefined }),
     fetch: () => Promise.reject(new Error('not stubbed: fetch')),
+    ttsStore: () => makeTestTtsStore(),
+    log: () => undefined,
     ...overrides,
   };
 }
