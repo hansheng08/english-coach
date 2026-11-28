@@ -981,8 +981,8 @@ export const SettingsSchema = ProviderSettingsSchema.extend({
   cards: z.object({ prefetch: z.boolean().default(true) }).prefault({}),          // ADR-005 的 600 ms 預取開關
   ui: z.object({ m2_seen: z.array(z.union([z.literal(15), z.literal(60)])).default([]) }).prefault({}),   // §4.16.4
   paid_consent_at: z.iso.datetime({ offset: true }).nullable().default(null),   // 只能由 set_paid_consent() 改（§4.9）
-  monthly_paid_cap_ntd: NtdSchema.nullable().default(null),                     // 同上；可為 null，範圍見 §4.15.4
-}).superRefine(/* tts.voice 的前綴要和 tts.provider 同一家（azure: ↔ azure-speech*；gemini: ↔ gemini*） */);
+  monthly_paid_cap_ntd: MonthlyPaidCapNtdSchema.nullable().default(null),       // 同上；0～1000 或 null，見 §4.15.4
+}).superRefine(/* (1) tts.voice 的前綴要和 tts.provider 同一家（azure: ↔ azure-speech*；gemini: ↔ gemini*）；(2) paid_consent_at 有值時，monthly_paid_cap_ntd 不可為 null（§4.15.4） */);
 export type Settings = z.infer<typeof SettingsSchema>;
 ```
 - **為什麼每個供應商欄位各自列 enum，而不是全部用 `ProviderIdSchema`**：`llm.provider = 'groq'` 之類的組合不會通過驗證，錯的設定存不進去（§3.2「錯的程式寫不出來」）。各能力可用的供應商照 §5.3 和 `registry.ts` 已有的 adapter；registry 仍然保留它自己的 `not_configured` 檢查。
@@ -998,7 +998,12 @@ export const SettingsPatchSchema = z.object({
   news: NewsSettingsSchema.optional(),        // 整組送（同上）
   ui: z.object({ m2_seen: z.array(z.union([z.literal(15), z.literal(60)])) }).strict().optional(),
   slot_start: SlotStartSchema.optional(),     // 寫進 profile.slot_start 欄，不在 settings jsonb（4.15.3）
-  paid: z.object({ consent: z.boolean(), monthly_cap_ntd: NtdSchema.nullable() }).strict().optional(),   // 走 set_paid_consent()（§4.9）；範圍見 §4.15.4
+  paid: z.object({
+    consent: z.boolean(),
+    monthly_cap_ntd: MonthlyPaidCapNtdSchema.nullable().optional(),  // 撤回時可省略；同意時必填（下面 refine）
+  }).strict()
+    .superRefine(/* consent === true 且 monthly_cap_ntd == null 或缺欄 → issue path 為 monthly_cap_ntd；攤平後是 paid.monthly_cap_ntd（§4.15.4） */)
+    .optional(),   // 走 set_paid_consent()（§4.9）
 }).strict();
 ```
 - **合併規則**（伺服器做，`_shared/settings/merge.ts` 的純函式 `mergeSettings(current: Settings, patch: SettingsPatch): Settings`）：
@@ -1014,24 +1019,29 @@ export const SettingsPatchSchema = z.object({
 - **兩台裝置同時改**：後送的覆蓋先送的（除了 `ui.m2_seen` 取聯集）。只有一位使用者，接受。
 
 
-#### 4.15.4 `monthly_paid_cap_ntd` 的值與範圍（v1.13；回覆 [D2] #103；ADR-019 決定 3）
-- **可以是 null。** `SettingsSchema.monthly_paid_cap_ntd` 是 `NtdSchema.nullable().default(null)`；未同意付費時的預設就是 null（`DEFAULT_SETTINGS`、T-014 已如此）。`set_paid_consent(..., false, …)` 會把 `paid_consent_at` 和 `monthly_paid_cap_ntd` 兩個鍵一起刪掉（T-006 migration），讀回來也是 null。
-- **合法數字**：`NtdSchema`（contracts `src/ids.ts`）是 **≥ 0 的整數**，單位是新台幣整數元。0 是合法的（NFR-03「預設每月 NT$0」；`ids.test.ts` 接受 0 和 300）。小數、負數、非整數都不通過。schema **目前沒有上限**（Postgres `integer` 參數能存到 2,147,483,647，但那不是產品上限）。
-- **和同意的關係**（既有行為，T-014 `grantPaidConsent`）：`monthly_paid_cap_ntd === null`（就算 `paid_consent_at` 有值）→ `no_consent`，付費供應商不會被呼叫。`cap === 0` 且用量 ≥ 0 → 一開始就是 `monthly_cap_reached`。所以「同意但上限是 null」等於還沒真正打開付費；「同意但上限是 0」等於同意了機制、這個月不許花。
-- **PRD 已定的部分**（v1.5，不改需求）：
-  - NFR-03：預設每月 NT$0；付費上限由 Hansheng 訂（Q-07）。
-  - Q-07（`OPEN_QUESTIONS.md`，已決定）：絕不自動改付費；每月上限由 Hansheng 訂（建議 NT$300）。Hansheng **還沒指定**一個寫進預設值的數字，建議值仍是 300。
-- **待 Hansheng／PM 決定**（建議見本節底下；未決定前，T-020 維持上面的既有契約，不自行收緊 schema）：
-  1. 打開同意時，上限能不能空著送出？建議：**不能**。`paid.consent === true` 時 `monthly_cap_ntd` 必填（非 null），400 `validation`、`path: 'paid.monthly_cap_ntd'`。理由：null 在 `grantPaidConsent` 會被當成 `no_consent`，使用者以為已同意、付費供應商卻不能用。這也和設定頁原型「沒填上限不能儲存」（[D2] #103）一致。撤回同意時上限仍可省略（鍵會被刪掉）。
-  2. 同意時要不要禁止 0？建議：**允許 0**（與 NFR-03、既有 `NtdSchema` 一致）。畫面可提示「上限為 0 時，付費供應商這個月都無法使用」。
-  3. 要不要設產品上限？建議：**1～10,000**（含 0 的話是 0～10,000）。Q-07 建議值是 300，10,000 已遠高於個人使用，可挡住多打零的筆誤。未決定前不改 `NtdSchema`。
-  4. 打開開關時欄位的預填值？建議：**NT$300**（Q-07 的建議），只是表單預填，要使用者按儲存才寫入。
+#### 4.15.4 `monthly_paid_cap_ntd` 的值與範圍（v1.13；回覆 [D2] #103；ADR-019 決定 3；**Hansheng 2026-11-28 決定**，本關卡第 1 次修改）
+- **獨立的上限 schema**（放在 contracts `src/settings.ts`，**不改**共用的 `NtdSchema`；用量和其他金額仍是 ≥ 0 的整數元、沒有上限）：
+```ts
+export const MONTHLY_PAID_CAP_NTD_MAX = 1000;
+export const MONTHLY_PAID_CAP_NTD_PREFILL = 300;   // 只給設定頁表單預填，不是寫入預設值
+export const MonthlyPaidCapNtdSchema = z.number().int().min(0).max(MONTHLY_PAID_CAP_NTD_MAX).brand<'Ntd'>();
+```
+- **合法值**：`0`～`1000` 的整數，或 `null`（未同意）。小數、負數、1001 以上都不通過。單位是新台幣整數元。
+- **可以是 null，但只限未同意。** `SettingsSchema.monthly_paid_cap_ntd` 是 `MonthlyPaidCapNtdSchema.nullable().default(null)`；未同意時的預設就是 null（`DEFAULT_SETTINGS`）。`set_paid_consent(..., false, …)` 會把 `paid_consent_at` 和 `monthly_paid_cap_ntd` 兩個鍵一起刪掉（T-006 migration），讀回來也是 null。
+- **同意時上限必填**（Hansheng 2026-11-28 決定）：
+  - `SettingsPatchSchema` 的 `paid` 用 `.superRefine`：`consent === true` 且 `monthly_cap_ntd == null`（缺欄或顯式 null）→ 400 `validation`，`issues` 的 `path` 為 **`paid.monthly_cap_ntd`**，**什麼都不寫**。撤回同意（`consent === false`）時上限可省略，鍵會被刪掉。
+  - 超出 0～1000 同樣是 400 `validation`，路徑相同（schema 自己擋）。
+  - `SettingsSchema` 也有對應的 refine：`paid_consent_at` 有值時，`monthly_paid_cap_ntd` 不可為 null。T-020 寫入不會製造這種列；若讀到（理論上不會），照 §4.15.1 回 `internal`，不默默改值。
+- **0 是合法的**（Hansheng 2026-11-28 決定）。既有 `grantPaidConsent`：`cap === 0` 且用量 ≥ 0 → 立刻 `monthly_cap_reached`。畫面可提示「上限為 0 時，付費供應商這個月都無法使用」，不是新的 AC。
+- **打開開關時，表單預填 NT$300**（Hansheng 2026-11-28 決定；常數 `MONTHLY_PAID_CAP_NTD_PREFILL`）。只是前端預填，要使用者按儲存才寫入。不是 `SettingsSchema` 的預設值（未同意時仍是 null）。
+- **和同意的關係**（T-014 `grantPaidConsent`，行為不變）：`monthly_paid_cap_ntd === null`（就算 `paid_consent_at` 有值）→ `no_consent`。寫入端已擋下這種組合，這條是防衛。
+- **PRD v1.5**（不改需求）：NFR-03 預設每月 NT$0，上限由 Hansheng 訂（Q-07）。本節就是 Q-07 的數字決定：最大值 NT$1,000，表單預填 NT$300。
 
 #### 4.15.5 本月付費用量（v1.13；回覆 [D2] #103；ADR-019 決定 4）
 設定頁的「本月付費用量」**現在沒有現成的金額資料**。`provider_call`（T-006）只記 `capability`、`provider`、`model`、`tier`、`status`、`error_kind`、`latency_ms`、`created_at`，沒有 token、也沒有金額。沒有 `api_usage` 表。`grantPaidConsent(settings, usedThisMonthNtd)` 的用量「由呼叫端決定」（`registry.ts`），但呼叫端怎麼算還沒定。以下是最小的新設計，由 **T-020** 實作（設定頁和 `/settings` 都在那張單；後面會呼叫 `registry.resolve` 的單共用同一個加總函式）。
 
 - **「本月」**：台北時區（`Asia/Taipei`，固定 UTC+8）的日曆月，從該月 1 日 00:00:00 起到下月 1 日 00:00:00（不含）。用 `deps.now()`（§5.1.1），起算點是「`toTaipeiPlanDate(now)` 那個年月的 1 日 00:00 對應的瞬間」。查詢條件：`tier = 'paid'` 且 `created_at >= 起算點`。
-- **金額是估算，不是實際帳單。** 單位是新台幣整數元（`Ntd`）。供應商報價是美元；寫入時用 contracts 裡的單價表（美元／百萬 token，引自官方定價頁，變更時只改常數）和匯率常數 `USD_TO_NTD`（建議先用 **35**，偏保守，**待 Hansheng 決定**）估算，無條件進位到整數元。畫面上要註明「估算，實際費用以供應商帳單為準」。
+- **金額是估算，不是實際帳單。** 單位是新台幣整數元（`Ntd`）。供應商報價是美元；寫入時用 contracts 裡的單價表（美元／百萬 token，引自官方定價頁，變更時只改常數）和匯率常數 `USD_TO_NTD = 35`（contracts `src/billing.ts`；**Hansheng 2026-11-28 決定**）估算，無條件進位到整數元。之後要改只改這個常數。畫面上要註明「估算，實際費用以供應商帳單為準」。
 - **怎麼記**（T-020 的 migration，加欄、改 `grant insert` 清單和 `PROVIDER_CALL_COLUMNS`）：
   - `provider_call.cost_ntd integer not null default 0 check (cost_ntd >= 0)`
   - `provider_call.input_tokens integer check (input_tokens is null or input_tokens >= 0)`
@@ -2797,5 +2807,5 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
-| v1.13 | 2026-11-28 | 寫單契約補充（二）（T-020 錯誤種類、T-025b 輸出上限、[D2] #103 月上限與本月用量）：新增 ADR-019。<br>• §4.2：不合格的設定改回 400 `validation`（帶 path），與 §4.15.2、contracts `APP_ERROR_KINDS` 一致；不新增 `invalid_settings`。<br>• §4.14：`gemini-3.5-flash-lite` 輸出上限 65,536 tokens（官方模型頁，2026-11-28 查閱），維持一次呼叫 `maxOutputTokens: 8192`、不分批；作廢 v1.12 的「不確定」。<br>• §4.15.4：`monthly_paid_cap_ntd` 可以是 null；合法數字是 ≥ 0 的整數元；null 在 `grantPaidConsent` 視為 `no_consent`。PRD 已定的（NFR-03、Q-07）只引用；同意時是否必填、0、產品上限、預填 300 待 Hansheng／PM 決定。<br>• §4.15.5：本月付費用量是估算（非帳單），依台北月初加總 `provider_call.cost_ntd`；T-020 加欄、建 `SettingsResponseSchema`、`GET /settings` 與加總函式。§4 表、§5.1 同步。 |
+| v1.13 | 2026-11-28 | 寫單契約補充（二）（T-020 錯誤種類、T-025b 輸出上限、[D2] #103 月上限與本月用量）：新增 ADR-019。<br>• §4.2：不合格的設定改回 400 `validation`（帶 path），與 §4.15.2、contracts `APP_ERROR_KINDS` 一致；不新增 `invalid_settings`。<br>• §4.14：`gemini-3.5-flash-lite` 輸出上限 65,536 tokens（官方模型頁，2026-11-28 查閱），維持一次呼叫 `maxOutputTokens: 8192`、不分批；作廢 v1.12 的「不確定」。<br>• §4.15.4：`monthly_paid_cap_ntd` 可以是 null；合法數字是 ≥ 0 的整數元；null 在 `grantPaidConsent` 視為 `no_consent`。PRD 已定的（NFR-03、Q-07）只引用。<br>• §4.15.5：本月付費用量是估算（非帳單），依台北月初加總 `provider_call.cost_ntd`；T-020 加欄、建 `SettingsResponseSchema`、`GET /settings` 與加總函式。§4 表、§5.1 同步。<br>• （**本關卡第 1 次修改**，憲章 §10；**Hansheng 2026-11-28 決定**）§4.15.4：同意時上限必填（refine，400 `validation`、`path: 'paid.monthly_cap_ntd'`）；合法值是 0～1000 的整數或 null（未同意）；0 允許；打開開關時表單預填 NT$300。另定 `MonthlyPaidCapNtdSchema`，不改共用的 `NtdSchema`。§4.15.5：`USD_TO_NTD = 35`。 |
 | v1.12 | 2026-11-27 | 寫單契約補充（回覆 TechLead PR #97「待確認問題」第 1～5、8～10 題）：新增 ADR-018。依賴 v1.11（PR #96）。<br>• §4.10.1：種子庫與題庫的檢查器移到新的 workspace 套件 `@english-coach/seed-data`（`packages/seed-data/`），依賴規則、dependency-cruiser 2 條、lockfile 更新方式；根目錄 `package.json` 不變。<br>• §4.12.4：拿掉 `config.toml` 和 CI probe 的逐行比對（probe 自 T-003 起未被使用）；刪 probe 是 SRE 的 O 單，不擋產品單。<br>• §4.12.5：secret 金鑰查詢的 `user_id` 規則只有兩個例外（清錄音、列出使用者），用測試強制；CLAUDE.md §5 第 15 條同步。<br>• §11.2 第 4 步：沒有舊文章時改成 200＋`failed`＋`failure`（`news_unavailable`），和 §4.13.1、§5.9.2 一致。§4.6：T-025a 從前一晚的 `diagnosis.senior[].text` 讀改寫句。<br>• §4.13.1：`DailyPlan.seedRemaining`／`daily_plan.seed_remaining`（種子庫剩餘數，T-033）。<br>• §4.19：TTS 預設語音、快取鍵正規化、contracts `tts.ts`、文字上限 1,000 字元（Azure REST 字元上限不確定）、`audio/player` 介面。§4.20：面試題庫的格式、QB1～QB6、migration、每批抽 5 題（語言與技術題主題待 PM）。<br>• §5.7.4：Groq 每日額度訊息改成完整單字比對（縮寫要大寫），附正反例測試要求。§3.1、§5.1、§12 同步。<br>• （第 2 個 commit）§4.18：缺 `PronScore` 照 §5.6.2 是 `invalid_response`，走「Azure 失敗」分支，作廢 v1.11「pronScore=null 照樣解鎖」；§6 第 5 點同步。§5.1.1：測試依賴一律用工廠函式建（`makeTestRouteDeps` 等），新依賴維持必填，附 T-053 QA probe 的過渡安排。 |
