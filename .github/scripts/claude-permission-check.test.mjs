@@ -668,7 +668,7 @@ test('(AC-O32-5) (AC-O32-8) (TC-13) (TC-19) real repo: frozen definitions, const
   const r = run(REPO);
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /O-032: every task-id \/ branch regex under \.github\/ is a frozen definition/);
-  assert.match(r.out, /checkout \(no if\) step 1, Validate step 2, id used only after Validate/);
+  assert.match(r.out, /checkout \(no if\) step 1, Snapshot step 2, Validate step 3, id used only after Validate/);
 });
 
 test('(AC-O32-6) (TC-14) (TC-15) real claude-run-task.yml: order, always(), names', async () => {
@@ -677,7 +677,9 @@ test('(AC-O32-6) (TC-14) (TC-15) real claude-run-task.yml: order, always(), name
   assert.deepEqual(m.runTaskOrderProblems(yml), []);
   const steps = yml.slice(yml.indexOf('\n    steps:\n')).split('\n').filter((l) => /^ {6}- /.test(l));
   assert.match(steps[0], /^ {6}- uses: actions\/checkout@/);
-  assert.equal(steps[1], '      - name: Validate task id');
+  // O-033: the trusted snapshot is step 2, Validate step 3.
+  assert.equal(steps[1], '      - name: Snapshot trusted scripts');
+  assert.equal(steps[2], '      - name: Validate task id');
   assert.match(yml, /\nconcurrency:\n  group: claude-run-task-\$\{\{ github\.event\.client_payload\.task \}\}\n  cancel-in-progress: false\n/);
   assert.match(yml, /\n {10}name: run-task-outcome-\$\{\{ github\.event\.client_payload\.task \}\}\n/);
   assert.match(yml, /\n {10}name: claude-execution-output-\$\{\{ github\.event\.client_payload\.task \}\}-\$\{\{ github\.run_id \}\}\n/);
@@ -728,9 +730,65 @@ expectO32Fail('O32-M20 mutation (AC-O32-6) (TC-14): Task lint moved before Valid
   const tl = stepText(f[WF], '      - name: Task lint');
   const va = stepText(f[WF], '      - name: Validate task id');
   f[WF] = f[WF].replace(tl, '').replace(va, tl + va);
-}, /"Validate task id" must be step 2|uses the task id before Validate/);
+}, /"Validate task id" must be step 3|uses the task id before Validate/);
 expectO32Fail('O32-M21 mutation (AC-O32-6) (TC-15): concurrency group changed', (f) => mut(f, WF, '  group: claude-run-task-${{ github.event.client_payload.task }}\n', '  group: claude-run-task-${{ github.run_id }}\n'), /concurrency group \/ cancel-in-progress changed/);
 expectO32Fail('O32-M22 mutation (AC-O32-6) (TC-15): cancel-in-progress true', (f) => mut(f, WF, '  cancel-in-progress: false\n', '  cancel-in-progress: true\n'), /concurrency group \/ cancel-in-progress changed/);
 expectO32Fail('O32-M23 mutation (AC-O32-6) (TC-15): run-task-outcome artifact renamed', (f) => mut(f, WF, 'name: run-task-outcome-${{ github.event.client_payload.task }}', 'name: run-task-outcome-${{ github.run_id }}'), /run-task-outcome artifact name changed/);
 expectO32Fail('O32-M24 mutation (AC-O32-6) (TC-15): claude-execution-output artifact renamed', (f) => mut(f, WF, 'name: claude-execution-output-${{ github.event.client_payload.task }}-${{ github.run_id }}', 'name: claude-execution-output-${{ github.run_id }}'), /claude-execution-output artifact name changed/);
 expectO32Fail('O32-M25 mutation (AC-O32-10): Validate gets continue-on-error', (f) => mut(f, WF, '        run: bash .github/scripts/run-task-validate-id.sh\n', '        continue-on-error: true\n        run: bash .github/scripts/run-task-validate-id.sh\n'), /Validate has an `if` or continue-on-error/);
+
+// ---------------------------------------------------------------------------
+// O-033: guard scripts and tools from the trusted snapshot after the switch.
+// AC-O33-6 / TC-15 (real file + wiring) and AC-O33-9 / TC-20 (real-file layer).
+const TR = '"${RUNNER_TEMP}/trusted/.github/scripts/';
+const TOOLING_ENV = '          TOOLING_DIR: ${{ runner.temp }}/trusted/tooling\n';
+
+test('(AC-O33-6) (TC-15) real claude-run-task.yml: snapshot step 2, Validate step 3, five guard steps trusted', async () => {
+  const t = await import('../../tooling/trusted-scripts.mjs');
+  const yml = readFileSync(join(REPO, WF), 'utf8');
+  assert.deepEqual(t.trustedScriptProblems(yml), []);
+  for (const [step, script] of [
+    ['Detect Claude usage limit', 'run-task-usage-limit.sh" detect'],
+    ['Verify push triggered CI', 'verify-push.sh"'],
+    ['Report lint and automatic verification summary', 'run-task-post-check.sh"'],
+    ['Detect denied-command resplit and post run-task summary', 'run-task-summary-step.sh"'],
+    ['Notify Grok chief of staff', 'run-task-outcome.sh"'],
+    ['Notify Grok chief of staff', 'run-task-usage-limit.sh" fields'],
+  ]) {
+    assert.ok(stepText(yml, `      - name: ${step}\n`).includes(`${TR}${script}`), `${step}: ${script}`);
+  }
+  for (const step of ['Detect Claude usage limit', 'Report lint and automatic verification summary']) {
+    assert.ok(stepText(yml, `      - name: ${step}\n`).includes(TOOLING_ENV), `${step}: TOOLING_DIR`);
+  }
+  const r = run(REPO);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /O-033: Snapshot trusted scripts at step 2; every step after the task-branch switch runs \.github\/scripts and tooling from \$RUNNER_TEMP\/trusted/);
+});
+
+function moveStep(f, name, beforeName) {
+  const s = stepText(f[WF], `      - name: ${name}\n`);
+  const b = stepText(f[WF], `      - name: ${beforeName}\n`);
+  f[WF] = f[WF].replace(s, '').replace(b, s + b);
+}
+function editStep(f, name, from, to) {
+  const s = stepText(f[WF], `      - name: ${name}\n`);
+  assert.ok(s.includes(from), `${name}: anchor ${from}`);
+  f[WF] = f[WF].replace(s, s.replace(from, to));
+}
+const SNAP = 'Snapshot trusted scripts';
+expectO32Fail('O33-M1 mutation (AC-O33-9) (TC-20): Snapshot step removed', (f) => { f[WF] = f[WF].replace(stepText(f[WF], `      - name: ${SNAP}\n`), ''); }, /"Snapshot trusted scripts" step is missing \(O-033\)/);
+expectO32Fail('O33-M2 mutation (AC-O33-9) (TC-20): Snapshot moved after the task-branch switch', (f) => moveStep(f, SNAP, 'Start local Supabase for pnpm db:test'), /"Snapshot trusted scripts" comes after the branch switch/);
+expectO32Fail('O33-M3 mutation (AC-O33-9) (TC-20): usage-limit detect back to the work tree', (f) => editStep(f, 'Detect Claude usage limit', `bash ${TR}run-task-usage-limit.sh" detect`, 'bash .github/scripts/run-task-usage-limit.sh detect'), /step "Detect Claude usage limit" references work-tree \.github\/scripts or tooling/);
+expectO32Fail('O33-M4 mutation (AC-O33-9) (TC-20): verify-push back to the work tree', (f) => editStep(f, 'Verify push triggered CI', `bash ${TR}verify-push.sh"`, 'bash .github/scripts/verify-push.sh'), /step "Verify push triggered CI" references work-tree/);
+expectO32Fail('O33-M5 mutation (AC-O33-9) (TC-20): post-check back to the work tree', (f) => editStep(f, 'Report lint and automatic verification summary', `bash ${TR}run-task-post-check.sh"`, 'bash .github/scripts/run-task-post-check.sh'), /step "Report lint and automatic verification summary" references work-tree/);
+expectO32Fail('O33-M6 mutation (AC-O33-9) (TC-20): summary step back to the work tree', (f) => editStep(f, 'Detect denied-command resplit and post run-task summary', `bash ${TR}run-task-summary-step.sh"`, 'bash .github/scripts/run-task-summary-step.sh'), /step "Detect denied-command resplit and post run-task summary" references work-tree/);
+expectO32Fail('O33-M7 mutation (AC-O33-9) (TC-20): Notify outcome script back to the work tree', (f) => editStep(f, 'Notify Grok chief of staff', `bash ${TR}run-task-outcome.sh"`, 'bash .github/scripts/run-task-outcome.sh'), /step "Notify Grok chief of staff" references work-tree/);
+expectO32Fail('O33-M8 mutation (AC-O33-9) (TC-20): post-check loses TOOLING_DIR', (f) => editStep(f, 'Report lint and automatic verification summary', TOOLING_ENV, ''), /step "Report lint and automatic verification summary" runs a guard script without TOOLING_DIR/);
+expectO32Fail('O33-M9 mutation (AC-O33-9) (TC-20): usage-limit detect loses TOOLING_DIR', (f) => editStep(f, 'Detect Claude usage limit', TOOLING_ENV, ''), /step "Detect Claude usage limit" runs a guard script without TOOLING_DIR/);
+expectO32Fail('O33-M10 mutation (AC-O33-9) (TC-20): TOOLING_DIR back to the relative tooling', (f) => editStep(f, 'Report lint and automatic verification summary', TOOLING_ENV, '          TOOLING_DIR: tooling\n'), /sets TOOLING_DIR to something other than <trusted root>\/tooling/);
+expectO32Fail('O33-M11 mutation (AC-O33-9) (TC-20): Snapshot gets an if', (f) => editStep(f, SNAP, '        run: |\n', "        if: ${{ github.event.client_payload.task != '' }}\n        run: |\n"), /"Snapshot trusted scripts" must not have if or continue-on-error/);
+expectO32Fail('O33-M12 mutation (AC-O33-9) (TC-20): first checkout gets ref:', (f) => mut(f, WF, '          fetch-depth: 0\n', '          fetch-depth: 0\n          ref: task/T-035b\n'), /step 1 checkout must not set ref or repository/);
+expectO32Fail('O33-M13 mutation (AC-O33-2): Snapshot no longer copies tooling', (f) => editStep(f, SNAP, '          cp -R tooling "${RUNNER_TEMP}/trusted/tooling"\n', ''), /"Snapshot trusted scripts" has no recursive cp of tooling/);
+expectO32Fail('O33-M14 mutation (AC-O33-5): a later step writes into the trusted root', (f) => editStep(f, 'Check out existing task branch', '          set -euo pipefail\n', '          set -euo pipefail\n          cp -R .github/scripts "${RUNNER_TEMP}/trusted/.github/scripts"\n'), /step "Check out existing task branch" modifies the trusted root/);
+expectO32Fail('O33-M15 mutation (AC-O33-6): Snapshot moved after Validate (Validate no longer step 3)', (f) => moveStep(f, SNAP, 'Configure git identity'), /"Snapshot trusted scripts" must be step 2/);
+expectO32Fail('O33-M16 mutation (AC-O33-6): Verify runs verify-push.sh from the work tree (O-007 lock follows)', (f) => editStep(f, 'Verify push triggered CI', `bash ${TR}verify-push.sh"`, 'bash .github/scripts/verify-push.sh'), /Verify step does not run "\$\{RUNNER_TEMP\}\/trusted\/\.github\/scripts\/verify-push\.sh"/);

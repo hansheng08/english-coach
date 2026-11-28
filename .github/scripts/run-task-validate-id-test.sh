@@ -2,6 +2,9 @@
 # O-032: asserted cases for run-task-validate-id.sh (TC-8 ~ TC-11), the real
 # Notify step of claude-run-task.yml after a failed Validate (TC-16 ~ TC-18),
 # and script-level mutants (AC-O32-9 / TC-20). Every mutant must be caught.
+# O-033 (AC-O33-8 / TC-19): Notify runs from $RUNNER_TEMP/trusted; the work
+# tree holds a stale run-task-outcome.sh that would report success, so any
+# fallback to the work tree is caught.
 # Zero network: curl is a fake that records the POST; jq is the real one.
 # The task-id class is assembled from pieces so this file carries no
 # task-id regex (claude-permission-check.mjs scans every file under .github/).
@@ -98,8 +101,11 @@ awk '
   r { if ($0 == "" || $0 ~ /^          /) { sub(/^          /, ""); print } else exit }
 ' "$WF" > "$WORK/notify.sh"
 if grep -q 'claude-task-finished' "$WORK/notify.sh" && grep -q 'run-task-outcome.sh' "$WORK/notify.sh"; then ok "(AC-O32-7) Notify run: extracted ($(wc -l < "$WORK/notify.sh") lines)"; else bad "(AC-O32-7) Notify run: not extracted"; fi
-mkdir -p "$WORK/ws/.github" "$WORK/bin" "$WORK/empty"
+mkdir -p "$WORK/ws/.github" "$WORK/rt/trusted/.github" "$WORK/bin" "$WORK/nort"
+cp -R "$HERE" "$WORK/rt/trusted/.github/scripts"
+# Stale work tree (an old task branch): its outcome script says success.
 cp -R "$HERE" "$WORK/ws/.github/scripts"
+printf '%s\n' '#!/usr/bin/env bash' 'printf %s "{\"outcome\":\"success\"}"' > "$WORK/ws/.github/scripts/run-task-outcome.sh"
 cat > "$WORK/bin/curl" <<'CURL'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$CURL_LOG"
@@ -107,12 +113,13 @@ cat > "$CURL_LOG.body"
 CURL
 chmod +x "$WORK/bin/curl"
 
-# notify <dir> <task> <summary outcome> [env...]: runs the extracted step.
+# notify <dir> <task> <summary outcome> [env...]: runs the extracted step
+# with RUNNER_TEMP=$WORK/rt (the trusted snapshot) unless overridden.
 notify() {
   local dir="$1" task="$2" sum="$3"; shift 3
   : > "$WORK/curl.log"; rm -f "$WORK/curl.log.body" "$WORK/outcome.json"
   set +e
-  (cd "$dir" && env -i PATH="$WORK/bin:$PATH" HOME="$HOME" CURL_LOG="$WORK/curl.log" TASK="$task" \
+  (cd "$dir" && env -i PATH="$WORK/bin:$PATH" HOME="$HOME" RUNNER_TEMP="$WORK/rt" CURL_LOG="$WORK/curl.log" TASK="$task" \
     TASK_LINT_OUTCOME=skipped CLAUDE_OUTCOME=skipped VERIFY_OUTCOME=skipped VERIFY_REASON= \
     SUMMARY_OUTCOME="$sum" POST_CHECK_OUTCOME=skipped USAGE_LIMIT= UL_RESET_AT= UL_TYPE= UL_STREAK= UL_ACTION= \
     OUTCOME_FILE="$WORK/outcome.json" RUN_URL=https://example.invalid/run/1 \
@@ -134,7 +141,7 @@ notify_failed_ok() {
 for sum in skipped success failure; do
   for t in $'T-025a\n::error::x' T-025A ''; do
     notify "$WORK/ws" "$t" "$sum"
-    notify_failed_ok "(AC-O32-7) (TC-16) Validate failed, summary=${sum}, task=$(printf '%q' "$t")" "$t"
+    notify_failed_ok "(AC-O32-7) (TC-16) (AC-O33-8) (TC-19) Validate failed, stale work tree, summary=${sum}, task=$(printf '%q' "$t")" "$t"
   done
 done
 notify "$WORK/ws" 'T-025a;id' skipped USAGE_LIMIT=false
@@ -142,8 +149,8 @@ notify_failed_ok "(AC-O32-7) (TC-16) Validate failed, usage-limit step said fals
 
 notify "$WORK/ws" T-025a skipped WEBHOOK_URL=
 if [[ "$NEC" -eq 0 && "$NPOST" -eq 0 ]] && grep -q 'Webhook not configured, skip.' "$WORK/n.out"; then ok "(AC-O32-7) (TC-17) no WEBHOOK_URL -> exit 0, no POST"; else bad "(AC-O32-7) (TC-17) no WEBHOOK_URL: exit=${NEC} posts=${NPOST}"; cat "$WORK/n.out"; fi
-notify "$WORK/empty" T-025a skipped
-if [[ "$NEC" -ne 0 && "$NPOST" -eq 0 ]]; then ok "(AC-O32-7) (TC-17) without .github/scripts (no checkout) -> exit ${NEC}, no POST"; else bad "(AC-O32-7) (TC-17) without .github/scripts: exit=${NEC} posts=${NPOST}"; fi
+notify "$WORK/ws" T-025a skipped RUNNER_TEMP="$WORK/nort"
+if [[ "$NEC" -ne 0 && "$NPOST" -eq 0 ]]; then ok "(AC-O32-7) (TC-17) (AC-O33-8) (TC-19) without the trusted root (work tree scripts present) -> exit ${NEC}, no POST"; else bad "(AC-O32-7) (TC-17) (AC-O33-8) (TC-19) without the trusted root: exit=${NEC} posts=${NPOST}"; fi
 
 OUT18="$(bash "$HERE/run-task-outcome.sh" --task-lint skipped --post-check skipped --usage-limit '' --json skipped skipped skipped '')"
 WORD18="$(bash "$HERE/run-task-outcome.sh" --task-lint skipped --post-check skipped skipped skipped skipped)"
@@ -154,10 +161,10 @@ src="$(cat "$WORK/outcome.orig")"
 mutated="${src/"success | failure | cancelled | skipped) printf '%s' \"\$1\" ;;"/"success | skipped) printf '%s' success ;;
     failure | cancelled) printf '%s' \"\$1\" ;;"}"
 if [[ "$mutated" == "$src" ]]; then bad "mutant NM1: anchor not found"; else
-  printf '%s\n' "$mutated" > "$WORK/ws/.github/scripts/run-task-outcome.sh"
+  printf '%s\n' "$mutated" > "$WORK/rt/trusted/.github/scripts/run-task-outcome.sh"
   notify "$WORK/ws" T-025A skipped
   if [[ "$NPOST" -eq 1 ]] && jq -e '.outcome == "failure"' "$WORK/curl.log.body" > /dev/null; then bad "(AC-O32-9) (TC-18) mutant NM1 survived (skipped counted as success)"; else ok "(AC-O32-9) (TC-18) MUTANT KILLED NM1: skipped as success -> outcome $(jq -r '.outcome' "$WORK/curl.log.body" 2> /dev/null)"; fi
-  cp "$WORK/outcome.orig" "$WORK/ws/.github/scripts/run-task-outcome.sh"
+  cp "$WORK/outcome.orig" "$WORK/rt/trusted/.github/scripts/run-task-outcome.sh"
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-validate-id-test: FAILED"; exit 1; fi

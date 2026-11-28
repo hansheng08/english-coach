@@ -45,9 +45,15 @@
 //      the validate / pre-head / post-check / usage-limit / taskcheck scripts
 //      use them; run-task-validate-id.sh sets LC_ALL=C, reads TASK from env
 //      only and never prints the raw value; claude-run-task.yml has checkout
-//      (no `if`, persist-credentials: false) as step 1 and Validate as step 2,
-//      no step before Validate uses the id, Notify and Upload run-task outcome
-//      stay if: always(), concurrency group and artifact names unchanged.
+//      (no `if`, persist-credentials: false) as step 1 and Validate as step 3
+//      (O-033 put the snapshot at step 2), no step before Validate uses the
+//      id, Notify and Upload run-task outcome stay if: always(), concurrency
+//      group and artifact names unchanged.
+//  13. (O-033) "Snapshot trusted scripts" (step 2) copies .github/scripts and
+//      tooling to $RUNNER_TEMP/trusted; every step from the task-branch switch
+//      on runs guard scripts / tools only from there (TOOLING_DIR trusted),
+//      and only the snapshot writes the trusted root
+//      (tooling/trusted-scripts.mjs trustedScriptProblems).
 //
 // Matching model (an approximation; the live Claude Code matcher is
 // 未驗證 until observed in a real run-task):
@@ -67,6 +73,8 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+// O-033: the trusted-snapshot rules (Claude-written pure function).
+import { trustedScriptProblems } from '../../tooling/trusted-scripts.mjs';
 
 export const REAL_ENV_FILES = [
   '.env',
@@ -316,8 +324,9 @@ export function verifyPushProblems(verifySh, yml) {
     if (!/^\s*GH_TOKEN:\s*\$\{\{\s*github\.token\s*\}\}\s*$/m.test(m[1])) {
       problems.push('claude-run-task.yml: Verify step does not set GH_TOKEN: ${{ github.token }}');
     }
-    if (!/run:\s*bash \.github\/scripts\/verify-push\.sh/.test(m[1])) {
-      problems.push('claude-run-task.yml: Verify step does not run .github/scripts/verify-push.sh');
+    // O-033: from the trusted snapshot (the step runs after the branch switch).
+    if (!/run:\s*bash "\$\{RUNNER_TEMP\}\/trusted\/\.github\/scripts\/verify-push\.sh"/.test(m[1])) {
+      problems.push('claude-run-task.yml: Verify step does not run "${RUNNER_TEMP}/trusted/.github/scripts/verify-push.sh"');
     }
   }
   return problems;
@@ -443,8 +452,9 @@ function stepBlocks(yml) {
   return blocks.map((b) => b.join('\n'));
 }
 
-// O-032: checkout first (no if), Validate second, nothing before Validate
+// O-032: checkout first (no if), Validate after it, nothing before Validate
 // uses the id; Notify / Upload run-task outcome always(); names unchanged.
+// O-033: "Snapshot trusted scripts" is step 2, so Validate is now step 3.
 export function runTaskOrderProblems(yml) {
   const problems = [];
   const blocks = stepBlocks(yml);
@@ -456,16 +466,17 @@ export function runTaskOrderProblems(yml) {
   if (!/^ {10}persist-credentials: false\s*$/m.test(first)) problems.push('claude-run-task.yml: step 1 checkout does not set persist-credentials: false (O-032)');
   if (!/^ {10}fetch-depth: 0\s*$/m.test(first)) problems.push('claude-run-task.yml: step 1 checkout does not set fetch-depth: 0 (O-032)');
   const vi = named('Validate task id');
-  if (vi !== 1) problems.push(`claude-run-task.yml: "Validate task id" must be step 2 (found at ${vi < 0 ? 'none' : vi + 1}) (O-032)`);
+  if (named('Snapshot trusted scripts') !== 1) problems.push('claude-run-task.yml: "Snapshot trusted scripts" must be step 2 (O-033)');
+  if (vi !== 2) problems.push(`claude-run-task.yml: "Validate task id" must be step 3 (found at ${vi < 0 ? 'none' : vi + 1}) (O-032, O-033)`);
   else {
-    const v = blocks[1];
+    const v = blocks[2];
     if (!/^ {8}run: bash \.github\/scripts\/run-task-validate-id\.sh\s*$/m.test(v)) problems.push('claude-run-task.yml: Validate does not run .github/scripts/run-task-validate-id.sh (O-032)');
     if (!/^ {10}TASK: \$\{\{ github\.event\.client_payload\.task \}\}\s*$/m.test(v)) problems.push('claude-run-task.yml: Validate does not get TASK from env (O-032)');
     if (/^\s+(if|continue-on-error):/m.test(v)) problems.push('claude-run-task.yml: Validate has an `if` or continue-on-error (O-032)');
     if ((v.match(/client_payload\.task/g) ?? []).length !== 1) problems.push('claude-run-task.yml: Validate puts the task id somewhere other than env TASK (O-032)');
   }
   const firstUse = blocks.findIndex((b) => /client_payload\.task|\bTASK\b/.test(b));
-  if (firstUse >= 0 && firstUse < 1) problems.push(`claude-run-task.yml: step ${firstUse + 1} uses the task id before Validate (O-032)`);
+  if (firstUse >= 0 && firstUse < 2) problems.push(`claude-run-task.yml: step ${firstUse + 1} uses the task id before Validate (O-032)`);
   for (const n of ['Task lint', 'Record branch head before Claude', 'Check out existing task branch', 'Run Claude Code']) {
     const i = named(n);
     if (i < 0) problems.push(`claude-run-task.yml: "${n}" step not found (O-032)`);
@@ -623,7 +634,12 @@ export function checkPermissions(inputs) {
     }
     const order = runTaskOrderProblems(yml);
     errors.push(...order);
-    if (!order.length) report.push('claude-run-task.yml: checkout (no if) step 1, Validate step 2, id used only after Validate, Notify/outcome upload always(), names unchanged');
+    if (!order.length) report.push('claude-run-task.yml: checkout (no if) step 1, Snapshot step 2, Validate step 3, id used only after Validate, Notify/outcome upload always(), names unchanged');
+    // O-033: after the task-branch switch, guard scripts and tools only from
+    // the trusted snapshot (docs/tasks/O-033.md 「定義」).
+    const trusted = trustedScriptProblems(yml).map((p) => `claude-run-task.yml: ${p} (O-033)`);
+    errors.push(...trusted);
+    if (!trusted.length) report.push('O-033: Snapshot trusted scripts at step 2; every step after the task-branch switch runs .github/scripts and tooling from $RUNNER_TEMP/trusted, TOOLING_DIR trusted');
   }
   return { errors, report };
 }
@@ -644,7 +660,7 @@ function main() {
     process.exitCode = 1;
     return;
   }
-  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude, QA-owned files denied and --all-non-qa post-check wired, O-032 task id definitions and checkout-then-Validate order frozen)\n');
+  process.stdout.write('claude-permission-check: OK (real env files denied, .env.example readable, lockfile update aligned, pnpm add/remove not allowed, --max-turns 200, SKILL git-add, separate add/commit/push and built-in tool rules present, checkout persist-credentials false, verify-push without git fetch, claude-code-action SHA-pinned, pnpm db:test allowed, supabase start before Claude, QA-owned files denied and --all-non-qa post-check wired, O-032 task id definitions and checkout-then-Validate order frozen, O-033 guard scripts from the trusted snapshot after the branch switch)\n');
   process.exitCode = 0;
 }
 
