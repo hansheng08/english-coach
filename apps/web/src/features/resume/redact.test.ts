@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { redactPii } from './redact';
+import { foldWidth, redactPii } from './redact';
 import redactSource from './redact.ts?raw';
 
 const run = (input: string) => redactPii(input);
@@ -108,5 +108,101 @@ describe('redactPii', () => {
   it('(AC-T35-7) (TC-18) redact.ts has no imports', () => {
     expect(redactSource).not.toMatch(/^\s*import\s/mu);
     expect(redactSource).not.toMatch(/\bimport\(/u);
+  });
+});
+
+describe('redactPii full-width, city abbreviations, year ranges (T-035b)', () => {
+  it('(AC-T35-10) (TC-19) foldWidth converts only full-width ASCII and ideographic space', () => {
+    const cases: readonly (readonly [string, string])[] = [
+      ['０９１２－０００－１２３', '0912-000-123'],
+      ['ａ＠ｂ．ｃｏ', 'a@b.co'],
+      ['Ａ　Ｂ', 'A B'],
+      ['台北，你好', '台北,你好'],
+      ['', ''],
+    ];
+    for (const [input, expected] of cases) {
+      const folded = foldWidth(input);
+      expect(folded).toBe(expected);
+      expect(folded.length).toBe(input.length);
+    }
+  });
+
+  it('(AC-T35-10) (TC-20) replaces full-width phone numbers', () => {
+    const a = run('撥打 ０９１２-０００-１２３');
+    expect(a.text).toBe('撥打 [phone]');
+    expect(a.removed.phone).toBe(1);
+    const b = run('（０２）２０００－１２３４');
+    expect(b.text).toBe('[phone]');
+    expect(b.removed.phone).toBe(1);
+  });
+
+  it('(AC-T35-10) (TC-21) replaces full-width emails and keeps full-width punctuation', () => {
+    const a = run('write me：user＠example.com please');
+    expect(a.text).toBe('write me：[email] please');
+    expect(a.removed.email).toBe(1);
+    const b = run('ＪＡＮＥ＠ＥＸＡＭＰＬＥ．ＣＯＭ。');
+    expect(b.text).toBe('[email]。');
+    expect(b.removed.email).toBe(1);
+  });
+
+  it('(AC-T35-10) (TC-22) leaves everything except the marker untouched', () => {
+    const input = '在ＡＢＣ公司工作，負責（後端）開發，電話：０９１２－０００－１２３，謝謝';
+    const r = run(input);
+    expect(r.text).toBe('在ＡＢＣ公司工作，負責（後端）開發，電話：[phone]，謝謝');
+    expect(r.removed).toEqual({ phone: 1, email: 0, address: 0 });
+  });
+
+  it('(AC-T35-11) (TC-23) replaces addresses that start with a city abbreviation', () => {
+    for (const a of ['北市範例路123號', '新北市範例街8巷2號', '中市範例大道一段5號3樓']) {
+      const r = run(a);
+      expect(r.text).toBe('[address]');
+      expect(r.removed.address).toBe(1);
+    }
+    const full = run('地址：高市範例路１２號之１');
+    expect(full.text).toBe('地址：[address]');
+    expect(full.removed.address).toBe(1);
+  });
+
+  it('(AC-T35-11) (TC-24) keeps abbreviations that are not addresses', () => {
+    for (const a of ['北市', '北市範例路', '北市123號', '新北分公司', '中市府']) {
+      const r = run(a);
+      expect(r.text).toBe(a);
+      expect(r.removed.address).toBe(0);
+    }
+  });
+
+  it('(AC-T35-12) (TC-25) keeps area code plus two years', () => {
+    for (const a of ['06-2019-2021', '(06)2019-2021', '02 2019 2020', 'Example Corp 06-2019-2021']) {
+      const r = run(a);
+      expect(r.text).toBe(a);
+      expect(r.removed.phone).toBe(0);
+    }
+  });
+
+  it('(AC-T35-12) (TC-26) still replaces landlines that are not year ranges', () => {
+    for (const a of ['06-2019-3456', '06-1899-2021', '02-2000-1234', '049-200-0123']) {
+      const r = run(a);
+      expect(r.text).toBe('[phone]');
+      expect(r.removed.phone).toBe(1);
+    }
+  });
+
+  it('(AC-T35-13) (TC-27) is idempotent on the new cases and stays import-free', () => {
+    const inputs = [
+      '撥打 ０９１２-０００-１２３',
+      '（０２）２０００－１２３４',
+      'write me：user＠example.com please',
+      'ＪＡＮＥ＠ＥＸＡＭＰＬＥ．ＣＯＭ。',
+      '在ＡＢＣ公司工作，電話：０９１２－０００－１２３，謝謝',
+      '北市範例路123號',
+      '地址：高市範例路１２號之１',
+    ];
+    for (const input of inputs) {
+      const once = run(input);
+      const twice = run(once.text);
+      expect(twice.text).toBe(once.text);
+      expect(twice.removed).toEqual({ phone: 0, email: 0, address: 0 });
+    }
+    expect(redactSource).not.toMatch(/^\s*import\s/mu);
   });
 });
