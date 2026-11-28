@@ -95,3 +95,15 @@ QA 擁有的工作文件。每個進 QA 的 PR 追加一節，不覆寫舊內容
   - ④ `classifyAzureError` 多了選用的第三個參數 `apiKey`（報告已說明，兩個參數時與任務單介面相同）。
 - 缺陷：無。
 - 待補驗 AC：本單無。真實回應格式由 A-004 驗證（任務單「不在本單」）。
+
+## PR #117：T-016 Groq Whisper adapter（STT＋逐字時間戳記）與 loadGroqKey（2026-11-28 10:02 台北時間）
+
+- PR：https://github.com/hansheng08/english-coach/pull/117（task/T-016，library PR，只驗單元層）
+- head SHA：a7f3ef50dfd5878ba29fbf5543e3e296a2f94c15（Claude 887556c9dddad16c5ee92594b4b5c982f48847a3＋QA commit a7f3ef50dfd5878ba29fbf5543e3e296a2f94c15，只加 QA 檔）
+- CI run：https://github.com/hansheng08/english-coach/actions/runs/46096175356（`pull_request`，mode full，`ci-ok` success；完成於 2026-11-28 10:09:21 台北時間）。略過、未驗證的 job：無。
+- 結論：通過。AC-T16-1～AC-T16-11 通過（依 CI 的 TC-1～TC-22 加上 QA 探針 QA-1～QA-10）。本單沒有畫面，預覽與憲章 §15.9 的 UI 檢查不適用。
+- QA 探針：`supabase/functions/_shared/providers/groq/groq.qa.test.ts`（QA-1～QA-10）。
+- 突變：`docs/qa/mutants/T-016.json` 32 筆，由 CI 的 `taskcheck` 執行，結果以 PR run 為準。
+- 非阻擋備註（不構成缺陷）：① `classifyGroqError` 多了選用的第二個參數 `apiKey`。② `AzureSpeechConfig` 型別宣告等號後面少一個空白。③ 真實回應格式由 A-002 驗證。
+- 缺陷：無。
+- 待補驗 AC：本單無。真實回應格式由 A-002 驗證（任務單「不在本單」）。
