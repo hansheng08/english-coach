@@ -63,8 +63,9 @@ describe('O-032 vitest wrapper (ac-coverage)', () => {
     expect(suites.permTests.out).toMatch(/✔ \(AC-O32-5\) \(TC-13\) unit: definitions pass, an old or weakened regex anywhere under \.github fails/);
   });
 
-  it('(AC-O32-6) (TC-14) (TC-15) checkout first, Validate second, always() and names frozen', () => {
-    expect(suites.permCheck.out).toMatch(/claude-run-task\.yml: checkout \(no if\) step 1, Validate step 2, id used only after Validate, Notify\/outcome upload always\(\), names unchanged/);
+  // O-033 moved Validate to step 3 (the trusted snapshot is step 2).
+  it('(AC-O32-6) (TC-14) (TC-15) checkout first, Validate before any id use, always() and names frozen', () => {
+    expect(suites.permCheck.out).toMatch(/claude-run-task\.yml: checkout \(no if\) step 1, Snapshot step 2, Validate step 3, id used only after Validate, Notify\/outcome upload always\(\), names unchanged/);
     expect(suites.permTests.out).toMatch(/✔ \(AC-O32-6\) \(TC-14\) \(TC-15\) real claude-run-task\.yml: order, always\(\), names/);
   });
 
@@ -72,12 +73,12 @@ describe('O-032 vitest wrapper (ac-coverage)', () => {
     const out = suites.validateId.out;
     expect(okLines(out, '(AC-O32-7) (TC-16)')).toHaveLength(10);
     expect(out).toMatch(/CASE OK: \(AC-O32-7\) \(TC-17\) no WEBHOOK_URL -> exit 0, no POST/);
-    expect(out).toMatch(/CASE OK: \(AC-O32-7\) \(TC-17\) without \.github\/scripts \(no checkout\) -> exit [1-9]\d*, no POST/);
+    expect(out).toMatch(/CASE OK: \(AC-O32-7\) \(TC-17\) \(AC-O33-8\) \(TC-19\) without the trusted root \(work tree scripts present\) -> exit [1-9]\d*, no POST/);
     expect(out).toMatch(/CASE OK: \(AC-O32-7\) \(TC-18\) all skipped -> failure, not success/);
   });
 
   it('(AC-O32-8) (TC-19) freeze in claude-permission-check, new test wired into the existing ci.yml step', () => {
-    expect(suites.permCheck.out).toMatch(/claude-permission-check: OK \(.*O-032 task id definitions and checkout-then-Validate order frozen\)/);
+    expect(suites.permCheck.out).toMatch(/claude-permission-check: OK \(.*O-032 task id definitions and checkout-then-Validate order frozen, O-033 guard scripts from the trusted snapshot after the branch switch\)/);
     const ci = readFileSync(join(repo, '.github', 'workflows', 'ci.yml'), 'utf8');
     expect(ci).toMatch(/\n {10}bash \.github\/scripts\/run-task-usage-limit-test\.sh\n {10}bash \.github\/scripts\/run-task-validate-id-test\.sh\n/);
     expect(suites.permTests.out).toMatch(/✔ \(AC-O32-5\) \(AC-O32-8\) \(TC-13\) \(TC-19\) real repo: frozen definitions/);
@@ -109,7 +110,7 @@ describe('O-032 vitest wrapper (ac-coverage)', () => {
     const line = rb.split('\n').find((l) => l.startsWith('**派工編號與驗證順序（O-032）**'));
     expect(line).toBeDefined();
     expect(line).toContain('`^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$`');
-    expect(line).toMatch(/第一步 checkout.*第二步才由 `run-task-validate-id\.sh`/);
+    expect(line).toMatch(/第一步 checkout.*第三步才由 `run-task-validate-id\.sh`/); // O-033: Snapshot is step 2
     expect(line).toContain('`outcome=failure`');
   });
 });

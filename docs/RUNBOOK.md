@@ -188,7 +188,9 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 
 **權限規則怎麼驗（O-005、O-006）**：`.github/scripts/claude-permission-check.mjs` 讀真實的 `.claude/settings.json`、`claude-run-task.yml`、run-task SKILL，用「deny > ask > allow；`./x` 只比對根目錄、`**/x` 含根目錄的任何深度、`*` 不跨 `/`、`**` 跨 `/`；Bash 規則整條比對、`*` 為任意字元」的模型判斷；並檢查 `--max-turns` 必須是 200，以及 SKILL 含明確路徑 `git add` 與內建工具提醒。CI `ci-guard` job（O-015 前是 `pushguard` job）每次都跑它與 `claude-permission-check.test.mjs`（含把規則故意改壞、斷言 exit 1 的突變測試）。這是**對設定檔的靜態檢查**；Claude Code 執行時的實際比對器行為，除本節已引用的 T-003 run 45314135320 觀察外，其餘仍標未實測。
 
-**派工編號與驗證順序（O-032）**：派工編號須整串符合 `^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$`（可帶一個小寫字母尾碼，例如 `T-025a`、`T-025a-fix1`；分支為 `task/<基底編號>` 或 `fix/Q-<nnn>` 加可選小寫字母），`claude-run-task.yml` 第一步 checkout（無 `if`、`persist-credentials: false`）、第二步才由 `run-task-validate-id.sh`（編號只經 `env` 傳入、不回顯原始值）驗證，驗證失敗時其後非 `always()` 步驟全部略過、Notify 仍送 `claude-task-finished`（`outcome=failure`），Actions 上待合併後第一次派 `T-025a` 實測驗證。
+**派工編號與驗證順序（O-032）**：派工編號須整串符合 `^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$`（可帶一個小寫字母尾碼，例如 `T-025a`、`T-025a-fix1`；分支為 `task/<基底編號>` 或 `fix/Q-<nnn>` 加可選小寫字母），`claude-run-task.yml` 第一步 checkout（無 `if`、`persist-credentials: false`）、第二步是 O-033 的 Snapshot、第三步才由 `run-task-validate-id.sh`（編號只經 `env` 傳入、不回顯原始值）驗證，驗證失敗時其後非 `always()` 步驟全部略過、Notify 仍送 `claude-task-finished`（`outcome=failure`），Actions 上待合併後第一次派 `T-025a` 實測驗證。
+
+**守門腳本來源（O-033）**：`claude-run-task.yml` 第二步 `Snapshot trusted scripts` 在任何切換之前，把派工當下的 main（第一步 checkout 的預設分支）的 `.github/scripts/` 與 `tooling/` 複製到 `$RUNNER_TEMP/trusted`（根已存在或複製失敗即失敗）；`Check out existing task branch` 之後的守門步驟（usage limit 偵測、Verify push、post-check、resplit／run-task 留言、Notify）只從這份副本執行，`TOOLING_DIR` 也指向它，所以 task 分支上的 `.github/scripts`、`tooling` 對守門沒有影響，舊分支不必為了守門更新而 rebase；`claude-permission-check.mjs`（`tooling/trusted-scripts.mjs`）凍結此規則。已知殘餘：`.claude/**`（pushguard、settings）仍來自分支；`pnpm install` 與 Vitest 執行的是分支內容（受測對象）；Claude 步驟可執行 `pnpm check`，本機制防過期與誤改，不防惡意的任意程式執行。Actions 上待合併後第一次派到從舊 main 分出的既有分支（例如 `T-035b`）實測驗證。
 
 ### 3.2 box 上的 SRE（共享 Linux；2026-11-24 09:55 Asia/Taipei 重新實測）
 

@@ -42,6 +42,27 @@ jobs:
           # claude-permission-check.mjs fails if this is removed or set to true.
           persist-credentials: false
 
+      # O-033: copy the dispatch-time default branch's .github/scripts and
+      # tooling to $RUNNER_TEMP/trusted BEFORE anything else. "Check out
+      # existing task branch" later swaps the work tree for an old task
+      # branch (run 46163510815: task/T-035b ran its own stale scripts and
+      # failed with invalid TASK), so every guard step after that switch runs
+      # from this copy only. Step 2 and before Validate, with no `if`, so the
+      # always() steps (Notify) still find it when Validate fails. Does not
+      # use the task id. claude-permission-check.mjs (trustedScriptProblems)
+      # freezes this; fail-closed: an existing root or a failed cp fails.
+      - name: Snapshot trusted scripts
+        run: |
+          set -euo pipefail
+          if [[ -e "${RUNNER_TEMP}/trusted" ]]; then
+            echo "ERROR: ${RUNNER_TEMP}/trusted already exists"
+            exit 1
+          fi
+          mkdir -p "${RUNNER_TEMP}/trusted/.github"
+          cp -R .github/scripts "${RUNNER_TEMP}/trusted/.github/scripts"
+          cp -R tooling "${RUNNER_TEMP}/trusted/tooling"
+          echo "run-task: trusted scripts and tooling from $(git rev-parse HEAD)"
+
       # O-032: the id reaches the script only through env (never the command
       # text); the script never echoes the raw value. Failure skips every
       # later non-always() step (Task lint, pre-head, Claude, Verify, ...).
@@ -202,7 +223,9 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           TASK: ${{ github.event.client_payload.task }}
           LOG: ${{ steps.claude.outputs.execution_file }}
-        run: bash .github/scripts/run-task-usage-limit.sh detect
+          # O-033: tools from the trusted snapshot, not the task branch tree.
+          TOOLING_DIR: ${{ runner.temp }}/trusted/tooling
+        run: bash "${RUNNER_TEMP}/trusted/.github/scripts/run-task-usage-limit.sh" detect
 
       - name: Verify push triggered CI
         id: verify_push
@@ -220,7 +243,7 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           TASK: ${{ github.event.client_payload.task }}
           PRE_HEAD: "${{ steps.pre_head.outputs.pre_head }}"
-        run: bash .github/scripts/verify-push.sh
+        run: bash "${RUNNER_TEMP}/trusted/.github/scripts/verify-push.sh"
 
       # O-009: workflow-side checks on the tree Claude pushed (Claude cannot
       # skip them): report-lint on docs/reports/$TASK.md and the automatic
@@ -240,10 +263,13 @@ jobs:
           # and leaves out every commit already on main from scope-check.
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          # O-033: guard tools from the trusted snapshot; Vitest still runs
+          # the branch tree (that is what is under test).
+          TOOLING_DIR: ${{ runner.temp }}/trusted/tooling
         run: |
           set -euo pipefail
           pnpm install --frozen-lockfile
-          bash .github/scripts/run-task-post-check.sh
+          bash "${RUNNER_TEMP}/trusted/.github/scripts/run-task-post-check.sh"
 
       - name: Detect denied-command resplit and post run-task summary
         id: run_task_summary
@@ -254,7 +280,7 @@ jobs:
           TASK: ${{ github.event.client_payload.task }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           CLAUDE_OUTCOME: ${{ steps.claude.outcome }}
-        run: bash .github/scripts/run-task-summary-step.sh
+        run: bash "${RUNNER_TEMP}/trusted/.github/scripts/run-task-summary-step.sh"
 
       - name: Notify Grok chief of staff
         if: always()
@@ -294,8 +320,8 @@ jobs:
           # (none / none / 0 / none unless outcome=usage_limit). The same JSON
           # is written to OUTCOME_FILE first and uploaded as
           # run-task-outcome-<task>: the next run's "previous result".
-          OUTCOME_JSON="$(bash .github/scripts/run-task-outcome.sh --task-lint "${TASK_LINT_OUTCOME:-}" --post-check "${POST_CHECK_OUTCOME:-}" --usage-limit "${USAGE_LIMIT:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
-          UL_FIELDS="$(bash .github/scripts/run-task-usage-limit.sh fields "$(jq -r '.outcome' <<<"$OUTCOME_JSON")")"
+          OUTCOME_JSON="$(bash "${RUNNER_TEMP}/trusted/.github/scripts/run-task-outcome.sh" --task-lint "${TASK_LINT_OUTCOME:-}" --post-check "${POST_CHECK_OUTCOME:-}" --usage-limit "${USAGE_LIMIT:-}" --json "${CLAUDE_OUTCOME:-}" "${VERIFY_OUTCOME:-}" "${SUMMARY_OUTCOME:-}" "${VERIFY_REASON:-}")"
+          UL_FIELDS="$(bash "${RUNNER_TEMP}/trusted/.github/scripts/run-task-usage-limit.sh" fields "$(jq -r '.outcome' <<<"$OUTCOME_JSON")")"
           OUTCOME_JSON="$(jq -cn --argjson o "$OUTCOME_JSON" --argjson u "$UL_FIELDS" '$o + $u')"
           printf '%s\n' "$OUTCOME_JSON" > "$OUTCOME_FILE"
           echo "notify ${OUTCOME_JSON}"
