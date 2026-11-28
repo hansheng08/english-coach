@@ -64,3 +64,34 @@ QA 擁有的工作文件。每個進 QA 的 PR 追加一節，不覆寫舊內容
   - 非阻擋備註（不構成缺陷）：① `docs/reports/T-003.md` M12 標題寫 `exit 1`，artifact Bash #28 實為 `Exit code 2`（`TS2578` 失敗本身屬實，以 artifact 為準）；② artifact Bash #9 曾執行一次 `tail -c 200 tooling/lint-rules.test.ts`（不在任務單特別規則 17 清單，但未被權限擋下，對產品與測試無影響）；③ 細微測試補充建議（可於後續單順手補）：`env.test.ts` 只測了 `SUPABASE_ANON_KEY` 單獨觸發 `only_legacy_keys=true`（未單獨測 `SUPABASE_SERVICE_ROLE_KEY`）、`router.test.ts` 未在 `OPTIONS`／錯誤回應額外斷言 `Access-Control-Allow-Headers` 與 `Vary`、`eslint.config.js` 的 `FN_ENTRY` glob（照任務單寫法）也會匹配假設存在的 `_shared/index.ts`。
 - 缺陷：無。
 - 待補驗 AC：本單無。ADR-009 (2) 遠端部署打包依憲章 v5 §0.1 維持「未驗證」，RLS 屬 T-004，前端 `bundle`／`e2e` 屬後續前端單。
+
+## PR（待開）：T-017 Azure Speech adapter（發音評估＋TTS）與 loadAzureSpeechConfig（2026-11-28 02:30 台北時間）
+
+- 分支：task/T-017（library PR，只驗單元層）。驗收的 Claude head：41e48565cd529959a33e35acbf512544c94fe6fc；QA commit 疊在其上，只加 QA 檔。
+- CI run：開 PR 前只有 push run https://github.com/hansheng08/english-coach/actions/runs/46048932565（41e4856，mode full，`ci-ok (push)` success）。這個 run 略過了 db、e2e，列為未驗證，也不算 G3 綠燈。G3 以 PR 觸發的 pull_request run 為準，結果記在 PR 的 QA 驗收留言。
+- 結論：通過。AC-T17-1～AC-T17-11 通過（依 CI 的 TC-1～TC-20 加上 QA 探針 QA-1～QA-11）。本單沒有畫面，預覽與憲章 §15.9 的 UI 檢查不適用。
+- QA 探針：`supabase/functions/_shared/providers/azure-speech/azure-speech.qa.test.ts`（QA-1～QA-11）涵蓋這些情境：
+  - region 的各種非法字元
+  - `Pronunciation-Assessment` 的 UTF-8 base64 剛好五個鍵，標頭剛好四個
+  - 毫秒的四捨五入，以及進位後 `endMs < startMs` 的修正
+  - 只取 `NBest[0]`
+  - 各種格式錯的 `Success` 回應
+  - 狀態大小寫
+  - SSML 屬性值跳脫
+  - `durationMs` 進位
+  - 錯誤表順序與 3xx／4xx／5xx 邊界
+  - `Retry-After` 格式
+  - 金鑰先遮蔽再截斷（不留殘段）
+  - 不重試
+  - 計時器有清掉
+  - 讀錯誤內容時逾時
+  - 中止後才 reject 仍是 timeout
+  - `fetch` 同步丟例外
+- 突變：`docs/qa/mutants/T-017.json` 40 筆，由 CI 的 `taskcheck` 執行，結果以 PR run 為準。
+- 非阻擋備註（不構成缺陷，可列入 A-004 或之後的修正單）：
+  - ① `fetch` 沒有設 `redirect`（預設 follow），真的遇到 3xx 時執行環境會自動跟隨，`Ocp-Apim-Subscription-Key` 標頭也會一起送到轉址目標；表上「3xx → unavailable」只有在執行環境把 3xx 交回來時才適用。Gemini adapter 目前也沒有設。
+  - ② `loadAzureSpeechConfig` 不 trim 金鑰（與 `loadGeminiKey` 相同）：環境變數的金鑰前後若有空白，遮蔽比對的是含空白的字串，回應裡若只出現金鑰本體就不會被遮蔽。
+  - ③ `NoMatch` 等沒聽到聲音的狀態若帶了不是陣列的 `NBest`，會回 `invalid_response` 而不是 `ok`。
+  - ④ `classifyAzureError` 多了選用的第三個參數 `apiKey`（報告已說明，兩個參數時與任務單介面相同）。
+- 缺陷：無。
+- 待補驗 AC：本單無。真實回應格式由 A-004 驗證（任務單「不在本單」）。
