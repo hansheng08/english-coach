@@ -1,5 +1,6 @@
 // O-015 W-5 / W-6 (retro §3.7 C4, C6, C7): the real workflows pass; each mutant fails.
 // O-016: CL-1..CL-3 (cost lint), --no-renames (NR) and the PR-description step (PB) mutants.
+// O-031: SS-* mutants (Supabase start only via supabase-start.sh; policy-only classification).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -15,6 +16,12 @@ const TC = '.github/scripts/taskcheck.sh';
 const PC = '.github/scripts/run-task-post-check.sh';
 const SW = '.github/workflows/ci-supersede.yml';
 const BN_STEP = '      - name: Scan build output for key names\n        run: node tooling/bundle-name-scan.mjs apps/web/dist\n';
+const DBV = '.github/scripts/db-job-verify.sh';
+const SBW = '.github/scripts/supabase-start.sh';
+const SB_E2E = 'bash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector';
+const SB_TC = 'bash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor';
+const SB_DB = 'bash "$(dirname "${BASH_SOURCE[0]}")/supabase-start.sh" --workdir "$WORKDIR" -x "$EXCLUDES"';
+const DB_VERIFY = '      - name: Verify local Supabase, Auth (signup off), functions health, ADR-009 (1)(2), ADR-010 keys\n        run: bash .github/scripts/db-job-verify.sh\n';
 const setBudget = (d, f) => { const p = join(d, BUDGET_FILE); const b = JSON.parse(readFileSync(p, 'utf8')); f(b.max_jobs); writeFileSync(p, JSON.stringify(b)); };
 
 function withCopy(mutate) {
@@ -43,6 +50,18 @@ test('(AC-O29-9) (TC-12) real ci.yml has the bundle scan step after Build, befor
   assert.equal(b.steps[at].continueOnError, null);
   assert.equal(b.steps[at].if, null);
   assert.equal(b.timeout, '10');
+});
+test('(AC-O31-5) (AC-O31-10) (TC-15) (TC-17) real ci.yml starts Supabase only via the wrapper; db runs it after setup-cli', () => {
+  const wf = parseWorkflow(readFileSync(join(ROOT, CI), 'utf8'));
+  assert.equal(wf.jobs.get('e2e').steps.find((x) => x.name === 'Start local Supabase').run, SB_E2E);
+  assert.equal(wf.jobs.get('taskcheck').steps.find((x) => x.name === 'Start local Supabase for pnpm db:test').run, `psql --version\n${SB_TC}`);
+  const db = wf.jobs.get('db').steps;
+  const cli = db.findIndex((x) => (x.uses ?? '').startsWith('supabase/setup-cli@'));
+  assert.ok(cli >= 0 && cli < db.findIndex((x) => x.run === 'bash .github/scripts/db-job-verify.sh'));
+  assert.equal(db.filter((x) => (x.uses ?? '').startsWith('actions/setup-node@')).length, 0);
+  assert.equal(readFileSync(join(ROOT, DBV), 'utf8').split('\n').filter((l) => l.trim() === SB_DB).length, 1);
+  assert.deepEqual([wf.jobs.get('taskcheck').timeout, wf.jobs.get('db').timeout, wf.jobs.get('e2e').timeout], ['40', '20', '20']);
+  assert.equal(wf.jobs.size, 7);
 });
 test('real repo: no findings', () => {
   assert.deepEqual(checkRepo(ROOT), []);
@@ -154,6 +173,24 @@ const MUTANTS = [
   ['BN-M8 (AC-O29-9) (TC-12) bundle scan duplicated', (d) => edit(d, CI, BN_STEP, `${BN_STEP}${BN_STEP.replace('key names', 'key names 2')}`), /exactly one step running bundle-name-scan, found 2/],
   ['BN-M9 (AC-O29-9) (TC-12) bundle timeout raised', (d) => edit(d, CI, "has_web == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 10", "has_web == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 20"), /bundle timeout-minutes must stay 10/],
   ['BN-M10 (AC-O29-9) (TC-12) bundle scan sets working-directory', (d) => edit(d, CI, BN_STEP, `${BN_STEP}        working-directory: apps\n`), /must not set working-directory/],
+  // O-031 (AC-O31-5 / AC-O31-7): Supabase start only through the retry wrapper.
+  ['SS-M1 (AC-O31-5) (TC-15) e2e calls supabase start directly', (d) => edit(d, CI, `run: ${SB_E2E}`, 'run: supabase start -x studio,imgproxy,logflare,vector'), /e2e runs supabase start directly/],
+  ['SS-M2 (AC-O31-5) (TC-15) taskcheck calls supabase start directly', (d) => edit(d, CI, `          ${SB_TC}`, '          supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor'), /taskcheck runs supabase start directly/],
+  ['SS-M3 (AC-O31-5) (TC-15) db-job-verify.sh calls supabase start directly', (d) => edit(d, DBV, SB_DB, 'supabase --workdir "$WORKDIR" start -x "$EXCLUDES" 2>&1 | mask_keys'), /db-job-verify\.sh:\d+: supabase start outside/],
+  ['SS-M4 (AC-O31-5) (TC-15) a new script starts Supabase directly', (d) => writeFileSync(join(d, '.github/scripts/extra.sh'), '#!/usr/bin/env bash\n  supabase start\n'), /extra\.sh:2: supabase start outside/],
+  ['SS-M5 (AC-O31-5) (TC-15) e2e start flags changed', (d) => edit(d, CI, `run: ${SB_E2E}`, `run: ${SB_E2E},mailpit`), /e2e step "Start local Supabase" must run exactly/],
+  ['SS-M6 (AC-O31-5) (TC-15) e2e start gets continue-on-error', (d) => edit(d, CI, `run: ${SB_E2E}\n`, `run: ${SB_E2E}\n        continue-on-error: true\n`), /must not set continue-on-error \(O-031\)/],
+  ['SS-M7 (AC-O31-5) (TC-15) taskcheck start loses its if', (d) => edit(d, CI, "        if: hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')\n        run: |\n          psql", '        run: |\n          psql'), /taskcheck Supabase start must keep if/],
+  ['SS-M8 (AC-O31-5) (TC-15) db-job-verify excludes changed', (d) => edit(d, DBV, 'EXCLUDES="studio,', 'EXCLUDES="db,studio,'), /excludes must stay/],
+  ['SS-M9 (AC-O31-7) (TC-15) wrapper classifies in shell', (d) => edit(d, SBW, 'reserve_ports\nattempt=1', 'reserve_ports\ngrep -qi "Address already in use" /dev/null\nattempt=1'), /contains failure marker "address already in use"/],
+  ['SS-M10 (AC-O31-7) (TC-15) wrapper skips the policy decide', (d) => edit(d, SBW, 'decision="$(node "$POLICY" decide "$attempt" "$kind" "$held")"', 'decision="retry 10"'), /must decide via node "\$POLICY" decide/],
+  ['SS-M11 (AC-O31-7) (TC-15) wrapper skips the policy classify', (d) => edit(d, SBW, 'kind="$(node "$POLICY" classify "$log")"', 'kind="port-bind"'), /must classify via node "\$POLICY" classify/],
+  ['SS-M12 (AC-O31-6) (TC-15) wrapper drops stop --no-backup', (d) => edit(d, SBW, 'supabase "${pre[@]}" stop --no-backup 2>&1', 'supabase "${pre[@]}" stop 2>&1'), /must clean up with supabase stop --no-backup/],
+  ['SS-M13 (AC-O31-10) (TC-17) db verify moved before setup-cli', (d) => { edit(d, CI, DB_VERIFY, ''); edit(d, CI, '      - name: Check Docker\n        run: docker info\n', `      - name: Check Docker\n        run: docker info\n${DB_VERIFY}`); }, /before db-job-verify\.sh \(O-031\)/],
+  ['SS-M14 (AC-O31-10) (TC-17) e2e timeout raised', (d) => edit(d, CI, "has_e2e == 'true' && needs.ci-guard.outputs.is_pr == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 20", "has_e2e == 'true' && needs.ci-guard.outputs.is_pr == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 25"), /e2e timeout-minutes must stay 20 \(O-031\)/],
+  ['SS-M15 (AC-O31-10) (TC-17) ci.yml budget raised to 8', (d) => setBudget(d, (m) => { m['ci.yml'] = 8; }), /budget must stay 7 jobs/],
+  ['SS-M16 (AC-O31-7) (TC-15) wrapper removed', (d) => rmSync(join(d, SBW)), /supabase-start\.sh: missing/],
+  ['SS-M17 (AC-O31-5) (TC-15) db job loses setup-cli', (d) => { const p = join(d, CI); const t = readFileSync(p, 'utf8'); const k = "      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0\n        with:\n          version: ${{ env.SUPABASE_CLI_VERSION }}\n      # O-031: db-job-verify"; assert.ok(t.includes(k)); writeFileSync(p, t.replace(k, '      # O-031: db-job-verify')); }, /db job must use supabase\/setup-cli/],
   ['WF-M16 old pushguard job comes back', (d) => edit(d, CI, '  check:\n', '  pushguard:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  check:\n'), /job pushguard must not exist/],
 ];
 for (const [name, mutate, want] of MUTANTS) {

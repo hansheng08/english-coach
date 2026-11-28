@@ -100,7 +100,7 @@ GitHub 的 `ubuntu-latest` runner 已內建 Docker，不必再裝。`ci.yml` 用
 
 ### 2.2 job 做什麼（腳本：`.github/scripts/db-job-verify.sh`）
 
-1. `supabase start -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor`（排除用不到的服務以省時間；不可排除 `gotrue`、`kong`、`edge-runtime`）。
+1. 經 `.github/scripts/supabase-start.sh --workdir … -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor` 啟動（排除用不到的服務以省時間；不可排除 `gotrue`、`kong`、`edge-runtime`）。暫時性失敗會在同一個 job 內重試，見 §2.5（O-031）。
 2. `supabase db reset`。有 `supabase/tests/` 才跑 `supabase test db`（RLS 測試仍等 T-004）。
 3. 背景執行 `supabase functions serve --no-verify-jwt`（與 ADR-010 的 `verify_jwt = false` 一致，讓請求進到函式內驗證），dummy `--env-file` 使用 ADR-010 的名稱（`GEMINI_API_KEY`、`GROQ_API_KEY`、`AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`、`APP_ALLOWED_ORIGINS` 等），**不是** GitHub secret。
 4. 對 `GET {API_URL}/functions/v1/api/health`（ADR-010、ARCHITECTURE §5.1）做 curl（最多約 30 次、每次 timeout 5 s）：
@@ -124,7 +124,7 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 ### 2.3 失敗時怎麼看
 
 - **job 被略過（skipped）**：不是 PR，或兩個 `config.toml` 都不存在。O-003 之後探針應讓 `has_supabase=true`。
-- **`docker info` 或 `supabase start` 失敗**：映像拉取逾時、或排除的服務名稱拼錯。對照 `supabase start --help` 的 `-x` 清單。
+- **`docker info` 或 `supabase start` 失敗**：映像拉取逾時、或排除的服務名稱拼錯。對照 `supabase start --help` 的 `-x` 清單。綁埠或映像來源的暫時性錯誤先看 `supabase-start:` 證據行與診斷群組（§2.5）。
 - **health 一直連不上**：看該步驟上傳／印出的 `functions-serve.log` 末段；常見是函式編譯失敗或 contracts 路徑不對。
 - **無 JWT 不是 401、或 ANON_KEY 變成 200**：閘道 `verify_jwt` 可能仍開著，或函式沒做 `requireUser`。確認 `config.toml` 有 `[functions.api] verify_jwt = false`，且 serve 有 `--no-verify-jwt`。
 - **`disable_signup=true` 或 signup 被拒檢查失敗**：設定檔 `[auth] enable_signup` 不是 `false`（產品設定或探針）。依 Q-01 改回 `false`，不要為了讓 CI 綠燈而打開註冊。
@@ -151,6 +151,49 @@ timeout 為 20 分鐘（O-001 原為 15，因新增 serve／health／打包檢�
 **ADR-009 (2) 仍為 UNCONFIRMED（未驗證）。** 2026-11-24 08:22 Hansheng 修訂憲章 v5 §0.1：先維持未驗證、不另建專用測試專案、**不擋 T-003 開工**；等之後建立正式免費 Supabase 專案（尚無正式資料時）再實測一次部署（需要的雲端資源或 Secret 仍比照 G4 經 Hansheng 核准）；若屆時打包失敗，依 ADR-009 備案把 contracts／domain 搬到 `supabase/functions/_shared/`。 CLI 3.2.0 的 `functions deploy` 是 remote only、沒有 `--dry-run`，CI 不得部署。目前找不到本機 eszip，腳本以 serve 成功 import／掛載 contracts 作為本機等效，並在日誌標明尚未直接證明「部署包」含 contracts。
 
 要關閉 UNCONFIRMED，需等到下列之一：未來 CLI 提供本機打包或 dry-run，且產物能證明含 contracts；或上述正式免費專案上、經 Hansheng 核准的一次部署能直接證明部署包含 contracts。**T-018 的前端 Vite／`apps/web`／`bundle` job 不算**，不能用來結案 (2)。在此之前 T-003 可繼續做 ADR-009 (3) 與產品骨架。
+
+
+### 2.5 `supabase start` 重試與診斷（O-031）
+
+`e2e`、`taskcheck`、`db` 三處啟動本機 Supabase 一律經過 `.github/scripts/supabase-start.sh`（`db` 由 `db-job-verify.sh` 呼叫，帶 `--workdir`）。失敗分類與「要不要重試、等幾秒」只由 `tooling/supabase-start-policy.mjs` 決定（`node … classify`／`decide`），shell 不另寫分類（`ci-workflow-check` 凍結：腳本內不得出現任何失敗關鍵字，三個呼叫點的旗標與現況相同，`ci.yml` 與 `.github/scripts/*.sh` 不得再直接 `supabase start`）。`claude-run-task.yml` 在 Claude 之前的 `supabase start` 不在 O-031 範圍（由 `claude-permission-check` M34 凍結），仍是單次啟動。
+
+**根因判斷（假設，設計不依賴它）**
+
+- 事實：失敗都是 `failed to bind host port 0.0.0.0:<埠>/tcp: address already in use`。54322（`supabase_db_english-coach`）4 次：run 45945740535（`db`）、46090463476 第 1 次嘗試（`db`）、46095403592（`e2e`）、46098320260（`e2e`）。另外 #146 的 run 46166949622 第 1 次嘗試、`e2e` job 141046714048（2026-11-29 00:48 台北時間）是 `supabase_inbucket_english-coach` 綁 **54324** 失敗。
+- **更正**：O-031 任務單背景寫「只出現在第一個要綁埠的資料庫容器」已過時；同一類衝突也會落在 54320～54329 的其他埠（上例 54324 是 inbucket／mailpit）。這與下面的假設一致（範圍內任一埠都可能被占），重試與整段預留的設計不受影響。
+- 每個 job 是獨立 VM（`docker info` 顯示 `Containers: 0`），不是兩個 job 搶同一台機器的埠。`error from registry: Rate exceeded` 在成功的 job 也有，CLI 3.2.0 會自動改試其他映像來源，不是直接原因。
+- 假設：ephemeral 來源埠範圍（預設 32768～60999）包含 54320～54329，大量映像下載連線的來源埠偶然占到要綁的埠。驗證方式見下面「診斷怎麼讀」。
+
+**重試規則**（定義在 `docs/tasks/O-031.md`「定義」，數字只在策略模組）
+
+- 最多 3 次嘗試（含第一次）；只有 `port-bind`、`registry` 重試；第 1 次失敗後等 10 秒、第 2 次後等 20 秒。
+- 每次失敗都先印診斷；`port-bind`／`registry` 再跑 `supabase stop --no-backup` 清理（本機 CI 資料庫，刪 volume 沒關係）。`stop` 失敗只記 `::warning`，原本的啟動失敗照樣算數。
+- 清理後若 54320～54329 仍有**非 Docker** 行程在 LISTEN，不再重試（重試也沒用）。沒有 `sudo` 看不到行程名稱時，任何 LISTEN 都當成非 Docker（fail-closed）。
+- `fatal`（設定錯誤、健康檢查逾時、遷移失敗、判斷不了的）只嘗試 1 次。第 3 次失敗、`fatal`、埠被占都非 0 結束；只有某次 `supabase start` 結束碼 0 才算成功。
+- 第一次嘗試前把 54320～54329 加進 `net.ipv4.ip_local_reserved_ports`（`sudo -n sysctl -w`，保留 runner 原有值，印讀回值）。這是預防不是驗證；做不到只發 `::warning` 並繼續。
+- 輸出先經與 `db-job-verify.sh` 相同的金鑰遮蔽（`supabase-start-test.sh` 比對兩邊的 sed 規則）。不新增 job、`ci-budget.json` 的 `ci.yml` 上限維持 7、三個 job 的 `timeout-minutes` 不變（最壞多約 30 秒等待加兩次重啟）。
+
+**證據行與診斷怎麼讀**
+
+- 每次嘗試一行、結束一行總結，都以 `supabase-start:` 開頭：
+  - `supabase-start: attempt 1: exit 1 kind=port-bind -> retry in 10s`
+  - `supabase-start: attempt 2: exit 0`
+  - `supabase-start: OK on attempt 2`（或 `supabase-start: FAILED: after 3 attempt(s), kind=port-bind: attempts exhausted`）
+- 診斷在 `supabase-start diagnostics (attempt N, kind K)` 摺疊群組裡，只印埠號、狀態、行程名稱、容器名稱與狀態、ephemeral 範圍，不印環境變數：
+  - 「sockets on 54320-54329」：`ss` 列出這段埠的所有連線。失敗的埠出現 `ESTAB`／`TIME-WAIT`、對端是 `:443`，就是來源埠占用，**支持**假設；出現 `LISTEN` 且行程不是 `docker-proxy`，是別的服務占埠（腳本會停止重試）。
+  - 「containers」：`docker ps -a` 的名稱與狀態，看是哪個 Supabase 容器沒起來。
+  - 「ephemeral port range / reserved ports」：第一行是 ephemeral 範圍，第二行是預留值。預留值已含 `54320-54329` 卻仍綁埠失敗，假設就**被削弱**，要回報幕僚長另查。
+- 統計「靠重試救回」的次數：在 `e2e`、`db`、`taskcheck` 的日誌搜尋 `supabase-start: OK on attempt 2` 與 `supabase-start: OK on attempt 3`，出現一次算救回一次；`supabase-start: FAILED:` 是重試也沒救回。同時記下前一行 `kind=`，區分 `port-bind` 與 `registry`。
+
+**`db` job 的 Node**：腳本要用 `node` 執行策略模組。`supabase/setup-cli` v3.2.0 會確認 runner 有 Node 20 以上，沒有才自己安裝，所以 `db` job 不另加 `setup-node`；`ci-workflow-check` 鎖住「`setup-cli` 在 `db-job-verify.sh` 之前」。若之後 setup-cli 不再保證 Node，腳本會 `node not found` 直接失敗（fail-closed），屆時在同一個 `db` job 加已釘 SHA 的 `actions/setup-node`，不新增 job、不調高逾時。
+
+**CLI 仍釘 3.2.0，不選的方案**
+
+- 映像快取（`docker save` 打包還原）：載入大型 tarball 的時間預期接近重新拉取（未實測）；快取只能由 main 產生，main 的 push 不啟動 Supabase；占用 10 GB 配額；失敗原因也不是拉取。
+- 改 `SUPABASE_INTERNAL_IMAGE_REGISTRY`：設了之後只剩單一候選，反而失去 GHCR 與 Docker Hub 的自動備援。
+- 升級 CLI：3.3.0、3.4.0 的 release notes 看不出與本問題有關，3.4.0 還改了預設啟動方式，風險另案評估。
+
+**接線 PR run 驗證項**：`sudo -n sysctl` 在 GitHub 託管 runner 是否成功（看讀回值那行或 `::warning`）；`sudo -n ss` 能否顯示行程名稱；`db` job 的 `node` 可用。三項都在接線 PR 的 CI 日誌確認，失敗時的處理已寫在上面（警告繼續／無行程名稱視為非 Docker／加 `setup-node`）。
 
 
 ## 3. 執行環境能力表（寫任務單前先對照）

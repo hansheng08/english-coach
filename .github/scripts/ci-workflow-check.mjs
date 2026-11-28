@@ -2,6 +2,7 @@
 // O-016 adds the CI cost lint (CL-1 timeout-minutes 1-60 on every job, CL-2 a top-level
 // concurrency group on every workflow, CL-3 job count <= .github/ci-budget.json), the
 // --no-renames check on the taskcheck / post-check diffs, and the PR-description step.
+// O-031 adds the Supabase start freeze (checkSupabaseStart: wrapper-only starts, policy-only classification).
 // Usage: node ci-workflow-check.mjs <repo root>   -> exit 0 "ci-workflow-check: OK", else exit 1 with findings.
 // The workflows are parsed line by line (2-space YAML as written in this repo); anything the
 // parser does not understand is a finding (fail-closed), never a pass.
@@ -26,6 +27,21 @@ export const PR_BODY_STEP = 'PR description: Actions 分鐘數影響';
 // O-029 (AC-O29-9): frozen bundle scan step.
 export const BUNDLE_SCAN_STEP = 'Scan build output for key names';
 export const BUNDLE_SCAN_RUN = 'node tooling/bundle-name-scan.mjs apps/web/dist';
+// O-031 (AC-O31-5 / AC-O31-7): every local Supabase start in ci.yml goes through the
+// retry wrapper with today's flags; the wrapper classifies only via the policy module.
+export const SB_WRAPPER = '.github/scripts/supabase-start.sh';
+export const SB_POLICY = 'tooling/supabase-start-policy.mjs';
+export const SB_E2E_RUN = 'bash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector';
+export const SB_TASKCHECK_RUN = 'psql --version\nbash .github/scripts/supabase-start.sh -x studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor';
+export const SB_DB_LINE = 'bash "$(dirname "${BASH_SOURCE[0]}")/supabase-start.sh" --workdir "$WORKDIR" -x "$EXCLUDES"';
+export const SB_DB_EXCLUDES = 'EXCLUDES="studio,imgproxy,logflare,vector,mailpit,realtime,postgres-meta,supavisor"';
+export const SB_TIMEOUTS = { taskcheck: '40', db: '20', e2e: '20' };
+const SB_TASKCHECK_IF = "hashFiles('supabase/config.toml') != '' && !(github.event_name == 'push' && github.ref_name == 'main')";
+// A direct start: `supabase [--workdir X] start` outside a comment / echo.
+const SB_DIRECT = /(^|[\s;&|(])supabase(\s+--workdir\s+\S+)?\s+start\b/;
+// Failure-text markers only the policy module may know (no shell classifier, AC-O31-7).
+const SB_MARKERS = ['failed to bind host port', 'address already in use', 'port is already allocated', 'error from registry', 'rate exceeded', 'data limit exceeded', 'toomanyrequests', 'tls handshake timeout', 'unexpected eof', 'i/o timeout'];
+const SETUP_CLI = /^supabase\/setup-cli@[0-9a-f]{40}$/;
 // O-028 item 3: the push-superseded note (commit status; never a required check).
 export const SUPERSEDE_WF = 'ci-supersede.yml';
 export const SUPERSEDE_CONTEXT = 'ci-push-superseded';
@@ -125,13 +141,13 @@ export function parseWorkflow(text) {
         if (section === 'steps') {
           let body = null;
           if (ind === 6 && t.startsWith('- ')) {
-            step = { name: null, id: null, if: null, run: '', env: {}, continueOnError: null, workingDirectory: null };
+            step = { name: null, id: null, if: null, uses: null, run: '', env: {}, continueOnError: null, workingDirectory: null };
             job.steps.push(step);
             body = t.slice(2);
           } else if (ind === 8 && step) body = t;
           if (body !== null) {
             const km = /^([A-Za-z_-]+):\s*(.*)$/.exec(body);
-            if (km && ['name', 'id', 'if', 'run'].includes(km[1])) {
+            if (km && ['name', 'id', 'if', 'run', 'uses'].includes(km[1])) {
               const s = scalarAt(lines, i, km[2]);
               step[km[1]] = km[1] === 'run' ? s.text : unquote(s.text);
               i = s.next; continue;
@@ -164,6 +180,71 @@ export function displayName(job, event) {
   if (!job.name.includes('${{')) return job.name;
   if (job.name === CI_OK_NAME_EXPR) return event === 'pull_request' ? 'ci-ok' : `ci-ok (${event})`;
   return null;
+}
+
+/** O-031 freeze (AC-O31-5, AC-O31-7, AC-O31-10; TC-15, TC-17). */
+function checkSupabaseStart(root, ci, add) {
+  const tag = '(O-031)';
+  // AC-O31-5: no direct `supabase start` in ci.yml steps or .github/scripts shell scripts
+  // (the wrapper and its test excepted; .mjs files only mention the command).
+  for (const job of ci.jobs.values()) {
+    for (const st of job.steps) {
+      st.run.split('\n').forEach((l) => {
+        if (!/^\s*(#|echo\b)/.test(l) && SB_DIRECT.test(l)) add(`ci.yml: job ${job.id} runs supabase start directly; use bash ${SB_WRAPPER} ${tag}: ${l.trim()}`);
+      });
+    }
+  }
+  const scriptsDir = join(root, '.github/scripts');
+  for (const n of readdirSync(scriptsDir).filter((x) => x.endsWith('.sh')).sort()) {
+    if (n === 'supabase-start.sh' || n === 'supabase-start-test.sh') continue;
+    readFileSync(join(scriptsDir, n), 'utf8').split(/\r?\n/).forEach((l, k) => {
+      if (!/^\s*(#|echo\b)/.test(l) && SB_DIRECT.test(l)) add(`.github/scripts/${n}:${String(k + 1)}: supabase start outside ${SB_WRAPPER} ${tag}`);
+    });
+  }
+  // The call sites, exact and fail-closed (no continue-on-error, conditions unchanged).
+  const site = (jobId, stepName, want) => {
+    const j = ci.jobs.get(jobId);
+    if (!j) return null;
+    const st = j.steps.find((x) => x.name === stepName);
+    if (!st) { add(`ci.yml: ${jobId} step "${stepName}" missing ${tag}`); return null; }
+    if (st.run !== want) add(`ci.yml: ${jobId} step "${stepName}" must run exactly ${JSON.stringify(want)} ${tag}`);
+    if (st.continueOnError !== null) add(`ci.yml: ${jobId} step "${stepName}" must not set continue-on-error ${tag}`);
+    return st;
+  };
+  const e = site('e2e', 'Start local Supabase', SB_E2E_RUN);
+  if (e && e.if !== null) add(`ci.yml: e2e step "Start local Supabase" must not have an if ${tag}`);
+  const t = site('taskcheck', 'Start local Supabase for pnpm db:test', SB_TASKCHECK_RUN);
+  if (t && t.if !== SB_TASKCHECK_IF) add(`ci.yml: taskcheck Supabase start must keep if: ${SB_TASKCHECK_IF} ${tag}`);
+  // db: the wrapper runs inside db-job-verify.sh and needs node for the policy module;
+  // setup-cli guarantees Node >= 20, so the verify step must come after it (TC-17).
+  const db = ci.jobs.get('db');
+  if (db) {
+    const cli = db.steps.findIndex((x) => x.uses !== null && SETUP_CLI.test(x.uses.replace(/\s+#.*$/, '')));
+    const ver = db.steps.findIndex((x) => x.run === 'bash .github/scripts/db-job-verify.sh');
+    if (cli < 0) add(`ci.yml: db job must use supabase/setup-cli (pinned) ${tag}`);
+    if (ver < 0) add(`ci.yml: db job must run bash .github/scripts/db-job-verify.sh ${tag}`);
+    else {
+      if (cli > ver) add(`ci.yml: db job must run setup-cli (provides Node for the policy module) before db-job-verify.sh ${tag}`);
+      if (db.steps[ver].if !== null || db.steps[ver].continueOnError !== null) add(`ci.yml: db verify step must have no if / continue-on-error ${tag}`);
+    }
+  }
+  const dbv = readFileSync(join(scriptsDir, 'db-job-verify.sh'), 'utf8').split(/\r?\n/);
+  if (dbv.filter((l) => l.trim() === SB_DB_LINE).length !== 1) add(`db-job-verify.sh: must start Supabase exactly once via: ${SB_DB_LINE} ${tag}`);
+  if (!dbv.some((l) => l.trim() === SB_DB_EXCLUDES)) add(`db-job-verify.sh: excludes must stay ${SB_DB_EXCLUDES} ${tag}`);
+  for (const [id, want] of Object.entries(SB_TIMEOUTS)) {
+    const j = ci.jobs.get(id);
+    if (j && j.timeout !== want) add(`ci.yml: ${id} timeout-minutes must stay ${want} ${tag}`);
+  }
+  // AC-O31-7: the wrapper delegates classify + decide to the policy module; no shell classifier.
+  let w = '';
+  try { w = readFileSync(join(root, SB_WRAPPER), 'utf8'); } catch { add(`${SB_WRAPPER}: missing ${tag}`); return; }
+  const code = w.split(/\r?\n/).filter((l) => !/^\s*#/.test(l)).join('\n');
+  if (!code.includes('kind="$(node "$POLICY" classify "$log")"')) add(`${SB_WRAPPER}: must classify via node "$POLICY" classify ${tag}`);
+  if (!code.includes('decision="$(node "$POLICY" decide "$attempt" "$kind" "$held")"')) add(`${SB_WRAPPER}: must decide via node "$POLICY" decide ${tag}`);
+  if (!code.includes(`POLICY="\${SUPABASE_START_POLICY:-$HERE/../../${SB_POLICY}}"`)) add(`${SB_WRAPPER}: POLICY must default to ${SB_POLICY} ${tag}`);
+  const low = code.toLowerCase();
+  for (const m of SB_MARKERS) if (low.includes(m)) add(`${SB_WRAPPER}: contains failure marker "${m}"; classification belongs to ${SB_POLICY} only ${tag}`);
+  if (!code.includes('supabase "${pre[@]}" stop --no-backup')) add(`${SB_WRAPPER}: must clean up with supabase stop --no-backup before a retry ${tag}`);
 }
 
 export function checkRepo(root) {
@@ -276,6 +357,7 @@ export function checkRepo(root) {
     if (scans.length !== 1) add(`ci.yml: bundle must have exactly one step running bundle-name-scan, found ${String(scans.length)} (O-029)`);
     if (bundle.timeout !== '10') add('ci.yml: bundle timeout-minutes must stay 10 (O-029)');
   }
+  checkSupabaseStart(root, ci, add);
   const ok = ci.jobs.get('ci-ok');
   if (ok) {
     if (ok.name !== CI_OK_NAME_EXPR) add(`ci.yml: ci-ok name must be ${CI_OK_NAME_EXPR} (C4)`);
@@ -342,6 +424,7 @@ export function checkRepo(root) {
         const n = max[f];
         if (n === undefined) { add(`${BUDGET_FILE}: workflow ${f} is not listed (CL-3)`); continue; }
         if (!Number.isInteger(n) || n < 1) { add(`${BUDGET_FILE}: ${f} limit must be a positive integer (CL-3), got ${JSON.stringify(n)}`); continue; }
+        if (f === 'ci.yml' && n !== 7) add(`ci.yml: budget must stay 7 jobs in ${BUDGET_FILE} (O-031), got ${String(n)}`);
         if (wf.jobs.size > n) add(`${f}: ${String(wf.jobs.size)} jobs exceed the budget of ${String(n)} in ${BUDGET_FILE} (CL-3)`);
       }
       for (const f of Object.keys(max)) if (!workflows.has(f)) add(`${BUDGET_FILE}: ${f} is not a workflow (stale entry, CL-3)`);
