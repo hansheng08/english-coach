@@ -14,6 +14,7 @@ const W = '.github/workflows/';
 const TC = '.github/scripts/taskcheck.sh';
 const PC = '.github/scripts/run-task-post-check.sh';
 const SW = '.github/workflows/ci-supersede.yml';
+const BN_STEP = '      - name: Scan build output for key names\n        run: node tooling/bundle-name-scan.mjs apps/web/dist\n';
 const setBudget = (d, f) => { const p = join(d, BUDGET_FILE); const b = JSON.parse(readFileSync(p, 'utf8')); f(b.max_jobs); writeFileSync(p, JSON.stringify(b)); };
 
 function withCopy(mutate) {
@@ -32,6 +33,17 @@ function edit(dir, rel, from, to) {
   writeFileSync(p, s.replace(from, to));
 }
 
+test('(AC-O29-9) (TC-12) real ci.yml has the bundle scan step after Build, before gitleaks, fail-closed', () => {
+  const b = parseWorkflow(readFileSync(join(ROOT, CI), 'utf8')).jobs.get('bundle');
+  const names = b.steps.map((x) => x.name);
+  const at = names.indexOf('Scan build output for key names');
+  assert.ok(at > names.indexOf('Build') && names.indexOf('Build') >= 0);
+  assert.ok(at < names.indexOf('Scan build output'));
+  assert.equal(b.steps[at].run, 'node tooling/bundle-name-scan.mjs apps/web/dist');
+  assert.equal(b.steps[at].continueOnError, null);
+  assert.equal(b.steps[at].if, null);
+  assert.equal(b.timeout, '10');
+});
 test('real repo: no findings', () => {
   assert.deepEqual(checkRepo(ROOT), []);
 });
@@ -132,6 +144,16 @@ const MUTANTS = [
   ['SU-M10 (AC-O28-8) ci-ok Decide drops MODE_REASON', (d) => edit(d, CI, '          MODE_REASON: ${{ needs.ci-guard.outputs.mode_reason }}\n', ''), /must pass MODE_REASON/],
   ['SU-M11 (AC-O28-8) ci-guard drops the mode_reason output', (d) => edit(d, CI, '      mode_reason: ${{ steps.mode.outputs.mode_reason }}\n', ''), /must output mode_reason/],
   ['SU-M12 (AC-O28-9) ci-supersede-test.sh not wired', (d) => edit(d, CI, '          bash .github/scripts/ci-supersede-test.sh\n', ''), /does not run: bash \.github\/scripts\/ci-supersede-test\.sh/],
+  ['BN-M1 (AC-O29-9) (TC-12) bundle scan step removed', (d) => edit(d, CI, BN_STEP, ''), /bundle step "Scan build output for key names" missing/],
+  ['BN-M2 (AC-O29-9) (TC-12) bundle scan moved before Build', (d) => { edit(d, CI, BN_STEP, ''); edit(d, CI, '      - name: Build\n', `${BN_STEP}      - name: Build\n`); }, /must come after the Build step/],
+  ['BN-M3 (AC-O29-9) (TC-12) bundle scan gets continue-on-error', (d) => edit(d, CI, BN_STEP, `${BN_STEP}        continue-on-error: true\n`), /must not set continue-on-error/],
+  ['BN-M4 (AC-O29-9) (TC-12) bundle scan reads another folder', (d) => edit(d, CI, 'bundle-name-scan.mjs apps/web/dist', 'bundle-name-scan.mjs apps/web/src'), /must run exactly node tooling\/bundle-name-scan\.mjs apps\/web\/dist/],
+  ['BN-M5 (AC-O29-9) (TC-12) bundle scan ends with || true', (d) => edit(d, CI, 'bundle-name-scan.mjs apps/web/dist', 'bundle-name-scan.mjs apps/web/dist || true'), /must run exactly node tooling\/bundle-name-scan\.mjs apps\/web\/dist/],
+  ['BN-M6 (AC-O29-9) (TC-12) bundle scan gets if: false', (d) => edit(d, CI, BN_STEP, `${BN_STEP.replace('\n        run:', '\n        if: false\n        run:')}`), /must not have an if/],
+  ['BN-M7 (AC-O29-9) (TC-12) bundle scan moved after the gitleaks scan', (d) => { edit(d, CI, BN_STEP, ''); const p = join(d, CI); const t = readFileSync(p, 'utf8'); const k = '      - name: Scan build output\n'; const at = t.indexOf(k); const end = t.indexOf('\n\n', at); writeFileSync(p, `${t.slice(0, end)}\n${BN_STEP.trimEnd()}${t.slice(end)}`); }, /must come before the gitleaks "Scan build output" step/],
+  ['BN-M8 (AC-O29-9) (TC-12) bundle scan duplicated', (d) => edit(d, CI, BN_STEP, `${BN_STEP}${BN_STEP.replace('key names', 'key names 2')}`), /exactly one step running bundle-name-scan, found 2/],
+  ['BN-M9 (AC-O29-9) (TC-12) bundle timeout raised', (d) => edit(d, CI, "has_web == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 10", "has_web == 'true'\n    runs-on: ubuntu-latest\n    timeout-minutes: 20"), /bundle timeout-minutes must stay 10/],
+  ['BN-M10 (AC-O29-9) (TC-12) bundle scan sets working-directory', (d) => edit(d, CI, BN_STEP, `${BN_STEP}        working-directory: apps\n`), /must not set working-directory/],
   ['WF-M16 old pushguard job comes back', (d) => edit(d, CI, '  check:\n', '  pushguard:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  check:\n'), /job pushguard must not exist/],
 ];
 for (const [name, mutate, want] of MUTANTS) {
