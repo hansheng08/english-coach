@@ -61,6 +61,37 @@ export function loadSupabaseEnv(get: EnvGetter): Result<SupabaseEnv, AppError> {
   return ok({ url, publishableKey });
 }
 
+export type SupabaseSecretEnv = { readonly url: string; readonly secretKey: string };
+
+const SecretKeysSchema = z.object({ default: z.string().min(1) });
+
+function secretKeyOf(get: EnvGetter): string | undefined {
+  const raw = get('SUPABASE_SECRET_KEYS');
+  if (raw !== undefined && raw.length > 0) {
+    const json = tryCatch(
+      (): unknown => JSON.parse(raw),
+      () => null,
+    );
+    if (json.ok) {
+      const parsed = SecretKeysSchema.safeParse(json.value);
+      if (parsed.success) return parsed.data.default;
+    }
+  }
+  const single = get('SUPABASE_SECRET_KEY');
+  return single !== undefined && single.length > 0 ? single : undefined;
+}
+
+/** 只給 daily-prep、purge-audio（CLAUDE.md §5 第 14 條）。錯誤訊息只有變數名稱，不含任何值。 */
+export function loadSupabaseSecretEnv(get: EnvGetter): Result<SupabaseSecretEnv, AppError> {
+  const url = get('SUPABASE_URL');
+  if (url === undefined || url.length === 0) return err({ kind: 'internal', message: 'missing env SUPABASE_URL' });
+  const secretKey = secretKeyOf(get);
+  if (secretKey === undefined) {
+    return err({ kind: 'internal', message: 'missing env SUPABASE_SECRET_KEYS (default) or SUPABASE_SECRET_KEY' });
+  }
+  return ok({ url, secretKey });
+}
+
 export function loadAllowedOrigins(get: EnvGetter): readonly string[] {
   const raw = get('APP_ALLOWED_ORIGINS');
   if (raw === undefined) return [];

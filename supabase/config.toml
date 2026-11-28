@@ -437,3 +437,7 @@ enabled = true
 [functions.api]
 verify_jwt = false
 import_map = "./functions/deno.json"
+
+[functions.purge-audio]
+verify_jwt = false
+import_map = "./functions/deno.json"

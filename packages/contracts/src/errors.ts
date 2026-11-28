@@ -12,7 +12,7 @@ export type AppError =
   | { kind: 'unauthenticated'; message: string }
   | { kind: 'not_found'; entity: Entity; message: string }
   | { kind: 'conflict'; entity: Entity; message: string }
-  | { kind: 'storage_failed'; op: 'upload' | 'download' | 'delete' | 'sign'; message: string }
+  | { kind: 'storage_failed'; op: 'upload' | 'download' | 'delete' | 'sign' | 'list'; message: string }
   | { kind: 'db_failed'; message: string }
   | { kind: 'news_unavailable'; category: NewsCategory; message: string } // 正常只在 daily-prep 內部流通；httpStatusOf 仍回 503（見對照表）
   | { kind: 'plan_not_ready'; message: string }
