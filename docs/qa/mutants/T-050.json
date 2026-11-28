@@ -1,0 +1,1053 @@
+{
+  "task": "T-050",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/domain/src/prng.ts",
+      "before": "a = (a + 0x6d2b79f5) >>> 0;",
+      "after": "a = (a + 0x6d2b79f4) >>> 0;",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/domain/src/prng.ts",
+      "before": "let a = seed >>> 0;",
+      "after": "let a = seed;",
+      "expectFail": [
+        "(QA-1)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/domain/src/prng.ts",
+      "before": "t = Math.imul(t ^ (t >>> 15), t | 1);",
+      "after": "t = Math.imul(t ^ (t >>> 14), t | 1);",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/domain/src/prng.ts",
+      "before": "t = Math.imul(t ^ (t >>> 15), t | 1);",
+      "after": "t = Math.imul(t ^ (t >>> 15), t | 2);",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/domain/src/prng.ts",
+      "before": "t ^= t + Math.imul(t ^ (t >>> 7), t | 61);",
+      "after": "t ^= t + Math.imul(t ^ (t >>> 8), t | 61);",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/domain/src/prng.ts",
+      "before": "t ^= t + Math.imul(t ^ (t >>> 7), t | 61);",
+      "after": "t ^= t + Math.imul(t ^ (t >>> 7), t | 63);",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/domain/src/prng.ts",
+      "before": "t ^= t + Math.imul(",
+      "after": "t ^= t - Math.imul(",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return ((t ^ (t >>> 14)) >>> 0) / 4294967296;",
+      "after": "return ((t ^ (t >>> 13)) >>> 0) / 4294967296;",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return ((t ^ (t >>> 14)) >>> 0) / 4294967296;",
+      "after": "return ((t ^ (t >>> 14)) >>> 0) / 4294967295;",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return ((t ^ (t >>> 14)) >>> 0) / 4294967296;",
+      "after": "return (t ^ (t >>> 14)) / 4294967296;",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return ((t ^ (t >>> 14)) >>> 0) / 4294967296;",
+      "after": "return ((t ^ (t >>> 14)) >>> 0) / 2147483648;",
+      "expectFail": [
+        "(TC-1)",
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const k = Math.min(Math.max(0, Math.floor(n)), copy.length);",
+      "after": "const k = Math.min(Math.floor(n), copy.length);",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const k = Math.min(Math.max(0, Math.floor(n)), copy.length);",
+      "after": "const k = Math.min(Math.max(1, Math.floor(n)), copy.length);",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const k = Math.min(Math.max(0, Math.floor(n)), copy.length);",
+      "after": "const k = Math.max(Math.max(0, Math.floor(n)), copy.length);",
+      "expectFail": [
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const k = Math.min(Math.max(0, Math.floor(n)), copy.length);",
+      "after": "const k = Math.min(Math.max(0, Math.floor(n)), copy.length - 1);",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const next = mulberry32(seed);",
+      "after": "const next = mulberry32(seed + 1);",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const j = i + Math.floor(next() * (copy.length - i));",
+      "after": "const j = Math.floor(next() * (copy.length - i));",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const j = i + Math.floor(next() * (copy.length - i));",
+      "after": "const j = i + Math.floor(next() * copy.length);",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const j = i + Math.floor(next() * (copy.length - i));",
+      "after": "const j = i + Math.floor(next() * (copy.length - i - 1));",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const j = i + Math.floor(next() * (copy.length - i));",
+      "after": "const j = i + Math.ceil(next() * (copy.length - i));",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const j = i + Math.floor(next() * (copy.length - i));",
+      "after": "const j = i + Math.floor(next() * (k - i));",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/domain/src/prng.ts",
+      "before": "for (let i = 0; i < k; i++) {",
+      "after": "for (let i = 1; i < k; i++) {",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)",
+        "(QA-7)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/domain/src/prng.ts",
+      "before": "for (let i = 0; i < k; i++) {",
+      "after": "for (let i = 0; i < k - 1; i++) {",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/domain/src/prng.ts",
+      "before": "copy[i] = b;\n    copy[j] = a;",
+      "after": "copy[i] = b;\n    copy[j] = b;",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-4)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/domain/src/prng.ts",
+      "before": "copy[i] = b;\n    copy[j] = a;",
+      "after": "copy[i] = a;\n    copy[j] = a;",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-4)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/domain/src/prng.ts",
+      "before": "copy[i] = b;\n    copy[j] = a;",
+      "after": "copy[i] = b;",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-4)",
+        "(QA-5)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return copy.slice(0, k).map((w) => w.value);",
+      "after": "return copy.slice(0, k + 1).map((w) => w.value);",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return copy.slice(0, k).map((w) => w.value);",
+      "after": "return copy.slice(1, k + 1).map((w) => w.value);",
+      "expectFail": [
+        "(TC-3)",
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/domain/src/prng.ts",
+      "before": "return copy.slice(0, k).map((w) => w.value);",
+      "after": "return copy.slice(0, k).reverse().map((w) => w.value);",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const copy = items.map((value) => ({ value }));",
+      "after": "const copy = items.map((value) => ({ value })).reverse();",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const copy = items.map((value) => ({ value }));",
+      "after": "const copy = items.filter((value) => value !== undefined).map((value) => ({ value }));",
+      "expectFail": [
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/domain/src/prng.ts",
+      "before": "let hash = 0x811c9dc5;",
+      "after": "let hash = 0x811c9dc4;",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/domain/src/prng.ts",
+      "before": "hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;",
+      "after": "hash = Math.imul(hash ^ byte, 0x01000192) >>> 0;",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/domain/src/prng.ts",
+      "before": "hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;",
+      "after": "hash = Math.imul(hash + byte, 0x01000193) >>> 0;",
+      "expectFail": [
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/domain/src/prng.ts",
+      "before": "hash = Math.imul(hash ^ byte, 0x01000193) >>> 0;",
+      "after": "hash = Math.imul(hash ^ byte, 0x01000193);",
+      "expectFail": [
+        "(TC-5)",
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/domain/src/prng.ts",
+      "before": "for (const byte of utf8Bytes(s)) {",
+      "after": "for (const byte of utf8Bytes(s).reverse()) {",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/domain/src/prng.ts",
+      "before": "if (c < 0x80) bytes.push(c);",
+      "after": "if (c < 0x7f) bytes.push(c);",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/domain/src/prng.ts",
+      "before": "if (c < 0x80) bytes.push(c);",
+      "after": "if (c <= 0x80) bytes.push(c);",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "after": "else if (c < 0x7ff) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else if (c < 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "after": "else if (c <= 0x800) bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xc0 | (c >> 5), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3e));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xc0 | (c >> 6), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xc0 | (c >> 6), 0x40 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else if (c < 0x10000) bytes.push(",
+      "after": "else if (c < 0xffff) bytes.push(",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else if (c < 0x10000) bytes.push(",
+      "after": "else if (c <= 0x10000) bytes.push(",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3e), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)",
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3e));",
+      "expectFail": [
+        "(QA-9)",
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/domain/src/prng.ts",
+      "before": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "bytes.push(0xe0 | (c >> 12), 0x80 | ((c >> 6) & 0x3f));",
+      "expectFail": [
+        "(QA-9)",
+        "(TC-6)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "else bytes.push(0xf0 | (c >> 17), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3e), 0x80 | (c & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "packages/domain/src/prng.ts",
+      "before": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3f));",
+      "after": "else bytes.push(0xf0 | (c >> 18), 0x80 | ((c >> 12) & 0x3f), 0x80 | ((c >> 6) & 0x3f), 0x80 | (c & 0x3d));",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp > 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp >= 0xd800 && cp < 0xdfff ? 0xfffd : cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp >= 0xd7ff && cp <= 0xdfff ? 0xfffd : cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp >= 0xd800 && cp <= 0xe000 ? 0xfffd : cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp >= 0xd800 || cp <= 0xdfff ? 0xfffd : cp;",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffc : cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "packages/domain/src/prng.ts",
+      "before": "const c = cp >= 0xd800 && cp <= 0xdfff ? 0xfffd : cp;",
+      "after": "const c = cp;",
+      "expectFail": [
+        "(QA-9)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "packages/domain/src/prng.ts",
+      "before": "for (const ch of s) {",
+      "after": "for (const ch of s.split('')) {",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { mulberry32, sampleWithSeed, seedFromString } from './prng.ts';",
+      "after": "export { mulberry32, sampleWithSeed } from './prng.ts';",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { mulberry32, sampleWithSeed, seedFromString } from './prng.ts';",
+      "after": "export { mulberry32, seedFromString } from './prng.ts';",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M63",
+      "file": "packages/domain/src/index.ts",
+      "before": "export { mulberry32, sampleWithSeed, seedFromString } from './prng.ts';",
+      "after": "export { sampleWithSeed, seedFromString } from './prng.ts';",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M64",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "export const SEED_SAMPLE_SEED = 20261127;",
+      "after": "export const SEED_SAMPLE_SEED = 20261128;",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M65",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "export const SEED_SAMPLE_SIZE = 20;",
+      "after": "export const SEED_SAMPLE_SIZE = 21;",
+      "expectFail": [
+        "(TC-7)"
+      ]
+    },
+    {
+      "id": "M66",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return s.replace(/\\|/g, '\\\\|');",
+      "after": "return s.replace(/\\|/, '\\\\|');",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M67",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return s.replace(/\\|/g, '\\\\|');",
+      "after": "return s;",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M68",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return s.replace(/\\|/g, '\\\\|');",
+      "after": "return s.replace(/\\|/g, '/');",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M69",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${cell(item.chunk)}",
+      "after": "${item.chunk}",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M70",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${cell(item.meaning_zh)}",
+      "after": "${item.meaning_zh}",
+      "expectFail": [
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M71",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${cell(item.example_en)}",
+      "after": "${item.example_en}",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-12)"
+      ]
+    },
+    {
+      "id": "M72",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED);",
+      "after": "const picked = batch.items.slice(0, SEED_SAMPLE_SIZE);",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)",
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M73",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED);",
+      "after": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED + 1);",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)",
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M74",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED);",
+      "after": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SEED, SEED_SAMPLE_SIZE);",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)",
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M75",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE, SEED_SAMPLE_SEED);",
+      "after": "const picked = sampleWithSeed(batch.items, SEED_SAMPLE_SIZE - 1, SEED_SAMPLE_SEED);",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M76",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const n = String(batch.batch);\n  const picked",
+      "after": "const n = String(batch.batch + 1);\n  const picked",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M77",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const title = `# T-050 seed_chunk batch ${n} sample",
+      "after": "const title = `# T-050 seed_chunk batch ${n}  sample",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M78",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "(SEED_SAMPLE_SEED ${String(SEED_SAMPLE_SEED)}, ${String(picked.length)} of",
+      "after": "(SEED_SAMPLE_SEED ${String(SEED_SAMPLE_SIZE)}, ${String(picked.length)} of",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M79",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${String(picked.length)} of ${String(batch.items.length)};",
+      "after": "${String(SEED_SAMPLE_SIZE)} of ${String(batch.items.length)};",
+      "expectFail": [
+        "(QA-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M80",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${String(picked.length)} of ${String(batch.items.length)};",
+      "after": "${String(picked.length)} of ${String(SEED_SAMPLE_SIZE)};",
+      "expectFail": [
+        "(QA-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M81",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "${String(picked.length)} of ${String(batch.items.length)};",
+      "after": "${String(picked.length)} of 100;",
+      "expectFail": [
+        "(QA-13)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M82",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "; source supabase/seed-chunks/batch-${n}.json)`;",
+      "after": "; source supabase/seed-chunks/batch-1.json)`;",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M83",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const tags = item.tags.length === 0 ? '-' : item.tags.join(', ');",
+      "after": "const tags = item.tags.length === 0 ? '' : item.tags.join(', ');",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M84",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const tags = item.tags.length === 0 ? '-' : item.tags.join(', ');",
+      "after": "const tags = item.tags.length === 0 ? '-' : item.tags.join(',');",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M85",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const tags = item.tags.length === 0 ? '-' : item.tags.join(', ');",
+      "after": "const tags = item.tags.length === 0 ? '-' : item.tags[0] ?? '-';",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M86",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const tags = item.tags.length === 0 ? '-' : item.tags.join(', ');",
+      "after": "const tags = item.tags.length <= 1 ? '-' : item.tags.join(', ');",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M87",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return `| ${String(i + 1)} | ${cell(item.chunk)}",
+      "after": "return `| ${String(i)} | ${cell(item.chunk)}",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M88",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "| ${cell(item.example_en)} | ${cell(tags)} |`;",
+      "after": "| ${cell(item.example_en)} | ${cell(tags)}`;",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M89",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "| ${cell(item.meaning_zh)} | ${cell(item.example_en)}",
+      "after": "| ${cell(item.example_en)} | ${cell(item.meaning_zh)}",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M90",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows].join('\\n')}\\n`;",
+      "after": "return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows].join('\\n')}`;",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M91",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows].join('\\n')}\\n`;",
+      "after": "return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows].join('\\n')}\\n\\n`;",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M92",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return `${[title, '', '| # | chunk | meaning_zh | example_en | tags |'",
+      "after": "return `${[title, '| # | chunk | meaning_zh | example_en | tags |'",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M93",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "'| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows]",
+      "after": "'| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows.reverse()]",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M94",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "'| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows]",
+      "after": "'| # | chunk | meaning_zh | example_en | tags |', '|---|---|---|---|---|', ...rows.slice(1)]",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M95",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "'|---|---|---|---|---|'",
+      "after": "'|---|---|---|---|'",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M96",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "array[2], '(AC-T4-5) authenticated can read seed_chunk'",
+      "after": "array[3], '(AC-T4-5) authenticated can read seed_chunk'",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M97",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "select plan(47);",
+      "after": "select plan(46);",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M98",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "'e0000000-0000-4000-8000-000000000051', 't004 fixture one', '測試資料一'",
+      "after": "'e0000000-0000-4000-8000-000000000051', 'circle back', '測試資料一'",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-26)"
+      ]
+    },
+    {
+      "id": "M99",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "'測試資料二', 'This is t004 fixture two.'",
+      "after": "'測試資料二', 'This is t004 fixture 2.'",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M100",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "values ('a0000000-0000-4000-8000-000000000001', 't004 fixture one', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '(AC-T4-5) a seed card can point to an unused seed'",
+      "after": "values ('a0000000-0000-4000-8000-000000000001', 't004 fixture two', 'seed', 'e0000000-0000-4000-8000-000000000051')$$, '(AC-T4-5) a seed card can point to an unused seed'",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M101",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "where id in ('e0000000-0000-4000-8000-000000000051', 'e0000000-0000-4000-8000-000000000052')$$, array[2]",
+      "after": "where id in ('e0000000-0000-4000-8000-000000000051')$$, array[2]",
+      "expectFail": [
+        "(TC-16)"
+      ]
+    },
+    {
+      "id": "M102",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "-- AC-T4-5: seed_chunk is read-only for users; one card per seed\n",
+      "after": "-- AC-T4-5: seed_chunk is read-only for users; one card per seed\n\n",
+      "expectFail": [
+        "(TC-16)",
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M103",
+      "file": "supabase/tests/t004_rls_test.sql",
+      "before": "select results_eq($$select count(*)::int from public.seed_chunk where id in",
+      "after": "select results_eq($$select count(*)::int from public.seed_chunk where batch = 1 or id in",
+      "expectFail": [
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M104",
+      "file": "supabase/seed-chunks/batch-1.json",
+      "before": "\"meaning_zh\": \"負責某件事\"",
+      "after": "\"meaning_zh\": \"負責某個事\"",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M105",
+      "file": "supabase/seed-chunks/batch-1.json",
+      "before": "\"chunk\": \"attach the file\"",
+      "after": "\"chunk\": \"let sb know\"",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M106",
+      "file": "supabase/migrations/20261129000201_t050_seed_chunk_batch_1.sql",
+      "before": "'負責某件事'",
+      "after": "'負責某個事'",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    },
+    {
+      "id": "M107",
+      "file": "supabase/seed-chunks/batch-1.sample.md",
+      "before": "| 1 | attach the file | 附上檔案 |",
+      "after": "| 1 | attach a file | 附上檔案 |",
+      "expectFail": [
+        "(TC-11)"
+      ]
+    }
+  ]
+}
