@@ -258,6 +258,15 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/seed-data:
+    dependencies:
+      '@english-coach/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@english-coach/domain':
+        specifier: workspace:*
+        version: link:../domain
+
   supabase/functions:
     dependencies:
       '@english-coach/contracts':

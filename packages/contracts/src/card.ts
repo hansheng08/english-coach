@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CardIdSchema, PlanDateSchema, StoragePathSchema } from './ids.ts';
+import { newsWords } from './news.ts';
 
 export const CARD_STATES = ['collected', 'learning', 'reviewing', 'mastered'] as const;
 export const CardStateSchema = z.enum(CARD_STATES);
@@ -58,6 +59,56 @@ const HAS_LETTER = /[A-Za-z]/;
 export const ChunkTextSchema: z.ZodType<string> = z
   .string()
   .refine((s) => s.split(' ').every((w) => CHUNK_WORD.test(w) && HAS_LETTER.test(w)), { message: 'chunk text format' });
+
+/** 種子庫的主題標籤（ARCHITECTURE §4.10，ADR-016 決定 2；順序固定）。 */
+export const SEED_TAGS = ['meeting', 'presentation', 'negotiation', 'interview', 'email', 'project', 'technical', 'small-talk'] as const;
+export const SeedTagSchema = z.enum(SEED_TAGS);
+
+/** 每批剛好 100 筆（Q-10：6 批 × 100）。 */
+export const SEED_BATCH_SIZE = 100;
+
+const SEED_MEANING_MAX = 30;
+const SEED_EXAMPLE_MIN_WORDS = 5;
+const SEED_EXAMPLE_MAX_WORDS = 25;
+const HAN = /\p{Script=Han}/u;
+
+function hasControlChar(s: string): boolean {
+  return Array.from(s).some((c) => {
+    const n = c.codePointAt(0) ?? 0;
+    return n <= 0x1f || n === 0x7f;
+  });
+}
+
+/** R2：trim 後等於原值、沒有控制字元、1～30 字元（code point）、至少 1 個漢字。 */
+function isSeedMeaning(s: string): boolean {
+  const length = Array.from(s).length;
+  return s.trim() === s && !hasControlChar(s) && length >= 1 && length <= SEED_MEANING_MAX && HAN.test(s);
+}
+
+/** R3：trim 後等於原值、5～25 個字（newsWords）、沒有 `/` 與換行。 */
+function isSeedExample(s: string): boolean {
+  const words = newsWords(s).length;
+  return s.trim() === s && words >= SEED_EXAMPLE_MIN_WORDS && words <= SEED_EXAMPLE_MAX_WORDS && !s.includes('/') && !/[\r\n]/.test(s);
+}
+
+/** 種子庫的一筆 chunk（ARCHITECTURE §4.10 R1、R2、R3、R5）。 */
+export const SeedChunkSchema = z.object({
+  chunk: ChunkTextSchema.refine((s) => s.split(' ').length >= 2 && s.split(' ').length <= 6, { message: 'chunk must have 2 to 6 words' }),
+  meaning_zh: z.string().refine(isSeedMeaning, { message: 'meaning_zh format' }),
+  example_en: z.string().refine(isSeedExample, { message: 'example_en format' }),
+  tags: z
+    .array(SeedTagSchema)
+    .max(3)
+    .refine((tags) => new Set(tags).size === tags.length, { message: 'tags must be unique' }),
+});
+export type SeedChunk = z.infer<typeof SeedChunkSchema>;
+
+/** 種子庫的一批（R7：剛好 SEED_BATCH_SIZE 筆；R8：batch 1～6）。 */
+export const SeedBatchSchema = z.object({
+  batch: z.number().int().min(1).max(6),
+  items: z.array(SeedChunkSchema).length(SEED_BATCH_SIZE),
+});
+export type SeedBatch = z.infer<typeof SeedBatchSchema>;
 
 /** API 回傳的卡片（camelCase；對應 card 表，不含 user_id、seed_chunk_id；T-032 定義，ARCHITECTURE §4.11）。 */
 export const CardSchema = z.object({

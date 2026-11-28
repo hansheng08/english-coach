@@ -1,0 +1,717 @@
+{
+  "task": "T-024",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "tags: 'R5' }",
+      "after": "tags: 'R3' }",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "meaning_zh: 'R2', example_en: 'R3'",
+      "after": "meaning_zh: 'R1', example_en: 'R3'",
+      "expectFail": [
+        "(TC-4)",
+        "(TC-28)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (head === 'batch') return 'R8';",
+      "after": "if (head === 'batch') return 'R7';",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "return code === 'invalid_type' ? 'shape' : 'R7';",
+      "after": "return code === 'invalid_type' ? 'R7' : 'shape';",
+      "expectFail": [
+        "(TC-10)",
+        "(TC-12)",
+        "(QA-33)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (field === undefined) return 'shape';",
+      "after": "if (field === undefined) return 'R1';",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-33)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "normalizeWords(chunk.replace(/-/g, ' ')).join(' ')",
+      "after": "normalizeWords(chunk).join(' ')",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-22)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "normalizeWords(chunk.replace(/-/g, ' ')).join(' ')",
+      "after": "normalizeWords(chunk.replace(/-/g, ' ')).join('')",
+      "expectFail": [
+        "(QA-42)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const FILE_NAME = /^batch-([1-9][0-9]*)\\.json$/;",
+      "after": "const FILE_NAME = /^batch-([0-9]+)\\.json$/;",
+      "expectFail": [
+        "(TC-27)",
+        "(QA-27)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const FILE_NAME = /^batch-",
+      "after": "const FILE_NAME = /batch-",
+      "expectFail": [
+        "(QA-27)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "\\.json$/;",
+      "after": "\\.json/;",
+      "expectFail": [
+        "(QA-27)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "fileName.split(/[\\\\/]/)",
+      "after": "fileName.split(/\\//)",
+      "expectFail": [
+        "(QA-27)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "Number(match[1]) !== batch",
+      "after": "Number(match[1]) === batch",
+      "expectFail": [
+        "(TC-27)",
+        "(TC-13)",
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "(typeof batch === 'number' && Number(match[1]) !== batch)",
+      "after": "(Number(match[1]) !== batch)",
+      "expectFail": [
+        "(QA-30)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "others.some((o) => o.batch === batch)",
+      "after": "others.some((o) => o.batch !== batch)",
+      "expectFail": [
+        "(TC-11)",
+        "(TC-13)",
+        "(QA-29)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "{ rule: 'R8', path: 'batch', detail:",
+      "after": "{ rule: 'R8', path: 'fileName', detail:",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-29)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "{ rule: 'R8', path: 'fileName', detail:",
+      "after": "{ rule: 'R8', path: 'batch', detail:",
+      "expectFail": [
+        "(TC-27)",
+        "(QA-27)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "typeof example === 'string' && detectChunkHits",
+      "after": "detectChunkHits",
+      "expectFail": [
+        "(QA-16)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "?.level !== 'full'",
+      "after": "?.level === 'full'",
+      "expectFail": [
+        "(TC-6)",
+        "(QA-17)"
+      ]
+    },
+    {
+      "id": "M19",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (!parsed.success) return;\n    const chunk",
+      "after": "if (parsed.success === undefined) return;\n    const chunk",
+      "expectFail": [
+        "(QA-7)",
+        "(QA-6)"
+      ]
+    },
+    {
+      "id": "M20",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (!isRecord(item)) return;",
+      "after": "if (item === undefined) return;",
+      "expectFail": [
+        "(QA-33)"
+      ]
+    },
+    {
+      "id": "M21",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "`batch ${String(other.batch)} item",
+      "after": "`batch ${String(other.items.length)} item",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-23)"
+      ]
+    },
+    {
+      "id": "M22",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "for (const other of others) {",
+      "after": "for (const other of others.slice(1)) {",
+      "expectFail": [
+        "(TC-9)",
+        "(QA-23)"
+      ]
+    },
+    {
+      "id": "M23",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (first === undefined) seen.set",
+      "after": "if (first !== undefined) seen.set",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-22)"
+      ]
+    },
+    {
+      "id": "M24",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "path: `items.${String(j)}.chunk`, detail: `same as",
+      "after": "path: `items.${String(j - 1)}.chunk`, detail: `same as",
+      "expectFail": [
+        "(TC-8)",
+        "(QA-22)"
+      ]
+    },
+    {
+      "id": "M25",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const key = `${f.rule}|${f.path}`;",
+      "after": "const key = `${f.rule}`;",
+      "expectFail": [
+        "(QA-22)",
+        "(QA-36)",
+        "(TC-3)"
+      ]
+    },
+    {
+      "id": "M26",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "if (keys.has(key)) continue;",
+      "after": "if (keys.has('never')) continue;",
+      "expectFail": [
+        "(QA-20)",
+        "(QA-19)"
+      ]
+    },
+    {
+      "id": "M27",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const depth = path[0] === 'items' ? 3 : 1;",
+      "after": "const depth = path[0] === 'items' ? 4 : 1;",
+      "expectFail": [
+        "(QA-19)",
+        "(QA-20)"
+      ]
+    },
+    {
+      "id": "M28",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "message: first.message });",
+      "after": "message: 'x' });",
+      "expectFail": [
+        "(TC-12)",
+        "(QA-31)"
+      ]
+    },
+    {
+      "id": "M29",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": ".replace(/'/g, \"''\")",
+      "after": ".replace(/'/, \"''\")",
+      "expectFail": [
+        "(QA-39)"
+      ]
+    },
+    {
+      "id": "M30",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "\"'{}'::text[]\"",
+      "after": "\"array[]::text[]\"",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-38)"
+      ]
+    },
+    {
+      "id": "M31",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "item.tags.map(sqlText).join(', ')",
+      "after": "item.tags.map(sqlText).join(',')",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-38)"
+      ]
+    },
+    {
+      "id": "M32",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "item.tags.map(sqlText)",
+      "after": "[...item.tags].sort().map(sqlText)",
+      "expectFail": [
+        "(QA-38)"
+      ]
+    },
+    {
+      "id": "M33",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "const end = i === last ? ';' : ',';",
+      "after": "const end = i === 0 ? ';' : ',';",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-40)"
+      ]
+    },
+    {
+      "id": "M34",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "`  (${sqlText(item.chunk)}",
+      "after": "` (${sqlText(item.chunk)}",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-37)"
+      ]
+    },
+    {
+      "id": "M35",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": ", ${tags}, ${n})${end}",
+      "after": ", ${tags}, 1)${end}",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-37)"
+      ]
+    },
+    {
+      "id": "M36",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "...rows].join('\\n')}\\n`;",
+      "after": "...rows].join('\\n')}`;",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-37)"
+      ]
+    },
+    {
+      "id": "M37",
+      "file": "packages/seed-data/src/seed-chunks.ts",
+      "before": "seed_chunk batch ${n} (generated",
+      "after": "seed_chunk batch ${n}  (generated",
+      "expectFail": [
+        "(TC-14)",
+        "(QA-37)"
+      ]
+    },
+    {
+      "id": "M38",
+      "file": "packages/contracts/src/card.ts",
+      "before": "['meeting', 'presentation',",
+      "after": "['presentation', 'meeting',",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M39",
+      "file": "packages/contracts/src/card.ts",
+      "before": "export const SEED_BATCH_SIZE = 100;",
+      "after": "export const SEED_BATCH_SIZE = 99;",
+      "expectFail": [
+        "(TC-1)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M40",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const SEED_MEANING_MAX = 30;",
+      "after": "const SEED_MEANING_MAX = 31;",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M41",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const SEED_EXAMPLE_MIN_WORDS = 5;",
+      "after": "const SEED_EXAMPLE_MIN_WORDS = 4;",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M42",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const SEED_EXAMPLE_MAX_WORDS = 25;",
+      "after": "const SEED_EXAMPLE_MAX_WORDS = 26;",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-15)"
+      ]
+    },
+    {
+      "id": "M43",
+      "file": "packages/contracts/src/card.ts",
+      "before": "const length = Array.from(s).length;",
+      "after": "const length = s.length;",
+      "expectFail": [
+        "(QA-8)"
+      ]
+    },
+    {
+      "id": "M44",
+      "file": "packages/contracts/src/card.ts",
+      "before": "return n <= 0x1f || n === 0x7f;",
+      "after": "return n < 0x1f || n === 0x7f;",
+      "expectFail": [
+        "(QA-9)",
+        "(TC-28)"
+      ]
+    },
+    {
+      "id": "M45",
+      "file": "packages/contracts/src/card.ts",
+      "before": "return n <= 0x1f || n === 0x7f;",
+      "after": "return n <= 0x20 || n === 0x7f;",
+      "expectFail": [
+        "(QA-9)"
+      ]
+    },
+    {
+      "id": "M46",
+      "file": "packages/contracts/src/card.ts",
+      "before": "return n <= 0x1f || n === 0x7f;",
+      "after": "return n <= 0x1f || n === 0x7e;",
+      "expectFail": [
+        "(QA-9)",
+        "(TC-28)"
+      ]
+    },
+    {
+      "id": "M47",
+      "file": "packages/contracts/src/card.ts",
+      "before": "return s.trim() === s && !hasControlChar(s)",
+      "after": "return !hasControlChar(s)",
+      "expectFail": [
+        "(TC-28)",
+        "(QA-10)"
+      ]
+    },
+    {
+      "id": "M48",
+      "file": "packages/contracts/src/card.ts",
+      "before": "&& HAN.test(s);",
+      "after": "&& true;",
+      "expectFail": [
+        "(TC-4)",
+        "(QA-11)"
+      ]
+    },
+    {
+      "id": "M49",
+      "file": "packages/contracts/src/card.ts",
+      "before": "return s.trim() === s && words >=",
+      "after": "return words >=",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-13)"
+      ]
+    },
+    {
+      "id": "M50",
+      "file": "packages/contracts/src/card.ts",
+      "before": "&& !s.includes('/') && !/[\\r\\n]/.test(s);",
+      "after": "&& !/[\\r\\n]/.test(s);",
+      "expectFail": [
+        "(TC-5)",
+        "(QA-14)"
+      ]
+    },
+    {
+      "id": "M51",
+      "file": "packages/contracts/src/card.ts",
+      "before": "&& !/[\\r\\n]/.test(s);",
+      "after": "&& !/[\\n]/.test(s);",
+      "expectFail": [
+        "(QA-13)",
+        "(TC-5)"
+      ]
+    },
+    {
+      "id": "M52",
+      "file": "packages/contracts/src/card.ts",
+      "before": "s.split(' ').length >= 2 &&",
+      "after": "s.split(' ').length >= 1 &&",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M53",
+      "file": "packages/contracts/src/card.ts",
+      "before": "s.split(' ').length <= 6,",
+      "after": "s.split(' ').length <= 7,",
+      "expectFail": [
+        "(TC-3)",
+        "(QA-4)"
+      ]
+    },
+    {
+      "id": "M54",
+      "file": "packages/contracts/src/card.ts",
+      "before": ".max(3)\n",
+      "after": ".max(4)\n",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M55",
+      "file": "packages/contracts/src/card.ts",
+      "before": "(tags) => new Set(tags).size === tags.length",
+      "after": "(tags) => tags.length >= 0",
+      "expectFail": [
+        "(TC-7)",
+        "(QA-3)"
+      ]
+    },
+    {
+      "id": "M56",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.number().int().min(1).max(6)",
+      "after": "z.number().min(1).max(6)",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M57",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.number().int().min(1).max(6)",
+      "after": "z.number().int().min(0).max(6)",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M58",
+      "file": "packages/contracts/src/card.ts",
+      "before": "z.number().int().min(1).max(6)",
+      "after": "z.number().int().min(1).max(7)",
+      "expectFail": [
+        "(TC-11)",
+        "(QA-25)"
+      ]
+    },
+    {
+      "id": "M59",
+      "file": "packages/contracts/src/card.ts",
+      "before": ".length(SEED_BATCH_SIZE)",
+      "after": ".min(SEED_BATCH_SIZE)",
+      "expectFail": [
+        "(TC-10)",
+        "(QA-2)"
+      ]
+    },
+    {
+      "id": "M60",
+      "file": "packages/contracts/src/card.ts",
+      "before": "export const SeedTagSchema = z.enum(SEED_TAGS);",
+      "after": "export const SeedTagSchema = z.string();",
+      "expectFail": [
+        "(TC-2)",
+        "(QA-1)"
+      ]
+    },
+    {
+      "id": "M61",
+      "file": ".dependency-cruiser.cjs",
+      "before": "to: { pathNot: '^packages/(seed-data|contracts|domain)/' },",
+      "after": "to: { pathNot: '^(packages/(seed-data|contracts|domain)/|zod$)' },",
+      "expectFail": [
+        "(TC-23)",
+        "(QA-61)"
+      ]
+    },
+    {
+      "id": "M62",
+      "file": ".dependency-cruiser.cjs",
+      "before": "from: { path: '^packages/seed-data/', pathNot: TEST },",
+      "after": "from: { path: '^packages/seed-data/' },",
+      "expectFail": [
+        "(TC-23)",
+        "(QA-63)"
+      ]
+    },
+    {
+      "id": "M63",
+      "file": ".dependency-cruiser.cjs",
+      "before": "'^(node:)?(fs|path|url)$'",
+      "after": "'^(node:)?(fs|path)$'",
+      "expectFail": [
+        "(TC-23)",
+        "(QA-63)"
+      ]
+    },
+    {
+      "id": "M64",
+      "file": ".dependency-cruiser.cjs",
+      "before": "'^(node:)?(fs|path|url)$'",
+      "after": "'^(node:)(fs|path|url)$'",
+      "expectFail": [
+        "(TC-23)",
+        "(QA-63)"
+      ]
+    },
+    {
+      "id": "M65",
+      "file": ".dependency-cruiser.cjs",
+      "before": "from: { path: testOf('packages/seed-data') },",
+      "after": "from: { path: testOf('packages/seed-dat') },",
+      "expectFail": [
+        "(TC-23)",
+        "(TC-22)",
+        "(QA-63)"
+      ]
+    },
+    {
+      "id": "M66",
+      "file": ".dependency-cruiser.cjs",
+      "before": "name: 'adr018-01t-seed-data-tests-imports',",
+      "after": "name: 'adr018-01-t-seed-data-tests-imports',",
+      "expectFail": [
+        "(TC-22)",
+        "(QA-60)"
+      ]
+    },
+    {
+      "id": "M67",
+      "file": "eslint.config.js",
+      "before": "      under(DOMAIN),\n      under(SEED_DATA),\n",
+      "after": "      under(DOMAIN),\n",
+      "expectFail": [
+        "(TC-24)",
+        "(QA-50)"
+      ]
+    },
+    {
+      "id": "M68",
+      "file": "eslint.config.js",
+      "before": "regex: '^@english-coach/seed-data($|/)',",
+      "after": "regex: '^@english-coach/seed-data$',",
+      "expectFail": [
+        "(QA-53)"
+      ]
+    },
+    {
+      "id": "M69",
+      "file": "eslint.config.js",
+      "before": "regex: '^@english-coach/seed-data($|/)',",
+      "after": "regex: '^@english-coach/seed-data',",
+      "expectFail": [
+        "(QA-54)"
+      ]
+    },
+    {
+      "id": "M70",
+      "file": "eslint.config.js",
+      "before": "throwSelector, ...brandSelectors],\n    },\n  },\n  {\n    // B. domain",
+      "after": "throwSelector],\n    },\n  },\n  {\n    // B. domain",
+      "expectFail": [
+        "(QA-50)"
+      ]
+    },
+    {
+      "id": "M71",
+      "file": "eslint.config.js",
+      "before": "...clockSelectors, throwSelector, ...brandSelectors],\n    },\n  },\n  {\n    // B. domain",
+      "after": "throwSelector, ...brandSelectors],\n    },\n  },\n  {\n    // B. domain",
+      "expectFail": [
+        "(TC-24)",
+        "(QA-50)"
+      ]
+    },
+    {
+      "id": "M72",
+      "file": "eslint.config.js",
+      "before": "denoEnv, denoServe, ...clockSelectors, throwSelector, ...brandSelectors],\n    },\n  },\n  {\n    // B. domain",
+      "after": "denoServe, ...clockSelectors, throwSelector, ...brandSelectors],\n    },\n  },\n  {\n    // B. domain",
+      "expectFail": [
+        "(QA-50)"
+      ]
+    }
+  ]
+}

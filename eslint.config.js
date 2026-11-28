@@ -53,7 +53,8 @@ const TEST_GLOBS = ['**/*.test.{ts,tsx}', '**/*.test-d.ts', `**/test/**/*.${TS}`
 const testGlobsUnder = (dir) => [`${dir}/**/*.test.${TS}`, `${dir}/**/*.test-d.ts`, `${dir}/**/test/**/*.${TS}`];
 
 const DOMAIN = 'packages/domain';
-const TAIPEI_DATE = `${DOMAIN}/src/taipei-date.ts`; // 唯一可以 as PlanDate 的正式程式檔
+const SEED_DATA = 'packages/seed-data'; // §4.10.1：正式程式套用和 domain 一樣的禁用清單
+const TAIPEI_DATE =`${DOMAIN}/src/taipei-date.ts`; // 唯一可以 as PlanDate 的正式程式檔
 const REGISTRY = 'supabase/functions/_shared/providers/registry.ts'; // 唯一可以 as PaidConsent 的檔案
 const BRAND_CREATORS = ['packages/contracts/src/ids.ts', 'packages/contracts/src/audio.ts']; // as Ntd、as Wav16kMono
 const AUTH = 'supabase/functions/_shared/db/auth.ts'; // 唯一可以 as AuthContext 的檔案
@@ -82,6 +83,11 @@ const crossPackagePatterns = [
     message: 'ADR-009: only @english-coach/contracts, @english-coach/contracts/testing and @english-coach/domain are entry points',
   },
   { regex: '^@english-coach/domain/testing$', message: 'ADR-009: @english-coach/domain has no testing entry point' },
+  {
+    // ARCHITECTURE §4.10.1、ADR-018 決定 1：種子庫檢查器只在 CI 的 pnpm test 裡跑，沒有人 import 它
+    regex: '^@english-coach/seed-data($|/)',
+    message: 'ARCHITECTURE §4.10.1: @english-coach/seed-data must not be imported (it only runs in CI tests)',
+  },
 ];
 // ADR-008 #13：packages/**、supabase/functions/** 的相對 import 要寫副檔名
 const extensionPattern = {
@@ -173,6 +179,14 @@ export default defineConfig(
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors, throwSelector] },
   },
   {
+    // A-seed. seed-data 正式程式：同 A（§4.10.1；沒有 taipei-date 例外）
+    files: [under(SEED_DATA)],
+    ignores: TEST_GLOBS,
+    rules: {
+      'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors, throwSelector, ...brandSelectors],
+    },
+  },
+  {
     // B. domain 測試程式：時鐘與亂數仍禁止，throw 與品牌 as 放行
     files: testGlobsUnder(DOMAIN),
     rules: { 'no-restricted-syntax': ['error', asUnknownAs, denoEnv, denoServe, ...clockSelectors] },
@@ -204,6 +218,7 @@ export default defineConfig(
     files: [`**/*.${TS}`],
     ignores: [
       under(DOMAIN),
+      under(SEED_DATA),
       under(CONFIG),
       ...SHARED_THROW_DIRS.map(under),
       ...TEST_GLOBS,

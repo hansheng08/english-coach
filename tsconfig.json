@@ -1,4 +1,4 @@
 {
   "files": [],
-  "references": [{ "path": "./tooling" }, { "path": "./packages/contracts" }, { "path": "./packages/domain" }, { "path": "./supabase/functions" }, { "path": "./apps/web" }]
+  "references": [{ "path": "./tooling" }, { "path": "./packages/contracts" }, { "path": "./packages/domain" }, { "path": "./packages/seed-data" },{ "path": "./supabase/functions" }, { "path": "./apps/web" }]
 }
