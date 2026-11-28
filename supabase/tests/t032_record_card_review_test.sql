@@ -1,7 +1,7 @@
 -- T-032 pgTAP: card_review.review_date unique per card and record_card_review() (ARCHITECTURE §4.11).
 -- Run by the CI db job (`supabase test db`); each file is one transaction.
 begin;
-select plan(17);
+select plan(16);
 
 insert into auth.users (id, email) values
   ('a0000000-0000-4000-8000-000000000032', 't032-user-a@example.com'),
