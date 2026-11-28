@@ -14,20 +14,64 @@ const sources = import.meta.glob<string>('./**/*.{ts,tsx}', { query: '?raw', imp
 const TEST_FILE = /(^|\/)test\/|\.test\.tsx?$|\.test-d\.ts$/;
 const production = Object.entries(sources).filter(([path]) => !TEST_FILE.test(path));
 
-/** AC-T18-2：VITE_ 名稱不得含 KEY、SECRET、TOKEN，唯一例外是 VITE_SUPABASE_PUBLISHABLE_KEY。 */
-function badViteNames(text: string): string[] {
-  const names = text.match(/VITE_[A-Z0-9_]+/g) ?? [];
-  return names.filter((n) => /KEY|SECRET|TOKEN/.test(n) && n !== 'VITE_SUPABASE_PUBLISHABLE_KEY');
+// HTML 不經過 Vite 的 ?raw，和 .env.example 一樣用 node:fs 讀。
+const indexHtml = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const vitePwa = readFileSync(new URL('../vite.pwa.ts', import.meta.url), 'utf8');
+const playwrightConfig = readFileSync(new URL('../../../playwright.config.ts', import.meta.url), 'utf8');
+const viteEnvDts = readFileSync(new URL('./vite-env.d.ts', import.meta.url), 'utf8');
+
+const ALLOWED_VITE_NAMES = ['VITE_DATA_MODE', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_PUBLISHABLE_KEY'] as const;
+
+/** 名稱：前面不是英數字或底線的 VITE_，後接大寫英文、數字、底線，且結尾是大寫英文或數字。 */
+function viteNames(text: string): string[] {
+  const runs = text.match(/(?<![A-Za-z0-9_])VITE_[A-Z0-9_]*/g) ?? [];
+  return runs.filter((n) => !n.endsWith('_'));
+}
+
+/** text 裡每一個 VITE_ 名稱中不在 ALLOWED_VITE_NAMES 的，依出現順序、不去重。 */
+function viteNamesOutsideAllowList(text: string): string[] {
+  const allowed: readonly string[] = ALLOWED_VITE_NAMES;
+  return viteNames(text).filter((n) => !allowed.includes(n));
 }
 
 describe('apps/web project rules', () => {
-  it('(AC-T18-2) (TC-5) no VITE_ name carries KEY, SECRET or TOKEN (except the publishable key)', () => {
+  it('(AC-T54-1) (TC-1) allow-listed names return []', () => {
+    expect(viteNamesOutsideAllowList('VITE_DATA_MODE=mock')).toEqual([]);
+    expect(viteNamesOutsideAllowList('import.meta.env.VITE_SUPABASE_URL')).toEqual([]);
+    expect(viteNamesOutsideAllowList('VITE_SUPABASE_PUBLISHABLE_KEY=')).toEqual([]);
+  });
+
+  it('(AC-T54-1) (TC-2) names outside the allow-list are returned in order, not de-duplicated', () => {
+    for (const name of ['VITE_API_TOKEN', 'VITE_FOO_SECRET', 'VITE_SUPABASE_ANON_KEY', 'VITE_PUBLIC_FLAG', 'VITE_DATA_MODES', 'VITE_SUPABASE_URL2']) {
+      expect(viteNamesOutsideAllowList(`${name}=`)).toEqual([name]);
+    }
+    expect(viteNamesOutsideAllowList('VITE_X VITE_DATA_MODE VITE_X')).toEqual(['VITE_X', 'VITE_X']);
+  });
+
+  it('(AC-T54-1) (TC-3) prefixes and boundaries are not names', () => {
+    for (const text of ['VITE_SUPABASE_', 'VITE_SUPABASE_*', '所有 VITE_ 變數', 'XVITE_FOO', 'vite_foo']) {
+      expect(viteNamesOutsideAllowList(text), text).toEqual([]);
+    }
+  });
+
+  it('(AC-T54-1) (TC-4) HTML %VITE_…% placeholders count as names', () => {
+    expect(viteNamesOutsideAllowList('<title>%VITE_APP_TITLE%</title>')).toEqual(['VITE_APP_TITLE']);
+    expect(viteNamesOutsideAllowList('%VITE_DATA_MODE%')).toEqual([]);
+  });
+
+  it('(AC-T18-2) (TC-5) (AC-T54-2) (TC-5) every scanned file uses only allow-listed VITE_ names', () => {
     expect(production.length).toBeGreaterThan(5);
-    for (const [path, text] of production) expect(badViteNames(text), path).toEqual([]);
-    for (const text of [viteConfig, viteDataMode, envExample]) expect(badViteNames(text)).toEqual([]);
-    expect(badViteNames('VITE_API_TOKEN=')).toEqual(['VITE_API_TOKEN']);
-    expect(badViteNames('VITE_FOO_SECRET=')).toEqual(['VITE_FOO_SECRET']);
-    expect(badViteNames('VITE_SUPABASE_PUBLISHABLE_KEY=')).toEqual([]);
+    for (const [path, text] of production) expect(viteNamesOutsideAllowList(text), path).toEqual([]);
+    for (const text of [indexHtml, vitePwa, playwrightConfig]) expect(text.length).toBeGreaterThan(0);
+    const named = { viteConfig, viteDataMode, envExample, indexHtml, vitePwa, playwrightConfig };
+    for (const [name, text] of Object.entries(named)) expect(viteNamesOutsideAllowList(text), name).toEqual([]);
+  });
+
+  it('(AC-T54-3) (TC-6) vite-env.d.ts and .env.example list exactly the allow-list', () => {
+    const expected = [...ALLOWED_VITE_NAMES].sort();
+    expect([...new Set(viteNames(viteEnvDts))].sort()).toEqual(expected);
+    const envLines = envExample.split('\n').flatMap((line) => /^(VITE_[A-Z0-9_]*[A-Z0-9])=/.exec(line)?.[1] ?? []);
+    expect([...new Set(envLines)].sort()).toEqual(expected);
   });
 
   it('(AC-T18-3) (TC-6) @supabase/* is imported only under api/supabase/', () => {
