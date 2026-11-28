@@ -482,11 +482,11 @@ grant execute on function public.set_paid_consent(uuid, boolean, integer) to ser
 - **介面**：
 ```ts
 // packages/contracts/src/card.ts（新增）
-export const SEED_TAGS = ['meeting', 'presentation', 'negotiation', 'interview', 'email', 'project', 'technical', 'small-talk'] as const;   // 待 Hansheng 決定（ADR-016 決定 3）
+export const SEED_TAGS = ['meeting', 'presentation', 'negotiation', 'interview', 'email', 'project', 'technical', 'small-talk'] as const;   // #91 合併時核准（ADR-016 決定 2）
 export const SeedTagSchema = z.enum(SEED_TAGS);
 export const SeedChunkSchema = z.object({
   chunk: ChunkTextSchema,            // 另加：2～6 個字（用空白切）
-  meaning_zh: z.string(),            // 規則同 §11.3.3 C3
+  meaning_zh: z.string(),            // 規則見 R2（比 C3 多「trim 後等於原值、不含控制字元」）
   example_en: z.string(),            // 規則見下表
   tags: z.array(SeedTagSchema),      // 0～3 個、不重複
 });
@@ -496,8 +496,8 @@ export type SeedChunk = z.infer<typeof SeedChunkSchema>;
 export type SeedBatch = z.infer<typeof SeedBatchSchema>;
 
 // packages/seed-data/src/seed-chunks.ts（v1.12；原 tooling/seed-chunks.ts）
-/** others：其他已 commit 的批次（檢查跨批重複）。zod 檢查＋跨欄位與跨批檢查都在這裡；全部 issue 一次回傳。 */
-export function checkSeedBatch(input: unknown, others: readonly SeedBatch[]): Result<SeedBatch, ValidationError>;
+/** input.fileName 是 basename（例如 `batch-1.json`），不含目錄。others：其他已 commit 的批次（檢查跨批重複）。zod 檢查＋檔名、跨欄位與跨批檢查都在這裡；全部 issue 一次回傳。 */
+export function checkSeedBatch(input: { readonly fileName: string; readonly data: unknown }, others: readonly SeedBatch[]): Result<SeedBatch, ValidationError>;
 /** 決定性輸出：同樣的輸入永遠產生同樣的字串（結尾一個換行）。 */
 export function renderSeedMigration(batch: SeedBatch): string;
 ```
@@ -505,13 +505,13 @@ export function renderSeedMigration(batch: SeedBatch): string;
 | # | 欄位 | 規則 | 依據 |
 |---|---|---|---|
 | R1 | `chunk` | `ChunkTextSchema`（§4.7 格式）；2～6 個字；頭尾沒有空白 | §4.7、§11.3.3 C2 的字數 |
-| R2 | `meaning_zh` | trim 後 1～30 字元，至少 1 個漢字（`\p{Script=Han}`）；要求繁體只寫在 T-050 的指示，不檢查 | 同 §11.3.3 C3，畫面同一個位置 |
+| R2 | `meaning_zh` | trim 後和原值相同（頭尾不得有空白）；不含控制字元（U+0000–U+001F、U+007F，含換行與 TAB）；trim 後 1～30 字元，至少 1 個漢字（`\p{Script=Han}`）；要求繁體只寫在 T-050 的指示，不檢查 | 空白與控制字元比照 R3；字數與漢字同 §11.3.3 C3（畫面同一個位置）。C3 本身不變。 |
 | R3 | `example_en` | trim 後和原值相同；用 `newsWords` 算 5～25 個字；不含「/」和換行 | 可以直接當字卡例句與跟讀句（§4.6 的上限 25） |
 | R4 | `example_en` 要含 `chunk` | `detectChunkHits(example_en, [chunk])[0].level === 'full'`（domain，§4.7：佔位詞、詞形變化都算） | 用 `chunkAppearsIn` 不行：它照字面比對，`get buy-in from sb` 對不上 `get buy-in from the team` |
-| R5 | `tags` | 0～3 個，都在 `SEED_TAGS`，不重複 | ADR-016 決定 3（待 Hansheng 決定） |
+| R5 | `tags` | 0～3 個，都在 `SEED_TAGS`，不重複 | ADR-016 決定 2（#91 合併時核准上列 8 個標籤） |
 | R6 | 重複 | 同批內、和 `others` 的所有批次之間，`chunk` 經 §4.7 正規化（轉小寫、連字號換空白、去頭尾標點、空白切字後用一個空白接回）後不可相同 | 比資料庫的 `seed_chunk_chunk_key`（完全相同才擋）更嚴，避免 `buy-in`／`buy in` 兩條 |
 | R7 | 筆數 | `items` 剛好 100 筆 | Q-10 已決定 6 批 × 100（不是待決事項） |
-| R8 | `batch` | 1～6；檔名的 `<n>` 必須等於 `batch`；同一個 `batch` 只能有一個檔案 | `seed_chunk_batch_check` |
+| R8 | `batch` | 1～6；`fileName` 必須是 `batch-<n>.json`（只取 basename，不含目錄），其中 `<n>` 等於 `batch`；同一個 `batch` 只能有一個檔案（與 `others` 比對） | `seed_chunk_batch_check`；簽名比照 B-004 的 `checkQuestionBatch`，讓檔名與 batch 不符在檢查器就被擋下，不只靠 drift 測試 |
 - **migration 格式**（`renderSeedMigration` 的輸出，Claude 照這個手寫）：
 ```sql
 -- T-050 seed_chunk batch <n> (generated format: packages/seed-data/src/seed-chunks.ts renderSeedMigration; source supabase/seed-chunks/batch-<n>.json).
@@ -523,7 +523,7 @@ insert into public.seed_chunk (chunk, meaning_zh, example_en, tags, batch) value
   - 字串裡的 `'` 寫成 `''`；不用 `E''` 字串、不用 dollar quoting。
   - 不寫 `on conflict`：重複要讓 migration 失敗，不能默默略過。
 - **drift 測試**（`packages/seed-data/src/seed-chunks.test.ts`）：
-  - 對 `supabase/seed-chunks/` 裡的每個 `batch-<n>.json`：`checkSeedBatch` 要回 `ok`（`others` 是其他所有批次），而且 `supabase/migrations/` 裡剛好有一個檔名以 `_seed_chunk_batch_<n>.sql` 結尾的檔案，內容逐字等於 `renderSeedMigration` 的輸出。
+  - 對 `supabase/seed-chunks/` 裡的每個 `batch-<n>.json`：`checkSeedBatch({ fileName: 'batch-<n>.json', data }, others)` 要回 `ok`（`others` 是其他所有批次；`fileName` 為該檔的 basename），而且 `supabase/migrations/` 裡剛好有一個檔名以 `_seed_chunk_batch_<n>.sql` 結尾的檔案，內容逐字等於 `renderSeedMigration` 的輸出。
   - 反過來，有 `_seed_chunk_batch_<n>.sql` 卻沒有對應的 JSON → 失敗。
   - 還沒有任何批次（T-024 合併時）→ 這兩項沒有東西可比，不算失敗；規則測試用 `packages/seed-data/test/fixtures/seed-chunks/`。
   - 讀檔用 Node 內建的 `fs`／`path`（測試程式可以用）。
@@ -558,14 +558,15 @@ export function renderSeedSample(batch: SeedBatch): string;   // sampleWithSeed(
 | `packages/seed-data/tsconfig.json` | 照 `packages/domain/tsconfig.json` 的寫法（`composite`、`allowImportingTsExtensions`、`types: []`），`references` 指向 `../contracts`、`../domain` | T-024 |
 | 根目錄 `tsconfig.json` | `references` 加 `{ "path": "./packages/seed-data" }` | T-024 |
 | `pnpm-lock.yaml` | 照 RUNBOOK「已核准的 lockfile 更新」：先改 `package.json`，再單獨跑一次 `pnpm install --no-frozen-lockfile`。只會多一個 workspace importer，**沒有新的外部套件** | T-024 |
-| `packages/seed-data/src/seed-chunks.ts` | `checkSeedBatch`、`renderSeedMigration`、`renderSeedSample`、`SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`（內容照 §4.10，只是換位置） | T-024（`renderSeedSample` 由 T-050） |
-| `packages/seed-data/src/seed-chunks.test.ts` | 規則測試＋drift 測試（照 §4.10）；fixtures 放 `packages/seed-data/test/fixtures/seed-chunks/` | T-024 |
+| `packages/seed-data/src/seed-chunks.ts` | T-024 建 `checkSeedBatch`、`renderSeedMigration`。`SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`、`renderSeedSample` 由 **T-050** 加進同一檔（需要 `packages/domain/src/prng.ts`；`prng.ts` 由 T-050、T-025b、B-004 中先派工的那張建，§4.10） | T-024 建檢查器與 migration 產生器；抽查樣本常數與函式歸 T-050 |
+| `packages/seed-data/src/seed-chunks.test.ts` | 規則測試＋drift 測試（照 §4.10）；fixtures 放 `packages/seed-data/test/fixtures/seed-chunks/`。T-024 含規則與 JSON／migration 的 drift；第 1 批抽查樣本的 drift（`batch-1.sample.md`）由 T-050 加進同一測試檔 | T-024；樣本 drift 歸 T-050 |
+| `packages/seed-data/test/node-builtins.d.ts` | 因為 `tsconfig.json` 的 `types: []`、且不安裝 `@types/node`（CLAUDE.md §5 第 5 條），測試才能編譯 `node:fs`／`node:path`／`node:url`。只宣告 drift／規則測試實際用到的模組與函式（例如 `readFileSync`、`readdirSync`、`join`、`fileURLToPath`）；不得宣告未使用的 API，也不得用它把 Node 型別導入正式程式。只給 `packages/seed-data` 的測試編譯用 | T-024 |
 | `packages/seed-data/src/question-bank.ts`、`question-bank.test.ts` | 面試題庫的檢查器、產生器、drift 測試（§4.20） | B-004 |
 | `packages/seed-data/src/index.ts` | 匯出上面的函式（目前沒有其他套件 import 它；寫出來是為了照 ADR-009 的套件形狀） | T-024 |
 - **依賴規則**：
   - 正式程式（`src/*.ts`，不含測試）只能 import `@english-coach/contracts`、`@english-coach/domain` 和自己。**不能**讀檔、不能用 `fs`、`path`、`process`、`Date.now`、`Math.random`（產生器是純函式，輸入是已解析的資料）。
-  - 測試（`*.test.ts`、`test/**`）另外可以用 `vitest` 和 Node 內建的 `node:fs`、`node:path`（drift 測試要讀 `supabase/seed-chunks/`、`supabase/question-bank/`、`supabase/migrations/`；用 `import.meta.url` 往上找 repo 根目錄，不寫死絕對路徑）。
-  - **dependency-cruiser**：T-024 新增 1 條 `adr018-01-seed-data-imports`（正式程式 `^packages/seed-data/` 只能到 `^packages/(seed-data|contracts|domain)/`，加上 zod 經由 contracts 的間接依賴）和 1 條測試用的規則，並把 `tooling/arch-rules.test.ts`「剛好 15 條」改成 17 條。這和 T-015、T-023 加規則的做法相同，`tooling/arch-rules.test.ts` 不是 SRE 的檔案。
+  - 測試（`*.test.ts`、`test/**`）另外可以用 `vitest` 和 Node 內建的 `node:fs`、`node:path`、`node:url`（drift 測試要讀 `supabase/seed-chunks/`、`supabase/question-bank/`、`supabase/migrations/`；用 `import.meta.url` 與 `fileURLToPath` 往上找 repo 根目錄，不寫死絕對路徑）。
+  - **dependency-cruiser**：T-024 新增 1 條 `adr018-01-seed-data-imports`（正式程式 `^packages/seed-data/` 只能到 `^packages/(seed-data|contracts|domain)/`，加上 zod 經由 contracts 的間接依賴）和 1 條 `adr018-01t-seed-data-tests-imports`（測試檔可另用 `vitest` 與 `node:fs`／`node:path`／`node:url`；命名比照既有的 `adr008-01t-domain-tests-imports`、`adr008-02t-contracts-tests-imports`），並把 `tooling/arch-rules.test.ts`「剛好 15 條」改成 17 條。這和 T-015、T-023 加規則的做法相同，`tooling/arch-rules.test.ts` 不是 SRE 的檔案。
   - **ESLint**：`packages/**` 已經套用 ADR-009 的規則（只用套件名稱、相對 import 要寫副檔名）。`domain` 的禁用清單（`Date.now`、`Math.random`、`throw`）T-024 也套到 `packages/seed-data/src/**` 的正式程式，寫在 `eslint.config.*` 既有的 `DOMAIN` 區塊旁邊。
   - **沒有人 import 它**：`apps/web`、`supabase/functions` 都**不准** import `@english-coach/seed-data`（ESLint `no-restricted-imports` 加一條）。它只在 CI 的 `pnpm test` 裡跑。
 - **執行指令**：不加 script。`vitest.config.ts` 的 `include` 已經有 `packages/**/*.test.{ts,tsx}`，`pnpm test`（＝`vitest run`）就會跑；`pnpm typecheck`（`tsc -b`）經根目錄的 `references` 會檢查。CLAUDE.md 的指令清單不用改，只在 §4 模組邊界表加一列。
@@ -1433,8 +1434,14 @@ export const BankQuestionSchema = z.object({
   text: z.string(),                    // 規則見 QB2
 });
 export const QuestionBankBatchSchema = z.object({ batch: z.number().int().min(1), items: z.array(BankQuestionSchema) });
+export type QuestionBankBatch = z.infer<typeof QuestionBankBatchSchema>;
 ```
-- **檢查規則**（`checkQuestionBatch(input, others)`，全部 issue 一次回傳）：
+- **檢查規則**（全部 issue 一次回傳；簽名比照種子庫，帶檔名）：
+```ts
+export function checkQuestionBatch(input: { readonly fileName: string; readonly data: unknown }, others: readonly QuestionBankBatch[]): Result<QuestionBankBatch, ValidationError>;
+```
+  `fileName` 是 basename（例如 `bank-1.json`），不含目錄。QB6 的 `<n>` 從這個檔名讀。
+
   | # | 規則 |
   |---|---|
   | QB1 | `category` 是三類之一 |
@@ -3006,7 +3013,7 @@ Q-14～Q-20 已於 2026-11-22 G2 由 Hansheng 決定（答案見 `docs/OPEN_QUES
 | v1.9.1 | 2026-11-26 | TechLead 寫 T-018 時的兩點：<br>• §7 登入只用 email＋密碼，刪掉「或 magic link」。理由：內建寄信每小時 2 封、沒有 SLA；Android 上信裡的連結開在 PWA 還是瀏覽器未驗證；E2E 不用收信；PRD 沒有要求<br>• §2 測試列補上前端元件測試用 `jsdom`＋Testing Library（ADR-001 修訂 1）；根目錄 `engines.node` 由 T-018 收緊到 jsdom 的要求（`^22.22.2 \|\| ^24.15.0 \|\| >=26.0.0`，幕僚長 2026-11-26 20:24 決定） |
 | v1.10 | 2026-11-27 | 產品單契約缺口第一批（TechLead 9 項＋2026-11-27 契約缺口稽核）：新增 ADR-015、ADR-016。<br>• §5.5～§5.7：Azure Speech（發音評估＋TTS，T-017）與 Groq Whisper（T-016）的請求、回應欄位、錯誤對應；不開 PoC、照官方文件實作、測試標「未驗證」；A-002 不再是 T-016 的前提，Azure 實測編為 A-004，兩者都改成之後的驗證<br>• §4.10 種子庫匯入規則（T-024）與第 1 批抽查樣本（T-050，`mulberry32` 固定種子）<br>• §4.11 `POST /reviews`：`card_review.review_date`＋unique、`record_card_review` SQL 函式（T-032）<br>• §4.12 bucket（`audio`、`tts`、`resume`）、Storage RLS、signed URL 有效期、TTS 快取鍵、secret 金鑰 client、`purge-audio`（T-046）與 `daily-prep` 排程<br>• §4.13 contracts `plan.ts`（`DailyPlan`、`shadow_items` 元素、`failure`）與備料並發（主鍵認領＋租約，T-025a）；§4.13.3 T-025 拆成 T-025a（不做預先產生 TTS、種子補位、中午素材 LLM）與 T-025b（Hansheng 2026-11-27 決定），契約在 T-025a 定好<br>• §4.14 中午題目（依 PRD v1.5（PR #90，head `4b88c04`）AC-07、AC-08、Q-39、Q-40）：題型由卡片狀態決定（`selectNoonMode`）；簡單句、干擾選項、中文情境、語塊由 `daily-prep` 一次批次 LLM 呼叫產生，逐張檢查、不合格的欄位設成 null；打散用固定種子並保證和原句不同；全部存進 `daily_plan.noon_items`，`card`／`seed_chunk` 不加欄位；卡片沒有例句或中文意思時，同一次呼叫暫時補上（不寫回卡片，永久補齊屬第二張 G2 的 T-027）；自行回想的題幹依序用簡單句 → 克漏字句 → 中文意思；兩者都沒有的卡順延到隔天，依 AC-07 補位、補位卡不再呼叫 LLM；§10 Gemini 每日呼叫數加 1<br>• §9.2 `holdUpdatePrompt`、錄音不分段寫入 IndexedDB<br>• §5.1.1 route 形狀（`RouteDeps`、`Route`、body 驗證、新依賴一律加在 `RouteDeps`；依 T-053（TechLead）、Architect 核可）<br>• §3 新增 `_shared/plan` 列；§4.3、§5.0.1、§8 AC-06、§12、§17 同步 |
 | v1.11 | 2026-11-27 | 產品契約第二批（2026-11-27 契約缺口稽核 S5、S6、S8～S10 與各單問題、D2b／PR #93 Designer 的不確定事項、TechLead 的 `VITE_` 三題、BOARD 的 §9.1.5 候選）：新增 ADR-017。<br>• §4.15：完整 `SettingsSchema`（含「不評分」`pronunciation.scoring`、預取開關 `cards.prefetch`、`llm.diagnose_model`、`tts.voice`、`ui.m2_seen`）與 patch 合併規則；`slot_start` 照 PRD v1.5 Q-36～Q-38，「不重新判定」做在 `POST /checkins` 的寫入端；`SLOT_STEPS.noon` 依 Q-41 維持 `['cards']`。<br>• §4.16：`Diagnosis` 形狀（字序號標記、Senior 逐句對照、3～5 升級語塊）；chunk 命中不用 LLM、引號與重複字的規則（PR #51 QA）；`/retry` 的條件與重做步驟；M2 里程碑存 `settings.ui.m2_seen`。<br>• §4.17：enrich 建卡時由前端呼叫、只補空欄位、不產生 TTS；舊卡由 T-025b 備料時批次補齊並寫回；`NoonItemSchema` 刪 `temp_example_en`、`temp_meaning_zh`（取代 ADR-016 決定 13 的暫時補例句）。<br>• §4.18：Azure 整個失敗時回錯誤、不自動改用 Groq；「不評分」用 STT 算正確率與語速；修正 §6 第 5 點。<br>• §5.8：lookup、enrich（單張＋批次）、手動生卡串流（逐行驗證、確認後才建卡：`CardStreamEvent.done` 拿掉 `cardId`、`POST /cards` 加 `exampleEn`／`synonyms`）、診斷、履歷出題的契約；A-001 在 T-034 合併後才開。<br>• §5.9：「準備中」與「沒備好」的條件、輪詢改成等到 180 秒；`daily_plan.failure jsonb`（`PlanFailureSchema`，`DailyPlan.failed` 改帶 `failure`）與原因分支表；沒有 `retryAfterSec` 時前端照供應商重置規則算；顯示名稱與「付費」標籤。<br>• §9.3：跟唸計次（音量數列純函式＋手動 +1，門檻未驗證）。§9.1.5：tokens 解析規則 8～10。§3.2 第 8 點：bundle 加變數名稱掃描（SRE O 單）、原始碼改三個名稱的精確白名單並擴大掃描範圍。<br>• §1、§10：chunk 命中不用 Gemini，重算 Gemini 每日次數。§5.1、§12 同步。Groq、Azure 帳號還沒開，A-002、A-004 之後再做，這次的語音相關數字仍是未驗證。 |
-| v1.16 | 2026-11-28 | T-030 錄音規則修正（QA 對 #118 提出的 M1、N1、N2、N5～N7、M3，以及 ADR-021 決定 1 與修訂 1.4 的矛盾）：ADR-021 修訂 2。<br>• §4.12.2.1：列出函式更名為 `public.list_orphan_audio_objects`，在 SQL 內用 `NOT EXISTS` 排除有列物件後再 `LIMIT 200`，避免有列錄音佔滿名額讓孤兒餓死。`pathsInUse` 只留給刪前複查，改走 RPC `public.audio_paths_in_use`（不用 GET `in=(…)`）。T-046 為兩張表的 `audio_path` 建部分索引。`selected` 含因競態拿掉的路徑。<br>• §4.18.1：chunk id 須為可印 ASCII，且首字元不可為空白；`fmt `／`data` 以外的合法 chunk（無論位置）忽略；檔尾可省略最後 1 個 padding；`0xFFFFFFFF` 的剩餘位元組仍須是 2 的倍數。時長門檻改用 `dataBytes` 與 `SHADOW_AUDIO_MIN_DATA_BYTES`／`MAX` 比較。送給 Azure 與寫入 Storage 的都是正規化後的 RIFF／`fmt `／`data`。`parseWav16kMono` 預設下限為 0，跟讀 300 ms 由 handler 傳入。<br>• §4.12.5、§5.0.5 同步。不改模型選擇，不改 `DEFAULT_TTS_VOICE`。 |
+| v1.16 | 2026-11-28 | T-030 錄音規則修正（QA 對 #118 提出的 M1、N1、N2、N5～N7、M3，以及 ADR-021 決定 1 與修訂 1.4 的矛盾）：ADR-021 修訂 2。<br>• §4.12.2.1：列出函式更名為 `public.list_orphan_audio_objects`，在 SQL 內用 `NOT EXISTS` 排除有列物件後再 `LIMIT 200`，避免有列錄音佔滿名額讓孤兒餓死。`pathsInUse` 只留給刪前複查，改走 RPC `public.audio_paths_in_use`（不用 GET `in=(…)`）。T-046 為兩張表的 `audio_path` 建部分索引。`selected` 含因競態拿掉的路徑。<br>• §4.18.1：chunk id 須為可印 ASCII，且首字元不可為空白；`fmt `／`data` 以外的合法 chunk（無論位置）忽略；檔尾可省略最後 1 個 padding；`0xFFFFFFFF` 的剩餘位元組仍須是 2 的倍數。時長門檻改用 `dataBytes` 與 `SHADOW_AUDIO_MIN_DATA_BYTES`／`MAX` 比較。送給 Azure 與寫入 Storage 的都是正規化後的 RIFF／`fmt `／`data`。`parseWav16kMono` 預設下限為 0，跟讀 300 ms 由 handler 傳入。<br>• §4.12.5、§5.0.5 同步。不改模型選擇，不改 `DEFAULT_TTS_VOICE`。<br>• （同日補 T-024 寫單裁定，版本仍為 v1.16；ADR-016、ADR-018 各加修訂）§4.10：`checkSeedBatch` 比照 B-004 帶 `fileName`，R8 在檢查器執行。R2 的 `meaning_zh` 比照 R3，擋頭尾空白與控制字元。`SEED_TAGS` 清掉「待 Hansheng 決定」（#91 合併即核准 8 個標籤；先前誤寫成 ADR-016 決定 3，改回決定 2）。§4.10.1：第二條 dependency-cruiser 規則定名 `adr018-01t-seed-data-tests-imports`；檔案表補 `test/node-builtins.d.ts`。`SEED_SAMPLE_SEED`、`SEED_SAMPLE_SIZE`、`renderSeedSample` 歸 T-050（與 `prng.ts` 一起，加進 T-024 已建的 `seed-chunks.ts`）。§4.20 同步 `checkQuestionBatch` 的 `fileName` 簽名。 |
 | v1.15 | 2026-11-28 | T-030 錄音驗證與孤兒清理規則（QA 測試案例設計 PR 文末待釐清），以及 T-021 工廠／SW 快取補充：新增 ADR-021。<br>• §4.18.1：時長以實際 `data` 位元組計算；檔頭少報／多報（`0xFFFFFFFF` 除外）回 400；下限 300 ms（含 0 秒拒收）；只接受 16 kHz mono 16-bit 整數 PCM；MIME 忽略大小寫與參數；`issues` 可同時列 `audio` 與 `meta`；`planDate` 先於讀計畫。並寫明設定壞掉回 `internal`、0 位元組快取視為未命中、一般模式的 `sttProvider`、不評分缺逐字時間回 `invalid_response`、`resolve` 失敗不寫 `provider_call`。<br>• §4.12.2.1：以 `storage.objects.created_at` 經 security definer 函式列出；24 小時不含等於；缺時間不刪；刪前複查有無列；每批 200 個物件；`PurgeStats.orphan` 與兩張表同形；列出失敗用 `storage_failed`／`op: 'list'`。§4.12.5 例外表補 `pathsInUse`。<br>• §5.0.4：`storage_failed.op` 加 `list`（不是新 kind）。§5.0.5 同步常數與時長規則。<br>• §9：SW TTS cache-first 確認上限 50 筆、保留 7 天（`maxEntries`／`maxAgeSeconds`）。§9.1.7：`getAccessToken` 回 `Promise<string \| null>`，未登入回 `null` 不丟例外；T-021 驗收不改 `login-errors`／`app` 的 qa 檔（AC-T21-14），改 probe 延到下一張改 `ApiClient` 的單。<br>• （**本關卡第 1 次修改**，憲章 §10；回覆 TechLead 7 題；版本仍為 v1.15；ADR-021 修訂 1）§5.1／§4.21：確認不新增 `GET /resume`，改由 `api/supabase/` 讀表。§4.19：`recordCall` 失敗不改回應，log 固定為 `tts recordCall kind=<kind>`。§4.11：`review_date` 不加 default，必由呼叫端傳入台北日期。§4.18.1：改依 RIFF 走 chunk，時長用 `data` 宣告大小，後續合法 chunk 忽略。§4.12.2.1：函式定名 `public.list_audio_objects_for_purge`，`set search_path = ''`，路徑用 `storage.foldername` 精確比對。§9.1.7：收尾指名 T-020（若 T-020 先合併則改下一張）。 |
 | v1.14 | 2026-11-28 | PRD v1.6 對齊與寫單契約補充（三）（TechLead 於任務單 PR 提出的五題）：新增 ADR-020；ADR-019 修訂 2（節次改號）。<br>• §4.15.4：0 張卡打開即同時進入與完成，文案「今天只有 0 張」（PRD v1.6 Q-42／AC-26），不再列待決；手動新增與今晚預覽隨時可用、不是中午步驟（AC-10／Q-41）。AC-10 對應表拿掉「只在 noon」的暗示。<br>• §5.9.3：Azure 免費額度沒有 `retryAfterSec` 時，用字改為「下個月再試」，不寫確切日期（Q-44／AC-25）。<br>• §5.9.4：朗讀語音顯示名稱 Ava／Andrew／Kore／Puck 加性別（Q-43／AC-24）；不改識別值、不改 `DEFAULT_TTS_VOICE`。<br>• 節次：v1.13 誤把月上限、用量插成第二個 §4.15.4／§4.15.5；現改為 §4.15.5、§4.15.6，中午步驟維持 §4.15.4。<br>• §9.1.7：前端 `ApiClient` 用工廠函式注入 `fetch` 與 token 來源；測試用 `makeTestApiClient`；禁止全域正式單例與元件內直接 `fetch`。<br>• §4.18.1、§4.12.2.1：跟讀 multipart 欄位／MIME／大小與時長上限；孤兒錄音由既有 `purge-audio` 在 24 小時後清掉。§4.18 更正「失敗也存 90 天」的舊寫法。<br>• §4.19：T-021 在實際呼叫 `synthesize` 時必寫 `provider_call`；快取命中不寫。<br>• `storage_failed` 已在 contracts 與 §5.0.4（502、可重試），Storage 錯誤用它，不用 `db_failed`。<br>• §4.21：履歷存清理後的原始檔名與 `PiiCounts`；`POST /resume` 契約同步。 |
 | v1.13 | 2026-11-28 | 寫單契約補充（二）（T-020 錯誤種類、T-025b 輸出上限、[D2] #103 月上限與本月用量）：新增 ADR-019。<br>• §4.2：不合格的設定改回 400 `validation`（帶 path），與 §4.15.2、contracts `APP_ERROR_KINDS` 一致；不新增 `invalid_settings`。<br>• §4.14：`gemini-3.5-flash-lite` 輸出上限 65,536 tokens（官方模型頁，2026-11-28 查閱），維持一次呼叫 `maxOutputTokens: 8192`、不分批；作廢 v1.12 的「不確定」。<br>• §4.15.4：`monthly_paid_cap_ntd` 可以是 null；合法數字是 ≥ 0 的整數元；null 在 `grantPaidConsent` 視為 `no_consent`。PRD 已定的（NFR-03、Q-07）只引用。<br>• §4.15.5：本月付費用量是估算（非帳單），依台北月初加總 `provider_call.cost_ntd`；T-020 加欄、建 `SettingsResponseSchema`、`GET /settings` 與加總函式。§4 表、§5.1 同步。<br>• （**本關卡第 1 次修改**，憲章 §10；**Hansheng 2026-11-28 決定**）§4.15.4：同意時上限必填（refine，400 `validation`、`path: 'paid.monthly_cap_ntd'`）；合法值是 0～1000 的整數或 null（未同意）；0 允許；打開開關時表單預填 NT$300。另定 `MonthlyPaidCapNtdSchema`，不改共用的 `NtdSchema`。§4.15.5：`USD_TO_NTD = 35`。 |

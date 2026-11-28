@@ -5,7 +5,7 @@
 
 ## 決定 1～3：種子庫（§4.10）
 1. 種子資料放 `supabase/seed-chunks/batch-<n>.json`，由 `tooling/seed-chunks.ts` 的純函式檢查（R1～R8）並產生固定格式的 migration；vitest 比對 JSON 與 migration 逐字一致。不在 run-task 跑 node，也不加 package.json script（`tooling/o010.test.mjs` 固定 scripts）。
-2. 每批剛好 100 條（Q-10），跨批正規化後不可重複；標籤只能是 `SEED_TAGS`（清單待 Hansheng 決定）。
+2. 每批剛好 100 條（Q-10），跨批正規化後不可重複；標籤只能是 `SEED_TAGS`（清單已於 #91 合併時核准，見下方修訂）。
 3. 第 1 批的抽查樣本用 `mulberry32`（一種很短的決定性亂數演算法：同一個種子永遠產生同一串數字）＋固定種子抽 20 條，結果 commit 成檔、vitest 比對。
 
 ## 決定 4～5：`POST /reviews`（§4.11）
@@ -60,3 +60,6 @@
 - Supabase 排程 Edge Function（pg_cron、pg_net、Vault）：https://supabase.com/docs/guides/functions/schedule-functions
 - Supabase Edge Function 限制：https://supabase.com/docs/guides/functions/limits
 - Postgres 日期換算的 volatility（Tom Lane）：https://www.postgresql.org/message-id/1012707.1621880687@sss.pgh.pa.us
+
+## 修訂
+- **2026-11-28（ARCHITECTURE v1.16 同日補）**：決定 2 的 `SEED_TAGS` 不再是待決。ADR 抬頭寫明「待 Hansheng 決定以 Merge 時的決定為準」；#91（[G2] 產品單契約缺口補齊）於 2026-11-27 合併，核准的是當時 §4.10 建議的 8 個標籤：`meeting`、`presentation`、`negotiation`、`interview`、`email`、`project`、`technical`、`small-talk`。ARCHITECTURE §4.10 與本決定中的「待 Hansheng 決定」註解已清掉；清單本身沒有改。
