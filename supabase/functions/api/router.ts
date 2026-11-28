@@ -1,19 +1,26 @@
 import { httpStatusOf, toApiErrorBody, type AppError, type HealthResponse, type Result } from '@english-coach/contracts';
 import { formatAdr010EnvLine, type KeyPresence } from '../_shared/config/env.ts';
 import { requireUser, type AuthContext, type RequireUserDeps } from '../_shared/db/auth.ts';
+import type { PlanStore } from '../_shared/db/plan-store.ts';
 import type { ReviewDb } from '../_shared/db/reviews.ts';
 import type { UserDb } from '../_shared/db/user-db.ts';
+import type { FetchLike } from '../_shared/news/http.ts';
+import type { Registry } from '../_shared/providers/registry.ts';
 import { postCheckins } from './checkins.ts';
+import { postPlanToday } from './plan.ts';
 import { postReviews } from './reviews.ts';
 
 export type RouteDeps = {
   readonly userDb: (ctx: AuthContext) => UserDb;
   readonly now: () => Date;
-  /** 暫時選填（ARCHITECTURE §5.1.1 過渡），待 T-025a 改回必填；沒接時 POST /reviews 回 500 internal。 */
-  readonly reviewDb?: (ctx: AuthContext) => ReviewDb;
+  readonly reviewDb: (ctx: AuthContext) => ReviewDb;
+  /** 備料用的資料入口（使用者 client，受 RLS 限制；ARCHITECTURE §4.13.2）。 */
+  readonly planStore: (ctx: AuthContext) => PlanStore;
+  readonly providers: Registry;
+  readonly fetch: FetchLike;
 };
 export type Route = (req: Request, ctx: AuthContext, deps: RouteDeps) => Promise<Response>;
-export type RouteKey = 'GET /health' | 'POST /checkins' | 'POST /reviews';
+export type RouteKey = 'GET /health' | 'POST /checkins' | 'POST /reviews' | 'POST /plan/today';
 
 export type RouterDeps = {
   readonly auth: Result<RequireUserDeps, AppError>;
@@ -35,6 +42,7 @@ export const ROUTES: Readonly<Record<RouteKey, Route>> = {
   'GET /health': health,
   'POST /checkins': postCheckins,
   'POST /reviews': postReviews,
+  'POST /plan/today': postPlanToday,
 };
 
 const PATH_PREFIX = /^(?:\/functions\/v1)?(?:\/api)?(\/.*)$/;

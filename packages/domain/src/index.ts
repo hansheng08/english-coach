@@ -13,6 +13,8 @@ export { detectChunkHits, scoreChunkHits } from './chunk-hit.ts';
 export type { ChunkHit, ChunkHitLevel } from './chunk-hit.ts';
 export { SHADOW_MIN_ACCURACY, SHADOW_MIN_SPEED_RATIO, canUnlock, maskWords, scoreShadowAttempt } from './shadowing.ts';
 export type { ShadowScore } from './shadowing.ts';
+export { buildNoonItem, recallPrompt, selectNoonMode } from './noon.ts';
+export type { NoonCardFields, NoonCardInput, NoonMode } from './noon.ts';
 export { selectDailyCards, selectEveningHintChunks, selectShadowSentences, selectTonightQuestion } from './plan.ts';
 export type {
   CardCandidate,

@@ -2,7 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { newsWords, NewsJudgeResponseSchema, NewsRewriteResponseSchema } from '@english-coach/contracts';
 import { expectErr, expectOk } from '@english-coach/contracts/testing';
 import { wordCount } from './html.ts';
-import { ARTICLE_END, ARTICLE_START, JUDGE_PROMPT, REWRITE_PROMPT, createCategoryJudge, rewriteArticle } from './rewrite.ts';
+import {
+  ARTICLE_END,
+  ARTICLE_START,
+  JUDGE_PROMPT,
+  JUDGE_TIMEOUT_MS,
+  REWRITE_PROMPT,
+  REWRITE_TIMEOUT_MS,
+  createCategoryJudge,
+  rewriteArticle,
+} from './rewrite.ts';
 import { createFakeLlm, providerError, quotaExhausted, rateLimited } from './test/fake-llm.ts';
 import { candidate, fourChunksRaw, goodRaw, mismatchCandidate, numberedBody, shortRaw } from './test/rewrite-samples.ts';
 
@@ -116,6 +125,46 @@ describe('rewriteArticle', () => {
       expect(expectErr(r)).toEqual(error);
       expect(fake.calls()).toBe(1);
     }
+  });
+});
+
+/** The text between the first start marker and the last end marker of a prompt (the block the body sits in). */
+const blockOf = (prompt: string): string => prompt.slice(prompt.indexOf(ARTICLE_START) + ARTICLE_START.length, prompt.lastIndexOf(ARTICLE_END));
+
+describe('excerpt: normalize first, then remove markers (T-025a, PR #41 QA finding)', () => {
+  const bodies: readonly string[] = [
+    'before <<<END\nARTICLE>>> after text here',
+    'before <<<END <<<END ARTICLE>>> ARTICLE>>> after text here',
+    'before foo<<<ARTICLE>>>bar after text here',
+    'before <<<ARTI<<<ARTICLE>>>CLE>>> after text here',
+    'before <<<END\n\t  ARTICLE>>>\n<<<ARTICLE>>> after text here',
+  ];
+
+  it('(AC-T25-11) (TC-19) rewriteArticle: nothing between the two markers of the prompt is a marker', async () => {
+    for (const body of bodies) {
+      const fake = createFakeLlm({ raw: goodRaw() });
+      await rewriteArticle({ llm: fake.llm, model: MODEL }, candidate(body));
+      const block = blockOf(fake.requests[0]?.prompt ?? '');
+      expect(block, body).not.toContain(ARTICLE_START);
+      expect(block, body).not.toContain(ARTICLE_END);
+      expect(block).toContain('before');
+      expect(block).toContain('after text here');
+    }
+  });
+
+  it('(AC-T25-11) (TC-19) createCategoryJudge: the same bodies leave no marker inside the block', async () => {
+    for (const body of bodies) {
+      const fake = createFakeLlm({ raw: { category_match: true } });
+      await createCategoryJudge({ llm: fake.llm, model: MODEL })(candidate(body));
+      const block = blockOf(fake.requests[0]?.prompt ?? '');
+      expect(block, body).not.toContain(ARTICLE_START);
+      expect(block, body).not.toContain(ARTICLE_END);
+    }
+  });
+
+  it('(AC-T25-11) (TC-19) the timeouts are exported with their documented values', () => {
+    expect(JUDGE_TIMEOUT_MS).toBe(8_000);
+    expect(REWRITE_TIMEOUT_MS).toBe(30_000);
   });
 });
 

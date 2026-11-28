@@ -24,8 +24,67 @@ export interface ReviewDbClient {
   rpc(fn: string, args: Readonly<Record<string, unknown>>): PromiseLike<DbResponse<unknown>>;
 }
 
+/**
+ * PlanStore（`plan-store.ts`）用到的查詢鏈：每個方法回同一種可 await 的查詢，和 supabase-js 的 PostgREST builder 同名同序。
+ * 使用者 client 與 secret client 共用（T-025a；ARCHITECTURE §4.12.5）。
+ */
+export interface PlanQuery extends PromiseLike<DbResponse<unknown>> {
+  select(columns: string): PlanQuery;
+  insert(row: Readonly<Record<string, unknown>>): PlanQuery;
+  upsert(row: Readonly<Record<string, unknown>>, options: { readonly onConflict: string; readonly ignoreDuplicates: boolean }): PlanQuery;
+  update(values: Readonly<Record<string, unknown>>): PlanQuery;
+  eq(column: string, value: string | number | boolean): PlanQuery;
+  is(column: string, value: null): PlanQuery;
+  not(column: string, operator: 'is', value: null): PlanQuery;
+  lt(column: string, value: string): PlanQuery;
+  gte(column: string, value: string): PlanQuery;
+  lte(column: string, value: string): PlanQuery;
+  or(filter: string): PlanQuery;
+  order(column: string, options?: { readonly ascending: boolean }): PlanQuery;
+  limit(count: number): PlanQuery;
+  maybeSingle(): PlanQuery;
+}
+export interface PlanDbClient {
+  from(table: string): PlanQuery;
+}
+
+const isPlanQuery = (x: unknown): x is PlanQuery => typeof x === 'object' && x !== null;
+
+/** supabase-js 回了意料之外的東西時用：任何鏈式呼叫都回自己，await 時是 `error`（不丟例外）。 */
+const brokenQuery: PlanQuery = {
+  then: (onfulfilled, onrejected) =>
+    Promise.resolve<DbResponse<unknown>>({ data: null, error: { message: 'unexpected query builder' } }).then(onfulfilled, onrejected),
+  select: () => brokenQuery,
+  insert: () => brokenQuery,
+  upsert: () => brokenQuery,
+  update: () => brokenQuery,
+  eq: () => brokenQuery,
+  is: () => brokenQuery,
+  not: () => brokenQuery,
+  lt: () => brokenQuery,
+  gte: () => brokenQuery,
+  lte: () => brokenQuery,
+  or: () => brokenQuery,
+  order: () => brokenQuery,
+  limit: () => brokenQuery,
+  maybeSingle: () => brokenQuery,
+};
+
+/** supabase-js 的 builder 本來就是這個形狀；用型別守衛接上，避免把泛型型別直接指定給介面（TS2589）。 */
+export function planDbClientFrom(sb: { from(table: string): unknown }): PlanDbClient {
+  return {
+    from: (table) => {
+      const q = sb.from(table);
+      return isPlanQuery(q) ? q : brokenQuery;
+    },
+  };
+}
+
+/** createUserClient 的結果：POST /checkins、POST /reviews 與 PlanStore 各用一個欄位／介面。 */
+export type UserClient = DbClient & ReviewDbClient & { readonly plan: PlanDbClient };
+
 /** 以使用者身分、受 RLS 限制的 client（ADR-010 決定 3：publishable 金鑰＋該使用者的 token）。 */
-export function createUserClient(ctx: AuthContext, env: SupabaseEnv): DbClient & ReviewDbClient {
+export function createUserClient(ctx: AuthContext, env: SupabaseEnv): UserClient {
   const sb = createClient(env.url, env.publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { headers: { Authorization: `Bearer ${ctx.accessToken}` } },
@@ -46,6 +105,7 @@ export function createUserClient(ctx: AuthContext, env: SupabaseEnv): DbClient &
       }),
     }),
     rpc: (fn, args) => sb.rpc(fn, args),
+    plan: planDbClientFrom(sb),
   };
 }
 

@@ -95,7 +95,7 @@ describe('T-032 regression (static text)', () => {
   });
 
   it('(AC-T32-13) (AC-T32-14) (TC-22) (AC-T32-18) (TC-29) reviewDb is optional on RouteDeps and no type gained a field', () => {
-    expect(routerSrc).toMatch(/export type RouteDeps = \{[\s\S]*?readonly reviewDb\?:[\s\S]*?\};/);
+    expect(routerSrc).toMatch(/export type RouteDeps = \{[\s\S]*?readonly reviewDb:[\s\S]*?\};/);
     const routerDeps = /export type RouterDeps = \{([\s\S]*?)\n\};/.exec(routerSrc)?.[1] ?? '';
     expect(routerDeps).not.toContain('reviewDb');
     expect(count(routerDeps, /^\s+readonly \w+:/gm)).toBe(5);
