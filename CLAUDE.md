@@ -75,6 +75,7 @@ supabase start        # 本機後端（需要 Docker）——模式 C 的 Claude
 18. AI 輸出的格式條件（字數、chunk 數、「/」斷句等）一律寫進傳給 `generate` 的 schema，讓 adapter 那 1 次自動重試就是唯一的重試；呼叫端不再自己包一層重試（ARCHITECTURE §6 第 7 點、§11.3、ADR-013）。
 19. 不加動畫、UI 元件、字型相關的套件（Framer Motion、GSAP、MUI、Tailwind、Google Fonts、woff2 字型檔等），只用系統字（ADR-014）；也不要讓 mock 建置帶 `VITE_SUPABASE_*`，或讓 mock 假資料出現真新聞原文。
 20. 測試（含 QA probe）建 `RouteDeps`、`RouterDeps`、`UserDb`、`DbClient` 一律用 `makeTest…` 工廠函式（ARCHITECTURE §5.1.1），不寫完整物件字面值；在這些介面加必填欄位時，同一個 commit 補工廠函式的預設值。新依賴不要為了避開 QA 檔而改成選填（過渡期的例外以任務單為準）。
+21. 前端測試（含 QA probe）建 `ApiClient` 一律用 `makeTestApiClient`／`makeTestApiRuntime`（ARCHITECTURE §9.1.7），不寫完整物件字面值。正式接線在 `loadApi`／`createApi` 注入 `fetch` 與 token 來源；`features/**` 不直接 `fetch`、不直接打產品 API。加必填方法時，同一個 commit 補工廠預設值。
 
 ## 6. 寫法規定
 - `tsconfig`：`strict`、`noUncheckedIndexedAccess`、`exactOptionalPropertyTypes`、`noImplicitOverride`、`noFallthroughCasesInSwitch`。不得使用 `any`、`as unknown as`、`@ts-ignore`（`@ts-expect-error` 只能出現在型別測試）。
