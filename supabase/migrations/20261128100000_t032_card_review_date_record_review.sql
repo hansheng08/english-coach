@@ -4,8 +4,6 @@
 alter table public.card_review add column review_date date;
 update public.card_review set review_date = (reviewed_at at time zone 'Asia/Taipei')::date where review_date is null;
 alter table public.card_review alter column review_date set not null;
--- Default = Taipei today, so inserts that omit review_date (T-004 pgTAP fixtures) keep working; record_card_review always passes it.
-alter table public.card_review alter column review_date set default ((now() at time zone 'Asia/Taipei')::date);
 alter table public.card_review add constraint card_review_card_id_review_date_key unique (card_id, review_date);
 
 -- 2. record_card_review: compare the old values, update card, insert card_review, all in one transaction.

@@ -18,8 +18,8 @@ insert into public.card (id, user_id, chunk, source_type) values
   ('b0000000-0000-4000-8000-0000000000c2', 'b0000000-0000-4000-8000-000000000002', 'get buy-in from sb', 'manual');
 insert into public.card (id, user_id, chunk, source_type, state, correct_count, interval_step, due_date) values
   ('a0000000-0000-4000-8000-0000000000c3', 'a0000000-0000-4000-8000-000000000001', 'push back on sth', 'news', 'reviewing', 5, 2, '2026-12-01');
-insert into public.card_review (user_id, card_id, mode, rating, state_before, state_after, interval_days_applied) values
-  ('b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-0000000000c2', 'A', 'fast', 'collected', 'learning', 1);
+insert into public.card_review (user_id, card_id, review_date, mode, rating, state_before, state_after, interval_days_applied) values
+  ('b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-0000000000c2', '2026-11-20', 'A', 'fast', 'collected', 'learning', 1);
 
 -- AC-T4-1: columns and keys
 select col_type_is('public', 'profile', 'settings', 'jsonb', '(AC-T4-1) profile.settings is jsonb');
@@ -79,12 +79,12 @@ select throws_ok($$insert into public.card (user_id, chunk, source_type, seed_ch
 select throws_ok($$insert into public.card (user_id, chunk, source_type) values ('a0000000-0000-4000-8000-000000000001', 'no seed', 'seed')$$, '23514', null, '(AC-T4-5) a seed card must have seed_chunk_id');
 
 -- AC-T4-6: card_review is append-only for users and tied to the owner's card
-select lives_ok($$insert into public.card_review (user_id, card_id, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000c1', 'B', 'hesitant', 'collected', 'learning', 1)$$, '(AC-T4-6) A can log a review of own card');
-select throws_ok($$insert into public.card_review (user_id, card_id, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-0000000000c2', 'A', 'fast', 'collected', 'learning', 1)$$, '23503', null, '(AC-T4-6) A cannot log a review of B card');
-select throws_ok($$insert into public.card_review (user_id, card_id, mode, rating, state_before, state_after, interval_days_applied) values ('b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-0000000000c2', 'A', 'fast', 'collected', 'learning', 1)$$, '42501', null, '(AC-T4-6) A cannot log a review as B');
+select lives_ok($$insert into public.card_review (user_id, card_id, review_date, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000c1', '2026-11-21', 'B', 'hesitant', 'collected', 'learning', 1)$$, '(AC-T4-6) A can log a review of own card');
+select throws_ok($$insert into public.card_review (user_id, card_id, review_date, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-0000000000c2', '2026-11-22', 'A', 'fast', 'collected', 'learning', 1)$$, '23503', null, '(AC-T4-6) A cannot log a review of B card');
+select throws_ok($$insert into public.card_review (user_id, card_id, review_date, mode, rating, state_before, state_after, interval_days_applied) values ('b0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-0000000000c2', '2026-11-23', 'A', 'fast', 'collected', 'learning', 1)$$, '42501', null, '(AC-T4-6) A cannot log a review as B');
 select throws_ok($$update public.card_review set rating = 'forgot'$$, '42501', null, '(AC-T4-6) card_review cannot be updated');
 select throws_ok('delete from public.card_review', '42501', null, '(AC-T4-6) card_review cannot be deleted');
-select throws_ok($$insert into public.card_review (user_id, card_id, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000c1', 'A', 'fast', 'collected', 'learning', 0)$$, '23514', null, '(AC-T4-6) interval_days_applied must be 1..365');
+select throws_ok($$insert into public.card_review (user_id, card_id, review_date, mode, rating, state_before, state_after, interval_days_applied) values ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000c1', '2026-11-24', 'A', 'fast', 'collected', 'learning', 0)$$, '23514', null, '(AC-T4-6) interval_days_applied must be 1..365');
 reset role;
 
 -- AC-T4-2: service_role (secret key; daily-prep / purge-audio only) bypasses RLS
