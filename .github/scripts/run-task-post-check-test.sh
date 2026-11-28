@@ -48,7 +48,7 @@ run_case() {
   ec=$?
   set -e
   local got_sum=no
-  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -qE '^## 自動驗證摘要（(O-90[2-5]|T-971-fix[01]) @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
+  if [[ -s "$WORK/rt/verify-summary.md" ]] && grep -qE '^## 自動驗證摘要（(O-90[2-5]|T-971-fix[01]|T-973a(-fix1)?) @ ' "$WORK/rt/verify-summary.md"; then got_sum=yes; fi
   if [[ "$ec" -ne "$want" || "$got_sum" != "$want_sum" ]]; then
     echo "CASE FAIL: ${name}: exit=${ec} (want ${want}) summary=${got_sum} (want ${want_sum})"; cat "$WORK/out"; FAIL=1
   else
@@ -264,6 +264,41 @@ if [[ ! -s "$WORK/rt/verify-summary.md" ]]; then echo "CASE FAIL: mutant NR-P1 w
 elif grep -qF -- '- `packages/a/moved.ts`' "$WORK/rt/verify-summary.md"; then echo "CASE FAIL: mutant NR-P1 survived (summary still lists packages/a/moved.ts)"; FAIL=1
 else echo "MUTANT KILLED: NR-P1 summary diff without --no-renames -> packages/a/moved.ts missing from the summary"; fi
 SCRIPT="$REAL_SCRIPT"
+
+# O-032 (AC-O32-5) (TC-12): a T-025a-style id and its fix round. main holds
+# T-973a and T-973a-fix1 (branch task/T-973a); mutants use the base id T-973a.
+SXREPO="$WORK/sxrepo"
+git init -q -b main "$SXREPO"
+cd "$SXREPO"
+git config user.email t@example.invalid
+git config user.name t
+mkdir -p docs/tasks docs/reports docs/qa/mutants tooling
+printf '# T-973a：x\n\n## 分支\n`task/T-973a`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n' > docs/tasks/T-973a.md
+printf '# T-973a-fix1：x\n\n## 分支\n`task/T-973a`\n\n## 檔案範圍\n### 要做\n- `tooling/*.mjs`\n' > docs/tasks/T-973a-fix1.md
+git add docs/tasks && git commit -qm "M0: T-973a tasks"
+SX0="$(git rev-parse HEAD)"
+git update-ref refs/remotes/origin/main HEAD
+git switch -q -c task/T-973a
+echo a > tooling/a.mjs
+printf '# T-973a 報告\n\n## 完成摘要\n完成。\n\n## 未完成事項\n無。\n\n## 需要人類決定的問題\n無。\n\n## 權限被拒\n- 次數：0 次\n' > docs/reports/T-973a.md
+git add tooling/a.mjs docs/reports/T-973a.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] T-973a work"
+run_case "(AC-O32-5) (TC-12) T-973a on task/T-973a -> exit 0" 0 yes TASK=T-973a BRANCH=task/T-973a PRE_HEAD="$SX0"
+echo '{"task":"T-973a","mutants":[]}' > docs/qa/mutants/T-973a.json
+git add docs/qa/mutants/T-973a.json
+git -c user.email='63729823+hansheng08@users.noreply.github.com' commit -qm "[QA] T-973a mutants"
+SXQA="$(git rev-parse HEAD)"
+echo b > tooling/a.mjs; sed 's/# T-973a 報告/# T-973a-fix1 報告/' docs/reports/T-973a.md > docs/reports/T-973a-fix1.md
+git add tooling/a.mjs docs/reports/T-973a-fix1.md
+git -c user.email='41898282+claude[bot]@users.noreply.github.com' commit -qm "[Claude] T-973a-fix1 fix"
+run_case "(AC-O32-5) (TC-12) T-973a-fix1 on task/T-973a -> exit 0" 0 yes TASK=T-973a-fix1 BRANCH=task/T-973a PRE_HEAD="$SXQA" RUN_MUTANTS_CMD="$MUT_OK"
+grep -q '^mutants file: docs/qa/mutants/T-973a.json$' "$WORK/out" && echo "CASE OK: (AC-O32-5) (TC-12) mutants run with the base id T-973a" || { echo "CASE FAIL: (AC-O32-5) (TC-12) mutants not run with T-973a"; cat "$WORK/out"; FAIL=1; }
+run_case "(AC-O32-5) (TC-12) BRANCH task/T-973ab -> exit 1, pre-head-invalid" 1 yes TASK=T-973a-fix1 BRANCH=task/T-973ab PRE_HEAD="$SXQA" RUN_MUTANTS_CMD="$MUT_OK"
+grep -q "BRANCH 'task/T-973ab' is not task/<id> or fix/Q-<nnn>" "$WORK/out" && echo "CASE OK: (AC-O32-5) (TC-12) same BRANCH error message" || { echo "CASE FAIL: (AC-O32-5) (TC-12) BRANCH error message changed"; cat "$WORK/out"; FAIL=1; }
+for bad_id in T-973A T-973ab T-97a T-973-a T-973a-fix0 T-973a-fix01; do
+  run_case "(AC-O32-5) (TC-12) invalid TASK ${bad_id} -> exit 1" 1 no TASK="$bad_id" BRANCH=task/T-973a PRE_HEAD="$SXQA" RUN_MUTANTS_CMD="$MUT_OK"
+  grep -q "^run-task-post-check: ERROR: invalid TASK '${bad_id}'$" "$WORK/out" || { echo "CASE FAIL: (AC-O32-5) (TC-12) error message changed for ${bad_id}"; cat "$WORK/out"; FAIL=1; }
+done
 cd "$REPO"
 
 if [[ "$FAIL" -ne 0 ]]; then echo "run-task-post-check-test: FAILED"; exit 1; fi

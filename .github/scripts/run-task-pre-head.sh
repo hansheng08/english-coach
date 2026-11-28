@@ -16,7 +16,7 @@ TOOLING_DIR="${TOOLING_DIR:-tooling}"
 TASKS_DIR="${TASKS_DIR:-docs/tasks}"
 die() { echo "run-task-pre-head: ERROR: $*" >&2; exit 1; }
 
-[[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}(-fix[0-9]+)?$ ]] || die "invalid TASK '${TASK:-}'"
+[[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$ ]] || die "invalid TASK '${TASK:-}'"
 [[ -n "${GITHUB_OUTPUT:-}" ]] || die "GITHUB_OUTPUT is not set"
 [[ -f "${TASKS_DIR}/${TASK}.md" ]] || die "task file ${TASKS_DIR}/${TASK}.md does not exist"
 
@@ -32,7 +32,7 @@ const b = parseTaskFile(t).branch;
 if (typeof b !== "string" || b === "") { console.error(`task ${id} has no branch`); process.exit(1); }
 process.stdout.write(b);
 ' "$TASK_FILE_MJS" "$TASKS_DIR" "$TASK")" || die "cannot read the branch of ${TASK}"
-[[ "$BRANCH" =~ ^(task/[TQOAP]-[0-9]{3}|fix/Q-[0-9]{3})$ ]] || die "branch '${BRANCH}' is not task/<id> or fix/Q-<nnn>"
+[[ "$BRANCH" =~ ^(task/[TQOAP]-[0-9]{3}[a-z]?|fix/Q-[0-9]{3}[a-z]?)$ ]] || die "branch '${BRANCH}' is not task/<id> or fix/Q-<nnn>"
 
 if PRE_HEAD="$(git rev-parse --verify -q "refs/remotes/origin/${BRANCH}^{commit}")"; then
   echo "run-task-pre-head: ${BRANCH} exists at ${PRE_HEAD}"

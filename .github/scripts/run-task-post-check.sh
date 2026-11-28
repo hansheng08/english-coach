@@ -35,7 +35,7 @@ OUT_DIR="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 FRESH_MAIN_REF="refs/run-task/fresh-main"
 die() { echo "run-task-post-check: ERROR: $*" >&2; exit 1; }
 
-[[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}(-fix[0-9]+)?$ ]] || die "invalid TASK '${TASK:-}'"
+[[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$ ]] || die "invalid TASK '${TASK:-}'"
 [[ -n "${LOG:-}" && -f "$LOG" ]] || die "execution log '${LOG:-}' is missing"
 HEAD_SHA="$(git rev-parse --verify 'HEAD^{commit}')" || die "cannot resolve HEAD"
 
@@ -83,7 +83,7 @@ SCOPE_ERR="$OUT_DIR/run-task-scope-check.err"
 MAIN_TASKS="$OUT_DIR/run-task-main-tasks"
 if [[ ! "${PRE_HEAD:-}" =~ ^[0-9a-f]{40}$ ]]; then
   echo "run-task-post-check: PRE_HEAD '${PRE_HEAD:-}' is not a 40-hex SHA" >&2; FAILED+=(pre-head-invalid)
-elif [[ ! "${BRANCH:-}" =~ ^(task/[TQOAP]-[0-9]{3}|fix/Q-[0-9]{3})$ ]]; then
+elif [[ ! "${BRANCH:-}" =~ ^(task/[TQOAP]-[0-9]{3}[a-z]?|fix/Q-[0-9]{3}[a-z]?)$ ]]; then
   echo "run-task-post-check: BRANCH '${BRANCH:-}' is not task/<id> or fix/Q-<nnn>" >&2; FAILED+=(pre-head-invalid)
 elif ! git merge-base --is-ancestor "$PRE_HEAD" "$HEAD_SHA"; then
   echo "run-task-post-check: PRE_HEAD ${PRE_HEAD} is not an ancestor of HEAD ${HEAD_SHA}" >&2; FAILED+=(pre-head-invalid)

@@ -28,15 +28,12 @@ jobs:
       # comment instead (contents: write). This step does not open a PR.
       pull-requests: write
     steps:
-      - name: Validate task id
-        env:
-          TASK: ${{ github.event.client_payload.task }}
-        run: |
-          if [[ ! "$TASK" =~ ^[TQOAP]-[0-9]{3}(-fix[0-9]+)?$ ]]; then
-            echo "Invalid task id: $TASK"
-            exit 1
-          fi
-
+      # O-032: checkout is the FIRST step and has no `if`, so when Validate
+      # fails the always() steps (summary, Notify) still find .github/scripts
+      # and Notify sends claude-task-finished with outcome=failure (run
+      # 46154069368: Validate ran before checkout, the always() steps hit
+      # exit 127 and no webhook was sent). No step before Validate may use
+      # the task id; claude-permission-check.mjs freezes this order.
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
@@ -44,6 +41,14 @@ jobs:
           # override the Claude App token and the push would not trigger CI.
           # claude-permission-check.mjs fails if this is removed or set to true.
           persist-credentials: false
+
+      # O-032: the id reaches the script only through env (never the command
+      # text); the script never echoes the raw value. Failure skips every
+      # later non-always() step (Task lint, pre-head, Claude, Verify, ...).
+      - name: Validate task id
+        env:
+          TASK: ${{ github.event.client_payload.task }}
+        run: bash .github/scripts/run-task-validate-id.sh
 
       - name: Configure git identity
         run: |

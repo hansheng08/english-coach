@@ -22,6 +22,11 @@ task T-961 task/T-961
 task T-960-fix1 task/T-960
 task Q-962 fix/Q-962
 task O-963 main
+# O-032: one lowercase letter suffix (T-025a style).
+task T-965a task/T-965a
+task T-965a-fix1 task/T-965a
+task Q-968a fix/Q-968a
+task T-966b task/T-966ab
 printf '# O-964：x\n\n## 檔案範圍\n### 要做\n- `a`\n' > docs/tasks/O-964.md
 git add docs/tasks && git commit -qm base
 MAIN="$(git rev-parse HEAD)"
@@ -98,6 +103,21 @@ run_case "task file without 分支 -> exit 1" 1 "" TASK=O-964
 run_case "task file missing -> exit 1" 1 "" TASK=T-999
 run_case "invalid TASK -> exit 1" 1 "" TASK='T-960;x'
 run_case "GITHUB_OUTPUT unset -> exit 1" 1 "" TASK=T-960 GITHUB_OUTPUT=
+
+# O-032 (AC-O32-5) (TC-12): suffix ids and branches pass; bad shapes keep the
+# same error message as before.
+git update-ref refs/remotes/origin/task/T-965a "$T960"
+run_case "(AC-O32-5) (TC-12) T-965a, task/T-965a exists -> its head" 0 "branch=task/T-965a|pre_head=${T960}" TASK=T-965a
+run_case "(AC-O32-5) (TC-12) T-965a-fix1 reuses task/T-965a" 0 "branch=task/T-965a|pre_head=${T960}" TASK=T-965a-fix1
+git update-ref -d refs/remotes/origin/task/T-965a
+run_case "(AC-O32-5) (TC-12) task/T-965a not pushed yet -> origin/main" 0 "branch=task/T-965a|pre_head=${MAIN}" TASK=T-965a
+run_case "(AC-O32-5) (TC-12) fix/Q-968a not pushed yet -> origin/main" 0 "branch=fix/Q-968a|pre_head=${MAIN}" TASK=Q-968a
+run_case "(AC-O32-5) (TC-12) branch task/T-966ab -> exit 1" 1 "" TASK=T-966b
+grep -q "branch 'task/T-966ab' is not task/<id> or fix/Q-<nnn>" "$WORK/out" && echo "CASE OK: (AC-O32-5) (TC-12) same branch error message" || { echo "CASE FAIL: (AC-O32-5) (TC-12) branch error message changed"; cat "$WORK/out"; FAIL=1; }
+for bad_id in T-965A T-965ab T-96a T-965-a X-965 T-965a-fix0 T-965a-fix01 $'T-965a\n'; do
+  run_case "(AC-O32-5) (TC-12) invalid TASK $(printf '%q' "$bad_id") -> exit 1" 1 "" TASK="$bad_id"
+  grep -q "^run-task-pre-head: ERROR: invalid TASK '" "$WORK/out" || { echo "CASE FAIL: (AC-O32-5) (TC-12) error message changed for $(printf '%q' "$bad_id")"; cat "$WORK/out"; FAIL=1; }
+done
 git update-ref -d refs/remotes/origin/main
 run_case "origin/main missing and branch not pushed -> exit 1" 1 "" TASK=T-961
 

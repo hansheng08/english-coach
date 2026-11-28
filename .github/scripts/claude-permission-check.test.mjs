@@ -24,6 +24,11 @@ const FILES = [
   '.github/workflows/claude-run-task.yml',
   '.github/scripts/verify-push.sh',
   '.github/scripts/run-task-post-check.sh',
+  // O-032: the task-id / branch definition freeze reads these too.
+  '.github/scripts/run-task-validate-id.sh',
+  '.github/scripts/run-task-pre-head.sh',
+  '.github/scripts/run-task-usage-limit.sh',
+  '.github/scripts/taskcheck.sh',
 ];
 
 function run(root) {
@@ -608,3 +613,124 @@ test('M54 mutation (O-013): post-check scope-check back to the branch tree tasks
   assert.equal(r.code, 1, r.out);
   assert.match(r.out, /run-task-post-check\.sh does not pass --tasks-dir from main's docs\/tasks/);
 });
+
+// ---------------------------------------------------------------------------
+// O-032: task id / branch definitions and the checkout-then-Validate order.
+// Old and weakened regexes are assembled from pieces so this file itself
+// carries no task-id regex other than the frozen definitions (TC-13 scans
+// every file under .github/, this one included).
+const VID = '.github/scripts/run-task-validate-id.sh';
+const PH = '.github/scripts/run-task-pre-head.sh';
+const UL = '.github/scripts/run-task-usage-limit.sh';
+const TC = '.github/scripts/taskcheck.sh';
+const CLS = `[${'TQOAP'}]`;
+const DEF_ID = `^${CLS}-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$`;
+const DEF_BR = `^(task/${CLS}-[0-9]{3}[a-z]?|fix/Q-[0-9]{3}[a-z]?)$`;
+const OLD_ID = `^${CLS}-[0-9]{3}(-fix[0-9]+)?$`;
+const OLD_BR = `^(task/${CLS}-[0-9]{3}|fix/Q-[0-9]{3})$`;
+
+// Like runMutated, but also writes files the mutation adds.
+function runMutatedAll(mutate) {
+  const root = mkdtempSync(join(tmpdir(), 'perm-check-o032-'));
+  try {
+    const files = {};
+    for (const f of FILES) files[f] = readFileSync(join(REPO, f), 'utf8');
+    mutate(files);
+    for (const [f, text] of Object.entries(files)) {
+      mkdirSync(join(root, f, '..'), { recursive: true });
+      writeFileSync(join(root, f), text);
+    }
+    return run(root);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+function stepText(yml, startsWith) {
+  const i = yml.indexOf(startsWith);
+  assert.ok(i >= 0, `step ${startsWith} not found`);
+  const next = yml.indexOf('\n      - ', i + 1);
+  return yml.slice(i, next < 0 ? yml.length : next + 1);
+}
+
+function expectO32Fail(name, mutate, re) {
+  test(`${name} -> exit 1`, () => {
+    const r = runMutatedAll(mutate);
+    assert.equal(r.code, 1, r.out);
+    assert.match(r.out, re);
+  });
+}
+
+test('(AC-O32-5) (AC-O32-8) (TC-13) (TC-19) real repo: frozen definitions, constants equal the spec text', async () => {
+  const m = await import('./claude-permission-check.mjs');
+  assert.equal(m.TASK_ID_RE_SRC, DEF_ID);
+  assert.equal(m.BRANCH_RE_SRC, DEF_BR);
+  const r = run(REPO);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /O-032: every task-id \/ branch regex under \.github\/ is a frozen definition/);
+  assert.match(r.out, /checkout \(no if\) step 1, Validate step 2, id used only after Validate/);
+});
+
+test('(AC-O32-6) (TC-14) (TC-15) real claude-run-task.yml: order, always(), names', async () => {
+  const m = await import('./claude-permission-check.mjs');
+  const yml = readFileSync(join(REPO, WF), 'utf8');
+  assert.deepEqual(m.runTaskOrderProblems(yml), []);
+  const steps = yml.slice(yml.indexOf('\n    steps:\n')).split('\n').filter((l) => /^ {6}- /.test(l));
+  assert.match(steps[0], /^ {6}- uses: actions\/checkout@/);
+  assert.equal(steps[1], '      - name: Validate task id');
+  assert.match(yml, /\nconcurrency:\n  group: claude-run-task-\$\{\{ github\.event\.client_payload\.task \}\}\n  cancel-in-progress: false\n/);
+  assert.match(yml, /\n {10}name: run-task-outcome-\$\{\{ github\.event\.client_payload\.task \}\}\n/);
+  assert.match(yml, /\n {10}name: claude-execution-output-\$\{\{ github\.event\.client_payload\.task \}\}-\$\{\{ github\.run_id \}\}\n/);
+});
+
+test('(AC-O32-5) (TC-13) unit: definitions pass, an old or weakened regex anywhere under .github fails', async () => {
+  const m = await import('./claude-permission-check.mjs');
+  const base = {};
+  for (const f of FILES.filter((x) => x.startsWith('.github/scripts/'))) base[f] = readFileSync(join(REPO, f), 'utf8');
+  assert.deepEqual(m.taskIdRegexProblems(base), []);
+  for (const bad of [OLD_ID, OLD_BR, DEF_ID.replace('[a-z]?', '[A-Za-z]?'), DEF_ID.replace('[a-z]?', '[a-z]*'), DEF_ID.replace('[1-9][0-9]*', '[0-9]+')]) {
+    const p = m.taskIdRegexProblems({ ...base, '.github/workflows/x.yml': `run: '[[ $T =~ ${bad} ]]'\n` });
+    assert.match(p.join('\n'), /\.github\/workflows\/x\.yml:1: task-id regex is not one of the O-032 definitions/, bad);
+  }
+});
+
+// (AC-O32-9) (TC-20): every listed weakening of the SRE side must fail.
+expectO32Fail('O32-M1 mutation (AC-O32-9) (TC-20): Validate regex back to the old form', (f) => mut(f, VID, DEF_ID, OLD_ID), /run-task-validate-id\.sh:\d+: task-id regex is not one of the O-032 definitions/);
+expectO32Fail('O32-M2 mutation (AC-O32-9) (TC-20): suffix allows uppercase', (f) => mut(f, VID, DEF_ID, DEF_ID.replace('[a-z]?', '[A-Za-z]?')), /run-task-validate-id\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M3 mutation (AC-O32-9) (TC-20): suffix allows several letters', (f) => mut(f, VID, DEF_ID, DEF_ID.replace('[a-z]?', '[a-z]*')), /run-task-validate-id\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M4 mutation (AC-O32-9) (TC-20): -fix0 allowed again', (f) => mut(f, VID, DEF_ID, DEF_ID.replace('[1-9][0-9]*', '[0-9]+')), /run-task-validate-id\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M5 mutation (AC-O32-9) (TC-20): pre-head branch regex back to the old form', (f) => mut(f, PH, DEF_BR, OLD_BR), /run-task-pre-head\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M6 mutation (AC-O32-9) (TC-20): post-check branch regex back to the old form', (f) => mut(f, PC, DEF_BR, OLD_BR), /run-task-post-check\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M7 mutation (AC-O32-9) (TC-20): taskcheck branch regex back to the old form', (f) => mut(f, TC, DEF_BR, OLD_BR), /taskcheck\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M8 mutation (AC-O32-9) (TC-20): usage-limit id regex back to the old form', (f) => mut(f, UL, DEF_ID, OLD_ID), /run-task-usage-limit\.sh:\d+: task-id regex is not one/);
+expectO32Fail('O32-M9 mutation (AC-O32-5) (TC-13): old regex in a new workflow file', (f) => { f['.github/workflows/new.yml'] = `x: '${OLD_ID}'\n`; }, /\.github\/workflows\/new\.yml:1: task-id regex is not one/);
+expectO32Fail('O32-M10 mutation (AC-O32-5): pre-head drops the id check (definition no longer used)', (f) => mut(f, PH, `[[ "\${TASK:-}" =~ ${DEF_ID} ]] || die "invalid TASK '\${TASK:-}'"\n`, ''), /run-task-pre-head\.sh does not use the O-032 task id definition/);
+expectO32Fail('O32-M11 mutation (AC-O32-9) (TC-20): Validate moved before checkout', (f) => {
+  const co = stepText(f[WF], '      - uses: actions/checkout@');
+  const va = stepText(f[WF], '      - name: Validate task id');
+  f[WF] = f[WF].replace(co, '@@CO@@').replace(va, co).replace('@@CO@@', va);
+}, /step 1 is not actions\/checkout \(O-032\)/);
+expectO32Fail('O32-M12 mutation (AC-O32-9) (TC-20): checkout gets an if', (f) => mut(f, WF, '      - uses: actions/checkout@v6\n', '      - uses: actions/checkout@v6\n        if: ${{ github.event.client_payload.task != \'\' }}\n'), /the first checkout has an `if` \(O-032\)/);
+expectO32Fail('O32-M13 mutation (AC-O32-9) (TC-20): persist-credentials removed from step 1', (f) => mut(f, WF, '          persist-credentials: false\n', ''), /step 1 checkout does not set persist-credentials: false \(O-032\)/);
+expectO32Fail('O32-M14 mutation (AC-O32-9) (TC-20): Notify loses always()', (f) => {
+  const n = stepText(f[WF], '      - name: Notify Grok chief of staff');
+  f[WF] = f[WF].replace(n, n.replace('        if: always()\n', ''));
+}, /"Notify Grok chief of staff" is not if: always\(\)/);
+expectO32Fail('O32-M15 mutation (AC-O32-6): Upload run-task outcome loses always()', (f) => {
+  const n = stepText(f[WF], '      - name: Upload run-task outcome');
+  f[WF] = f[WF].replace(n, n.replace('        if: always()\n', '        if: success()\n'));
+}, /"Upload run-task outcome" is not if: always\(\)/);
+expectO32Fail('O32-M16 mutation (AC-O32-9) (TC-20): validate script echoes the raw value', (f) => mut(f, VID, '"$safe" >&2', '"$TASK" >&2'), /run-task-validate-id\.sh uses TASK outside the match \/ sanitize lines/);
+expectO32Fail('O32-M17 mutation (AC-O32-4): Validate passes the id on the command line', (f) => mut(f, WF, '        run: bash .github/scripts/run-task-validate-id.sh\n', '        run: bash .github/scripts/run-task-validate-id.sh "${{ github.event.client_payload.task }}"\n'), /Validate does not run \.github\/scripts\/run-task-validate-id\.sh|Validate puts the task id somewhere other than env TASK/);
+expectO32Fail('O32-M18 mutation (AC-O32-4): validate script reads $1', (f) => mut(f, VID, 'safe="${TASK-}"', 'safe="${1-}"'), /run-task-validate-id\.sh reads arguments/);
+expectO32Fail('O32-M19 mutation (AC-O32-4): LC_ALL=C removed', (f) => mut(f, VID, 'export LC_ALL=C\n', ''), /run-task-validate-id\.sh does not export LC_ALL=C/);
+expectO32Fail('O32-M20 mutation (AC-O32-6) (TC-14): Task lint moved before Validate', (f) => {
+  const tl = stepText(f[WF], '      - name: Task lint');
+  const va = stepText(f[WF], '      - name: Validate task id');
+  f[WF] = f[WF].replace(tl, '').replace(va, tl + va);
+}, /"Validate task id" must be step 2|uses the task id before Validate/);
+expectO32Fail('O32-M21 mutation (AC-O32-6) (TC-15): concurrency group changed', (f) => mut(f, WF, '  group: claude-run-task-${{ github.event.client_payload.task }}\n', '  group: claude-run-task-${{ github.run_id }}\n'), /concurrency group \/ cancel-in-progress changed/);
+expectO32Fail('O32-M22 mutation (AC-O32-6) (TC-15): cancel-in-progress true', (f) => mut(f, WF, '  cancel-in-progress: false\n', '  cancel-in-progress: true\n'), /concurrency group \/ cancel-in-progress changed/);
+expectO32Fail('O32-M23 mutation (AC-O32-6) (TC-15): run-task-outcome artifact renamed', (f) => mut(f, WF, 'name: run-task-outcome-${{ github.event.client_payload.task }}', 'name: run-task-outcome-${{ github.run_id }}'), /run-task-outcome artifact name changed/);
+expectO32Fail('O32-M24 mutation (AC-O32-6) (TC-15): claude-execution-output artifact renamed', (f) => mut(f, WF, 'name: claude-execution-output-${{ github.event.client_payload.task }}-${{ github.run_id }}', 'name: claude-execution-output-${{ github.run_id }}'), /claude-execution-output artifact name changed/);
+expectO32Fail('O32-M25 mutation (AC-O32-10): Validate gets continue-on-error', (f) => mut(f, WF, '        run: bash .github/scripts/run-task-validate-id.sh\n', '        continue-on-error: true\n        run: bash .github/scripts/run-task-validate-id.sh\n'), /Validate has an `if` or continue-on-error/);

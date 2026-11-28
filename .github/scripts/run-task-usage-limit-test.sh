@@ -82,6 +82,17 @@ run_detect "generic API error (overloaded) -> not a usage limit, gh not called" 
 [[ ! -f "$FAKE_GH_DIR/calls" ]] || { echo "CASE FAIL: gh called without a usage limit"; FAIL=1; }
 run_detect "invalid JSON execution file -> exit 1, nothing written" 1 "" LOG="$WORK/bad.json"
 run_detect "invalid TASK -> exit 1" 1 "" TASK='T-023;x'
+# O-032 (AC-O32-5) (TC-12): letter-suffix ids pass; bad shapes keep the same message.
+reset_gh; touch "$FAKE_GH_DIR/list.fail"
+run_detect "(AC-O32-5) (TC-12) T-025a without execution file -> not a usage limit" 0 "$NOT" TASK=T-025a LOG=
+run_detect "(AC-O32-5) (TC-12) T-025a-fix1 without execution file -> not a usage limit" 0 "$NOT" TASK=T-025a-fix1 LOG=
+for bad_id in T-025A T-025ab T-25a T-025-a X-025 T-025a-fix0 T-025a-fix01 $'T-025a\n'; do
+  run_detect "(AC-O32-5) (TC-12) invalid TASK $(printf '%q' "$bad_id") -> exit 1" 1 "" TASK="$bad_id"
+  grep -q "^run-task-usage-limit: ERROR: invalid TASK '" "$WORK/log" || { echo "CASE FAIL: (AC-O32-5) (TC-12) error message changed for $(printf '%q' "$bad_id")"; cat "$WORK/log"; FAIL=1; }
+done
+reset_gh
+run_detect "(AC-O32-5) (TC-12) T-025a usage limit -> streak 1, artifact looked up by the suffix id" 0 "usage_limit=true $R usage_limit_streak=1 usage_limit_action=reschedule" TASK=T-025a
+grep -q 'actions/artifacts?name=run-task-outcome-T-025a&per_page=100' "$FAKE_GH_DIR/calls" || { echo "CASE FAIL: (AC-O32-5) (TC-12) list query not by T-025a"; FAIL=1; }
 run_detect "no GITHUB_REPOSITORY on a usage limit -> exit 1" 1 "" GITHUB_REPOSITORY=
 reset_gh
 run_detect "1st usage limit, no previous artifact -> streak 1 reschedule" 0 "usage_limit=true $R usage_limit_streak=1 usage_limit_action=reschedule"

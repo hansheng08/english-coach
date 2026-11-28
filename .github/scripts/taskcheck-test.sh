@@ -54,6 +54,18 @@ echo "# Q-901 報告" > docs/reports/Q-901.md
 echo '{}' > docs/qa/mutants/Q-901.json
 git add docs/reports/Q-901.md docs/qa/mutants/Q-901.json && git commit -qm fix
 FIX_SHA="$(git rev-parse HEAD)"
+# O-032: letter-suffix branches task/T-925a and fix/Q-925a.
+git switch -q -c task/T-925a "$TASK_SHA"
+mkdir -p tooling
+echo d > tooling/y.mjs
+git add tooling/y.mjs && git commit -qm "suffix work"
+SFX_SHA="$(git rev-parse HEAD)"
+git switch -q -c fix/Q-925a "$TASK_SHA"
+mkdir -p docs/reports docs/qa/mutants
+echo "# Q-925a 報告" > docs/reports/Q-925a.md
+echo '{}' > docs/qa/mutants/Q-925a.json
+git add docs/reports/Q-925a.md docs/qa/mutants/Q-925a.json && git commit -qm "suffix fix"
+SFX_FIX_SHA="$(git rev-parse HEAD)"
 git switch -q task/T-901
 
 GOOD_VITEST='printf "{\"testResults\":[]}" > "$1"'
@@ -216,6 +228,28 @@ run_case "surviving mutant (run-mutants exit 1) fails the job, summary still run
 run_case "run-mutants without a report is fail-closed" 1 \
   "scope-check --branch fix/Q-901 --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-901 --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-901.md|run-mutants --file docs/qa/mutants/Q-901.json --out W/taskcheck-mutants.json" \
   EVENT_NAME=push REF_NAME=fix/Q-901 SHA="$FIX_SHA" EXIT_run_mutants=1 NO_OUT_run_mutants=1
+# O-032 (AC-O32-5) (TC-12): one lowercase letter suffix is accepted on task/
+# and fix/Q- branches; other shapes keep the same error message.
+git switch -q task/T-925a
+run_case "(AC-O32-5) (TC-12) task/T-925a push: scope-check then ac-coverage" 0 \
+  "scope-check --branch task/T-925a --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-925a --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|verify-summary --task T-925a --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
+  EVENT_NAME=push REF_NAME=task/T-925a SHA="$SFX_SHA"
+run_case "(AC-O32-5) (TC-12) task/T-925a pull_request" 0 \
+  "scope-check --branch task/T-925a --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch task/T-925a --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks|verify-summary --task T-925a --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt" \
+  EVENT_NAME=pull_request HEAD_REF=task/T-925a BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$SFX_SHA"
+git switch -q fix/Q-925a
+run_case "(AC-O32-5) (TC-12) fix/Q-925a push: report-lint and mutants with the suffix id" 0 \
+  "scope-check --branch fix/Q-925a --changed W/taskcheck-changed.txt --commits W/taskcheck-commits.txt --tasks-dir W/taskcheck-main-tasks/docs/tasks|ac-coverage --branch fix/Q-925a --results W/taskcheck-vitest.json --tasks-dir W/taskcheck-main-tasks/docs/tasks --e2e-skipped --event push|report-lint docs/reports/Q-925a.md|run-mutants --file docs/qa/mutants/Q-925a.json --out W/taskcheck-mutants.json|verify-summary --task Q-925a --sha SHA --vitest W/taskcheck-vitest.json --changed W/taskcheck-changed.txt --mutants W/taskcheck-mutants.json" \
+  EVENT_NAME=push REF_NAME=fix/Q-925a SHA="$SFX_FIX_SHA"
+for bad_branch in task/T-925ab task/T-925A task/T-92a task/T-925a/x task/T-925a-fix1 fix/T-925a fix/Q-925ab $'task/T-925a\n'; do
+  run_case "(AC-O32-5) (TC-12) branch $(printf '%q' "$bad_branch") is fail-closed" 1 "" \
+    EVENT_NAME=pull_request HEAD_REF="$bad_branch" BASE_SHA="$TASK_SHA" PR_HEAD_SHA="$SFX_SHA"
+  if grep -q "^taskcheck: ERROR: branch '" "$WORK/out" && grep -q "' is not task/<id> or fix/Q-<nnn>; job-level if should have skipped it$" "$WORK/out"; then
+    echo "CASE OK: (AC-O32-5) (TC-12) same branch error message"
+  else
+    echo "ERROR: (AC-O32-5) (TC-12) branch error message changed"; cat "$WORK/out"; FAIL=1
+  fi
+done
 git switch -q task/T-901
 
 # O-010 db-test cases: supabase/config.toml in the working tree turns db-test on.

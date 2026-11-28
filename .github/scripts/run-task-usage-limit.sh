@@ -83,7 +83,7 @@ previous_arg() {
 }
 
 detect() {
-  [[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}(-fix[0-9]+)?$ ]] || die "invalid TASK '${TASK:-}'"
+  [[ "${TASK:-}" =~ ^[TQOAP]-[0-9]{3}[a-z]?(-fix[1-9][0-9]*)?$ ]] || die "invalid TASK '${TASK:-}'"
   [[ -n "${GITHUB_OUTPUT:-}" ]] || die "GITHUB_OUTPUT is not set"
   WORK="$(mktemp -d "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/usage-limit.XXXXXX")"
   local det ul reset type streak_json streak action
