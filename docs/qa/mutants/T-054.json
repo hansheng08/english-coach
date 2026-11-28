@@ -1,0 +1,171 @@
+{
+  "task": "T-054",
+  "mutants": [
+    {
+      "id": "M1",
+      "file": "apps/web/src/vite-env.d.ts",
+      "before": "  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;\n}",
+      "after": "  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;\n  readonly VITE_API_TOKEN?: string;\n}",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)",
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M2",
+      "file": "apps/web/src/vite-env.d.ts",
+      "before": "  readonly VITE_SUPABASE_URL?: string;\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M3",
+      "file": "apps/web/src/vite-env.d.ts",
+      "before": "readonly VITE_DATA_MODE: string;",
+      "after": "readonly VITE_DATA_MODES: string;",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)",
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M4",
+      "file": "apps/web/src/vite-env.d.ts",
+      "before": "  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M5",
+      "file": "apps/web/.env.example",
+      "before": "VITE_SUPABASE_PUBLISHABLE_KEY=",
+      "after": "VITE_SUPABASE_PUBLISHABLE_KEY=\nVITE_API_TOKEN=",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)",
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M6",
+      "file": "apps/web/.env.example",
+      "before": "VITE_SUPABASE_URL=\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M7",
+      "file": "apps/web/.env.example",
+      "before": "VITE_DATA_MODE=\n",
+      "after": "VITE_DATA_MODEX=\n",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)",
+        "(AC-T54-3) (TC-6)"
+      ]
+    },
+    {
+      "id": "M8",
+      "file": "apps/web/.env.example",
+      "before": "mock 模式不得定義任何 VITE_SUPABASE_*",
+      "after": "mock 模式不得定義任何 VITE_SUPABASE_* 與 VITE_SECRET_NOTE",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M9",
+      "file": "apps/web/index.html",
+      "before": "<title>English Coach</title>",
+      "after": "<title>%VITE_APP_TITLE%</title>",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M10",
+      "file": "apps/web/vite.pwa.ts",
+      "before": "import type { Plugin } from 'vite';",
+      "after": "// VITE_PWA_FLAG\nimport type { Plugin } from 'vite';",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M11",
+      "file": "playwright.config.ts",
+      "before": "env: { VITE_DATA_MODE: 'mock' },",
+      "after": "env: { VITE_DATA_MODE: 'mock', VITE_API_TOKEN: 'x' },",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M12",
+      "file": "apps/web/vite.config.ts",
+      "before": "VITE_DATA_MODE（或值不對）",
+      "after": "VITE_DATA_MODE 與 VITE_X（或值不對）",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M13",
+      "file": "apps/web/vite.data-mode.ts",
+      "before": "export type DataMode = 'mock' | 'supabase';",
+      "after": "// VITE_MODE_FLAG\nexport type DataMode = 'mock' | 'supabase';",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M14",
+      "file": "apps/web/src/api/supabase/index.ts",
+      "before": "import.meta.env.VITE_SUPABASE_URL ?? ''",
+      "after": "import.meta.env.VITE_SUPABASE_URLS ?? ''",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M15",
+      "file": "apps/web/src/api/index.ts",
+      "before": "import.meta.env.VITE_DATA_MODE === 'mock'",
+      "after": "import.meta.env.VITE_DATA_MODE_X === 'mock'",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M16",
+      "file": "apps/web/src/features/login/LoginPage.tsx",
+      "before": "import { useEffect, useRef, useState } from 'react';",
+      "after": "// VITE_LOGIN_FLAG\nimport { useEffect, useRef, useState } from 'react';",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M17",
+      "file": "apps/web/index.html",
+      "before": "<!doctype html>\n<html lang=\"zh-Hant-TW\">\n  <head>\n    <meta charset=\"UTF-8\" />\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />\n    <meta name=\"color-scheme\" content=\"light dark\" />\n    <meta name=\"theme-color\" media=\"(prefers-color-scheme: light)\" content=\"#F4F5F7\" />\n    <meta name=\"theme-color\" media=\"(prefers-color-scheme: dark)\" content=\"#0A1420\" />\n    <script>\n      try {\n        var t = localStorage.getItem('ec-theme');\n        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;\n      } catch (e) {}\n    </script>\n    <title>English Coach</title>\n    <script type=\"module\" src=\"/src/main.tsx\"></script>\n  </head>\n  <body>\n    <div id=\"root\"></div>\n  </body>\n</html>\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    },
+    {
+      "id": "M18",
+      "file": "playwright.config.ts",
+      "before": "import { defineConfig } from '@playwright/test';\n\n// E2E 只跑 mock 模式（ADR-014 決定 1）：以 VITE_DATA_MODE=mock 建置後 preview，不連任何外部網路。\n// 視窗大小由 test/e2e 的測試檔用 test.use 逐一指定（360、412、768、1280、1440）。\nconst PORT = 4173;\n\nexport default defineConfig({\n  testDir: './test/e2e',\n  testMatch: '**/*.spec.ts',\n  fullyParallel: true,\n  reporter: 'list',\n  use: { baseURL: `http://localhost:${String(PORT)}`, browserName: 'chromium' },\n  webServer: {\n    command: `pnpm --filter @english-coach/web build && pnpm --filter @english-coach/web exec vite preview --port ${String(PORT)} --strictPort`,\n    env: { VITE_DATA_MODE: 'mock' },\n    url: `http://localhost:${String(PORT)}`,\n    reuseExistingServer: true,\n    timeout: 180_000,\n  },\n});\n",
+      "after": "",
+      "expectFail": [
+        "(AC-T54-2) (TC-5)"
+      ]
+    }
+  ]
+}
