@@ -1,17 +1,17 @@
 import { ApiErrorBodySchema, CheckinEventSchema, err, httpStatusOf, ok, UserIdSchema, type AppError, type Result } from '@english-coach/contracts';
 import { describe, expect, it } from 'vitest';
-import type { KeyPresence } from '../_shared/config/env.ts';
 import type { TokenClaims } from '../_shared/db/auth.ts';
 import type { DbClient, DbResponse } from '../_shared/db/client.ts';
 import { insertCheckin } from '../_shared/db/checkin.ts';
-import { userDbFrom, type UserDb } from '../_shared/db/user-db.ts';
+import { makeTestDbClient } from '../_shared/db/test/fakes.ts';
+import { userDbFrom } from '../_shared/db/user-db.ts';
 import { createRouter, type RouteDeps } from './router.ts';
+import { makeTestRouteDeps, makeTestRouterDeps } from './test/route-deps.ts';
 
 // QA probes for T-053 AC-T53-2～5、7（POST /checkins 冪等、日期窗、回應形狀）。fake 值皆為低熵。
 const USER = '00000000-0000-4000-8000-000000000053';
 const OTHER = '00000000-0000-4000-8000-000000000099';
 const ORIGIN = 'http://localhost:5173';
-const PRESENCE: KeyPresence = { hasSupabaseUrl: true, hasPublishable: true, hasSecret: true, onlyLegacyKeys: false };
 const CLAIMS: TokenClaims = { role: 'authenticated', sub: USER, is_anonymous: false };
 const HEADERS = { Authorization: 'Bearer a.b.c', 'Content-Type': 'application/json', Origin: ORIGIN };
 const UNIQUE = ['user_id', 'plan_date', 'slot', 'step', 'status'] as const;
@@ -23,7 +23,7 @@ function uniqueDb() {
   const stored = new Map<string, Row>();
   const tables: string[] = [];
   const received: Row[] = [];
-  const client: DbClient = {
+  const client = makeTestDbClient({
     from: (table) => {
       tables.push(table);
       return {
@@ -36,26 +36,27 @@ function uniqueDb() {
         },
       };
     },
-  };
+  });
   return { client, stored, tables, received };
 }
 
 function router(client: DbClient, now: () => Date, routeDeps?: Result<RouteDeps, AppError>) {
   let userDbCalls = 0;
-  const deps: RouteDeps = {
-    userDb: (ctx): UserDb => {
+  const deps = makeTestRouteDeps({
+    userDb: (ctx) => {
       userDbCalls += 1;
       return userDbFrom(client, ctx.userId);
     },
     now,
-  };
-  const handle = createRouter({
-    auth: ok({ verifyToken: () => Promise.resolve(ok(CLAIMS)) }),
-    routeDeps: routeDeps ?? ok(deps),
-    allowedOrigins: [ORIGIN],
-    keyPresence: PRESENCE,
-    log: () => undefined,
   });
+  // auth／allowedOrigins 覆寫：工廠的「固定測試使用者」與「一個測試 origin」字面值未在任務單定死，這裡維持既有斷言用的 USER／ORIGIN。
+  const handle = createRouter(
+    makeTestRouterDeps({
+      auth: ok({ verifyToken: () => Promise.resolve(ok(CLAIMS)) }),
+      routeDeps: routeDeps ?? ok(deps),
+      allowedOrigins: [ORIGIN],
+    }),
+  );
   return { handle, userDbCalls: () => userDbCalls };
 }
 
@@ -109,9 +110,10 @@ describe('T-053 QA POST /checkins idempotency', () => {
   it('(QA-4) the repository maps only 23505 to ok: RLS 42501 and a check-constraint 23514 stay db_failed without data', async () => {
     const user = UserIdSchema.parse(USER);
     const e = { planDate: '2026-11-27', slot: 'noon', step: 'cards', status: 'completed' } as const;
-    const answer = (code: string | undefined): DbClient => ({
-      from: () => ({ insert: () => Promise.resolve<DbResponse<unknown>>({ data: null, error: { code, message: `boom 2026-11-27 cards ${USER}` } }) }),
-    });
+    const answer = (code: string | undefined): DbClient =>
+      makeTestDbClient({
+        from: () => ({ insert: () => Promise.resolve<DbResponse<unknown>>({ data: null, error: { code, message: `boom 2026-11-27 cards ${USER}` } }) }),
+      });
     const parsed = CheckinEventSchema.parse(e);
     expect(await insertCheckin(answer('23505'), user, parsed)).toEqual(ok(null));
     for (const code of ['42501', '23514', '23503', '2350', '235050']) {
@@ -175,7 +177,9 @@ describe('T-053 QA POST /checkins date window and shape', () => {
     const bad = await r.handle(post(event('2026-11-20')));
     expect(bad.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
     expect(bad.headers.get('Content-Type')).toContain('application/json');
-    const failing: DbClient = { from: () => ({ insert: () => Promise.resolve<DbResponse<unknown>>({ data: null, error: { code: '42501', message: 'x' } }) }) };
+    const failing = makeTestDbClient({
+      from: () => ({ insert: () => Promise.resolve<DbResponse<unknown>>({ data: null, error: { code: '42501', message: 'x' } }) }),
+    });
     const broken = await router(failing, at('2026-11-27T04:00:00Z')).handle(post(event('2026-11-27')));
     expect(broken.status).toBe(500);
     expect(broken.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
