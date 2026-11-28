@@ -1,5 +1,5 @@
 # ADR-021：T-030 錄音驗證與孤兒清理規則（兼 T-021 工廠／SW 快取）
-- 狀態：**已接受**（Architect，2026-11-28；G2 PR，Hansheng Merge 即核准）｜日期：2026-11-28｜提出：Architect
+- 狀態：**已接受**（Architect，2026-11-28；G2 PR，Hansheng Merge 即核准；修訂 1 同日）｜日期：2026-11-28｜提出：Architect
 - 相關：ARCHITECTURE v1.15 §4.18.1、§4.12.2.1、§4.12.5、§5.0.4、§5.0.5、§9、§9.1.7；ADR-020；TASKS T-021、T-030、T-046
 - 來源：QA 在設計 T-030／孤兒測試案例時提出的待釐清（A1～A16、B1～B8），以及 T-021 的 AC-T21-13／AC-T21-14 與 §9.1.7 的衝突。
 
@@ -27,3 +27,13 @@
 - 列出失敗借用 `op: 'download'` 而不擴充 `op`。
 - 在 T-021 驗收時改既有 login／app qa 檔。
 - `getAccessToken` 在未登入時丟例外。
+
+## 修訂
+1. **2026-11-28（本關卡第 1 次修改，憲章 §10）**：回覆 TechLead 對照任務單後的 7 題。ARCHITECTURE 版本仍為 v1.15。
+   1. 確認不新增 `GET /resume`。讀取由 `apps/web/src/api/supabase/` 以使用者身分讀表（§5.1 讀取類既有慣例，§3.1 只允許 `api` 用 supabase-js），RLS 限本人。§4.21 一併改寫。
+   2. `recordCall` 本身失敗不改變回應；只 log 一行，格式為 `tts recordCall kind=<AppErrorKind>`，不含文字與路徑。
+   3. `review_date` 不加 `default`，必由呼叫端以台北日期傳入；T-032 改 `t004_rls_test.sql` 的 fixture。
+   4. 改依 RIFF 逐個走 chunk。時長改用 `data` chunk 的**宣告大小**（`0xFFFFFFFF`＝到檔尾）。`data` 之後的合法 chunk（如 `LIST`／`INFO`）忽略且不送 Azure；無法解析的尾巴、或宣告超過檔尾／不是 `blockAlign` 倍數，回 400。送給 Azure 的只有正規化後的 `fmt`＋`data`，因此少報大小繞不過 30 秒上限。1 MiB 仍先擋整檔。此點修正決定 1 裡「檔頭與實際不符一律 400」的寫法（合法的後續 chunk 不再因此被拒）。
+   5. 孤兒列出函式定名 `public.list_audio_objects_for_purge(p_cutoff timestamptz, p_limit integer) returns table(object_name text, created_at timestamptz)`。`security definer`、`set search_path = ''`、物件寫完整 schema 名；`revoke all` from `public, anon, authenticated`，只 `grant execute` 給 `service_role`。
+   6. 路徑不用 `like '%…%'`，改用 `bucket_id` 加上 `storage.foldername(name)` 精確比對每一段（跟讀三段、晚上兩段，格式見 §4.12.1）。
+   7. §9.1.7 收尾指名 **T-020**（把 T-021 暫時選填的方法改回必填、拿掉 `??`、QA 改兩個 probe）。T-020 尚未派工。若 T-020 比 T-021 先合併，改由 T-021 之後第一張會改到 `ApiClient` 的單做。
