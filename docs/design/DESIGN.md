@@ -1,4 +1,4 @@
-# DESIGN：english-coach 設計系統（D2a＋D2b 第 1、2 批，v1.6）
+# DESIGN：english-coach 設計系統（D2a＋D2b 第 1、2 批，v1.7）
 
 - 編號：D-003（D2a）。分支 `design/system`。依據：`docs/design/BRIEF.md` v1.0、PRD v1.3（PR #52；v1.2 也比對過）、`english-coach-plan.md`、D1 決定（§11）、ARCHITECTURE v1.9 §9.1／ADR-014（PR #53 已於 2026-11-26 20:03 合併，f1a6077）。
 - v1.1（D2 第 2 輪，2026-11-26）：依 PM 文案檢查（PR #54 留言 13 點）與 Hansheng 19:48 決定修訂：streak 條件文案、Mastered 改 M2 刻度、AC-15 無 `:has()` 退回、診斷標記可點、新增「今天只有 N 張」畫面。
@@ -7,6 +7,7 @@
 - v1.4（D-004，D2a 增補，2026-11-26；分支 `design/pwa-assets`）：PWA manifest 與圖示、系統提示（斷線、新版、預覽假資料）規格見新檔 `pwa.md`；登入錯誤狀態補齊（`screens/login.md`）。沒有新增 token。
 - v1.5（D-005，D2b 第 1 批，2026-11-27；分支 `design/d2b-screens`）：素材沒備好（`screens/prep.md`）、錯誤與額度用完（`screens/errors.md`）、儀表板＋打卡日曆（`screens/dashboard.md`）、成長曲線＋練習紀錄（`screens/growth.md`）、履歷頁（`screens/resume.md`）。中午手動新增與設定頁因 G1 修改 AC-08／AC-26 暫停（§15.6 不並行），等 G1 合併後再做。沒有新增 token。PM §15.6 對照後（2026-11-27）：練習紀錄假資料統一、「每分鐘停頓＋贅詞」改名、日曆可往前翻月、履歷卡顯示移除了幾項；PM 的回答記為各 md 的「已決定」。
 - v1.6（D-006，D2b 第 2 批，2026-11-27；分支 `design/d2b-batch2`）：依 PRD v1.5（#90）AC-26、AC-08、Q-36～Q-41 與 ARCH v1.11／ADR-017（#91、#96）。新增設定頁（`screens/settings.md`：時段開始時間、複習間隔、模型與供應商、付費、履歷、帳號、外觀；新聞輪替依 PM 決定不放）；中午只剩字卡複習一步（Q-41），首頁、結果頁、紀錄、`home-prep-*` 一起改；新增字卡改為「隨時可用」入口＋4 個狀態的新增流程（`screens/noon.md` §3）；`review-short.html` 依 Q-39 改模式 B；新增模式 A「自行回想」三種題幹＋兩種看答案狀態（`review-recall*.html`，`noon.md` §1a，T-033 待釐清 ①）；結果頁與練習紀錄的模型名稱改照 ARCH §5.9.4（「Gemini・Gemini 3.5 Flash-Lite」「Groq・Whisper Large v3 Turbo」）；新增字卡錯誤狀態（`add-card-error.html`）與中午 0 張（`review-zero.html`）；晚上題目卡拿掉「被問過幾次」、加上「還沒有履歷」版本（`evening-noresume.html`）；依 ARCH v1.11 §5.9 改「準備中」（自動輪詢，拿掉「重新檢查」）、額度用完的重送時間與供應商顯示名稱（`prep.md`、`errors.md`）；新增字卡加「沒有補齊」狀態（`add-card-partial.html`，ARCH §5.8.4）；原型底部「紀錄」全部連 `records.html`、「設定」連 `settings.html`；§8 時段範圍改成早時段自 00:00 起（Q-38）。沒有新增 token、沒有新增 JS。
+- v1.7（對齊 PRD v1.6，2026-11-28；分支 `design/prd-v16-align`）：依 PRD v1.6（#106）與 Hansheng 已合併的 #96、#103、#108。中午排入 0 張改為已決定（AC-26／Q-42：打開複習即進入並完成，畫面顯示「今天只有 0 張」）；補首頁完成態 `index-noon-zero.html`、日曆／明細 11/11 例。設定頁聲音下拉加上 Kore（女聲）、Puck（男聲），顯示名稱與順序照 AC-24／Q-43，預設仍是 Ava（女聲）。Azure 額度用完用字改為已決定（AC-25／Q-44：「下個月再試」，不寫確切日期）。設定頁每月上限與本月用量對齊 ARCH v1.13／ADR-019（#108：0～1000、同意時必填、預填 300、估算非帳單、匯率 35）。AC-10 Given「隨時手動新增」改為已決定。拿掉已結案的「待 Hansheng／待決」。沒有新增 token。
 - 方向：**R2-C 夜幕焦點**（Hansheng 2026-11-26 18:40 選定）。深色模式＝**跟隨系統＋手動三段切換（淺色／深色／跟隨系統）**。
 - 交付物：本文件、`tokens.json`、元件展示頁 `prototype/screens/system.html`、可點的靜態原型 `prototype/screens/*.html`（假資料）、畫面規格 `screens/*.md`、基準截圖 `screens/shots/`。
 - 範圍：D2a＝登入、首頁今日任務、早上閱讀、跟讀闖關、中午複習、晚上口說（診斷 AC-15、跟讀改寫、無稿重答、結果）＋主題切換。D2b 第 1 批補上紀錄、履歷、錯誤、素材沒備好；第 2 批補上設定、新增字卡。字卡清單／搜尋仍以 `later.html` 佔位。
